@@ -44,7 +44,7 @@ steps:
     waitFor: ['build-migrator']
 
   # Create or update the migration Cloud Run Job, then execute and wait for success.
-  # The job uses --add-cloudsql-instances so DATABASE_URL ?host= socket is available.
+  # Uses VPC connector to reach Cloud SQL private IP (172.24.0.3) — same as the web service.
   # Migrations run before the new app revision is deployed to prevent schema/code mismatch.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
@@ -55,14 +55,14 @@ steps:
         gcloud run jobs describe aaa-migrate --region=us-central1 --project=$PROJECT_ID > /dev/null 2>&1 \
           && gcloud run jobs update aaa-migrate \
                --image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest \
-               --set-cloudsql-instances=$PROJECT_ID:us-central1:aaa-db \
+               --vpc-connector=aaa-vpc-connector \
                --set-secrets=DATABASE_URL=DATABASE_URL:latest \
                --service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com \
                --memory=512Mi --cpu=1 \
                --region=us-central1 --project=$PROJECT_ID \
           || gcloud run jobs create aaa-migrate \
                --image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest \
-               --set-cloudsql-instances=$PROJECT_ID:us-central1:aaa-db \
+               --vpc-connector=aaa-vpc-connector \
                --set-secrets=DATABASE_URL=DATABASE_URL:latest \
                --service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com \
                --memory=512Mi --cpu=1 \
@@ -72,8 +72,7 @@ steps:
     waitFor: ['push-migrator']
 
   # Deploy to Cloud Run (after migrations complete successfully)
-  # --add-cloudsql-instances: mounts Cloud SQL socket at /cloudsql/... matching DATABASE_URL format
-  # --vpc-connector: kept for future private network access to other GCP services
+  # --vpc-connector: routes traffic through VPC to reach Cloud SQL private IP (172.24.0.3)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-web'
     args:
@@ -85,7 +84,6 @@ steps:
       - '--region=us-central1'
       - '--platform=managed'
       - '--service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--add-cloudsql-instances=$PROJECT_ID:us-central1:aaa-db'
       - '--vpc-connector=aaa-vpc-connector'
       - '--set-secrets=DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest'
       - '--allow-unauthenticated'
