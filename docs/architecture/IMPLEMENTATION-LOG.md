@@ -742,3 +742,42 @@ Copy this template for each new log entry:
 - getCurrentUser: returns { userId, email } or null from injected headers ✓
 
 **Next Action:** Begin STORY-013 implementation (Sign-Out API and Expired Session Cleanup)
+
+---
+
+## Entry: STORY-013 Complete
+
+**Timestamp:** 2026-04-20T18:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-013
+**Tasks:** TASK-013-001 through TASK-013-006 — ALL COMPLETE
+
+**Action:** Implemented sign-out endpoint with idempotent session deletion, batch cleanup service, and wired cleanup into the nightly alerts cron endpoint.
+
+**Files Changed:**
+- `src/modules/auth/auth.service.ts` — MODIFIED: signOut() stub replaced; deleteMany for idempotency; top-level comment updated
+- `src/modules/auth/cleanup.service.ts` — CREATED: cleanupExpiredSessions() with lt:expiresAt filter
+- `src/app/api/auth/signout/route.ts` — CREATED: POST handler; always 200; cookie cleared
+- `src/app/api/cron/alerts/route.ts` — MODIFIED: cleanupExpiredSessions() called after OIDC auth; sessionCleanup added to response
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-013 → done, Active Work → STORY-014
+
+**Tests Added:**
+- `tests/unit/modules/auth/auth.service.signOut.test.ts` — 4 unit tests (deleteMany called, no-throw on missing, void return, deleteMany not delete)
+- `tests/unit/api/auth/signout.test.ts` — 6 unit tests (200 with/without cookie, signOut called when cookie present, not called when absent, cookie always cleared)
+- `tests/unit/modules/auth/cleanup.service.test.ts` — 4 unit tests (deleteMany with Date filter, returns count, idempotent, Date type check)
+- `tests/unit/api/cron/alerts.test.ts` — 3 unit tests (200 with sessionCleanup, cleanup called, 401 when auth fails + cleanup not called)
+- `tests/integration/api/auth/signout.test.ts` — 9 integration tests (200 on sign-out, row deleted, 200 no cookie, 200 unknown sessionId, cookie cleared, idempotent; cleanup: expired rows deleted, valid rows kept, idempotent)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 219 total tests: ALL PASSING (193 baseline + 26 new)
+- Unit: 114 passing (97 existing + 17 new)
+- Integration: 105 passing (96 existing + 9 new)
+- POST /api/auth/signout: 200 always; session row deleted ✓; cookie cleared ✓; idempotent ✓
+- cleanupExpiredSessions: deletes expired rows only ✓; idempotent ✓; count returned ✓
+- /api/cron/alerts: cleanup called after OIDC auth ✓; sessionCleanup in response ✓; 401 blocks cleanup ✓
+
+**Next Action:** Begin STORY-014 implementation (Sign-In Page UI — Screen 1)

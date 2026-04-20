@@ -233,9 +233,16 @@
 - **Evidence:** 193 total tests passing (164 baseline + 29 new); validateSession lazy-delete and inactive-user invariants verified against real DB
 
 ### STORY-013 — Sign-Out API and Expired Session Cleanup
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-011 (AuthService module), STORY-007 (cron endpoints)
-- **Tasks:** [To be decomposed]
+- **Tasks:** 6 (TASK-013-001 through TASK-013-006) ✅ ALL COMPLETE
+  - TASK-013-001: signOut() — replaces stub; deleteMany for idempotency ✅
+  - TASK-013-002: POST /api/auth/signout — always 200; cookie cleared ✅
+  - TASK-013-003: cleanupExpiredSessions() in `src/modules/auth/cleanup.service.ts` ✅
+  - TASK-013-004: Cleanup wired into `/api/cron/alerts`; sessionCleanup in response ✅
+  - TASK-013-005: Unit tests — signOut (4) + route (6) + cleanup (4) + cron alerts (3) = 17 unit tests ✅
+  - TASK-013-006: Integration tests — signout (6) + cleanup (3) = 9 integration tests + tracking ✅
+- **Evidence:** 219 total tests passing (193 baseline + 26 new); idempotent sign-out, batch cleanup, cron wiring verified
 
 ### STORY-014 — Sign-In Page UI (Screen 1)
 - **Status:** validated
@@ -244,10 +251,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-002
-- **Current Story:** STORY-013 — Sign-Out API and Expired Session Cleanup
+- **Current Story:** STORY-014 — Sign-In Page UI (Screen 1)
 - **Current Task:** [To be decomposed]
-- **Last Completed:** STORY-012 ✅ (Session validation middleware — 29 new tests, 193 total)
-- **Next Action:** Decompose and implement STORY-013
+- **Last Completed:** STORY-013 ✅ (Sign-out API + session cleanup — 26 new tests, 219 total)
+- **Next Action:** Decompose and implement STORY-014
 
 ## Blocked Items
 - None currently
@@ -265,6 +272,8 @@
 - ✅ **STORY-011 COMPLETE** (Sign-In API with session creation, rate limiting, constant-time auth — 44 new tests, 164 total) - 2026-04-20
 - ✅ STORY-012 task decomposition complete (5 tasks) — status: ready
 - ✅ **STORY-012 COMPLETE** (Session validation middleware and route protection — 29 new tests, 193 total) - 2026-04-20
+- ✅ STORY-013 task decomposition complete (6 tasks) — status: ready
+- ✅ **STORY-013 COMPLETE** (Sign-out API and expired session cleanup — 26 new tests, 219 total) - 2026-04-20
 - ✅ STORY-001 task decomposition complete (5 tasks)
 - ✅ STORY-001 validated and marked ready
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19

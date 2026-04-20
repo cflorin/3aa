@@ -1,6 +1,7 @@
 // EPIC-002: Authentication & User Management
 // STORY-011: Sign-In API with Session Creation and Rate Limiting (signIn)
 // STORY-012: Session Validation Middleware and Route Protection (validateSession)
+// STORY-013: Sign-Out API and Expired Session Cleanup (signOut)
 // ADR-011: bcrypt.compare; no sliding window; constant-time unknown-email path; in-memory rate limiter; lazy expiry cleanup
 // RFC-002: user_sessions schema (sessionId, userId, expiresAt, ipAddress, userAgent, lastActivityAt)
 // PRD §9A: 7-day sessions; generic error for all failure cases; expired/inactive → null
@@ -94,8 +95,11 @@ export async function validateSession(
   return { userId: session.user.userId, email: session.user.email };
 }
 
-// STORY-013 will implement signOut() fully.
-// Stub is a no-op — no session deletion until STORY-013.
-export async function signOut(_sessionId: string): Promise<void> {
-  console.warn('[STUB] signOut() called before STORY-013 implementation — no-op');
+// EPIC-002: Authentication & User Management
+// STORY-013: Sign-Out API and Expired Session Cleanup
+// TASK-013-001: signOut() — replaces STORY-011 stub
+// ADR-011: session deleted immediately on sign-out; deleteMany is idempotent (no P2025)
+export async function signOut(sessionId: string): Promise<void> {
+  // deleteMany is idempotent: no error if sessionId not found (unlike prisma.delete which throws P2025)
+  await prisma.userSession.deleteMany({ where: { sessionId } });
 }
