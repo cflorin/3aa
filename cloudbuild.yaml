@@ -1,8 +1,23 @@
 # EPIC-001/STORY-003/TASK-003-006 (initial)
 # EPIC-001/STORY-004/TASK-004-010 (add-cloudsql-instances, migrator image, Cloud Run Job)
+# EPIC-001/STORY-006/TASK-006-003 (unit test gate before Docker build)
 # Cloud Build configuration for 3AA Monitoring Product
 
 steps:
+  # Install Node dependencies (for unit test gate)
+  - name: 'node:20'
+    id: 'install-deps'
+    entrypoint: npm
+    args: ['ci', '--ignore-scripts']
+
+  # Run unit tests — gate before building Docker images.
+  # --passWithNoTests: passes when tests/unit is empty; will catch failures once tests are added.
+  - name: 'node:20'
+    id: 'run-tests'
+    entrypoint: npm
+    args: ['test', '--', '--passWithNoTests']
+    waitFor: ['install-deps']
+
   # Build the web app image (runner stage)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-web'
@@ -13,6 +28,7 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:v1.0.0'
       - '.'
+    waitFor: ['run-tests']
 
   # Build the migrator image (migrator stage — full node_modules, no next build)
   # Reuses Docker layer cache from build-web step (shared base/deps/migrator stages)

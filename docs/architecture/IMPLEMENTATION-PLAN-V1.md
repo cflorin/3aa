@@ -149,10 +149,16 @@
 - **Evidence Provided:** production seed confirmed ("Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles"), 16 integration tests passing, health check healthy
 
 ### STORY-006 — Configure CI/CD Pipeline with GitHub Integration
-- **Status:** validated
-- **Dependencies:** STORY-001 (GitHub), STORY-003 (Cloud Run), STORY-008 (Dockerfile)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** cloudbuild.yaml created, GitHub webhook configured, deployment succeeds
+- **Status:** in_progress
+- **Dependencies:** STORY-001 (GitHub), STORY-003 (Cloud Run), STORY-008 (Dockerfile — satisfied by STORY-004)
+- **Tasks:** 6 (TASK-006-001 through TASK-006-006)
+  - TASK-006-001: Story spec ✅
+  - TASK-006-002: Connect GitHub repo to Cloud Build (create trigger) — in_progress
+  - TASK-006-003: Add unit test gate to cloudbuild.yaml — planned
+  - TASK-006-004: Write pipeline verification tests (5 tests) — planned
+  - TASK-006-005: Trigger and verify end-to-end automated deployment — planned
+  - TASK-006-006: Update tracking documentation — planned
+- **Evidence Required:** Trigger deploy-on-push-to-main exists, push triggers build, health check passes after automated deploy
 
 ### STORY-007 — Configure Cloud Scheduler for Nightly Batch Orchestration
 - **Status:** validated
@@ -174,10 +180,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** None (STORY-005 complete, STORY-006 next)
-- **Current Task:** None
+- **Current Story:** STORY-006 (Configure CI/CD Pipeline with GitHub Integration)
+- **Current Task:** TASK-006-002 (Connect GitHub to Cloud Build)
 - **Last Completed:** STORY-005 (all 7 tasks complete — framework seed data applied to production: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles)
-- **Next Action:** Begin STORY-006 (Configure CI/CD Pipeline with GitHub Integration)
+- **Next Action:** Complete TASK-006-002 — connect GitHub repo, create trigger
 
 ## Blocked Items
 - None currently

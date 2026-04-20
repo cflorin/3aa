@@ -15,7 +15,7 @@
     "db:seed": "dotenv -e .env.test -- prisma db seed",
     "db:test:up": "docker-compose -f docker-compose.test.yml up -d",
     "db:test:down": "docker-compose -f docker-compose.test.yml down",
-    "test": "jest --testPathPatterns='tests/unit'",
+    "test": "jest --testPathPatterns='tests/unit' --passWithNoTests",
     "test:integration": "dotenv -e .env.test -- jest --testPathPatterns='tests/integration' --runInBand --forceExit",
     "test:all": "npm run test && npm run test:integration"
   },
@@ -31,11 +31,13 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "dotenv-cli": "^8.0.0",
     "jest": "^30.3.0",
+    "js-yaml": "^4.1.1",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
