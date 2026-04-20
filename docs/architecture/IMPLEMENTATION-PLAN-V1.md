@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 4/9 EPIC-001 stories complete (44%)
+- **Overall Progress:** 0/7 epics complete, 5/9 EPIC-001 stories complete (56%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -135,10 +135,18 @@
 - **Evidence Provided:** prisma/schema.prisma (19 models), 2 migrations applied to test DB, 34 integration tests passing, Dockerfile updated, cloudbuild.yaml deployed with Cloud SQL socket attachment, health check force-dynamic fix deployed
 
 ### STORY-005 — Create Framework Configuration Seed Data
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-004 (tables exist)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** Anchored thresholds seeded, TSR hurdles seeded, validation tests passing
+- **Tasks:** 7 (TASK-005-001 through TASK-005-007) ✅ ALL COMPLETE
+  - TASK-005-001: Story spec with full BDD/TDD ✅
+  - TASK-005-002: Prisma seed script (prisma/seed.ts) — idempotent upsert, 1+16+8 rows ✅
+  - TASK-005-003: package.json prisma.seed config + db:seed script ✅
+  - TASK-005-004: 16 integration tests (all passing) ✅
+  - TASK-005-005: Dockerfile migrator CMD → migrate-and-seed.sh ✅
+  - TASK-005-006: Production seed applied via Cloud Run Job ✅
+  - TASK-005-007: Tracking updated ✅
+- **Evidence Required:** Anchored thresholds seeded, TSR hurdles seeded, validation tests passing ✅
+- **Evidence Provided:** production seed confirmed ("Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles"), 16 integration tests passing, health check healthy
 
 ### STORY-006 — Configure CI/CD Pipeline with GitHub Integration
 - **Status:** validated
@@ -166,10 +174,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** None (STORY-004 complete, STORY-005 next)
+- **Current Story:** None (STORY-005 complete, STORY-006 next)
 - **Current Task:** None
-- **Last Completed:** STORY-004 (all 10 tasks complete — Prisma schema, migrations, integration tests, Dockerfile, Cloud Build deployed)
-- **Next Action:** Begin STORY-005 (Create Framework Configuration Seed Data)
+- **Last Completed:** STORY-005 (all 7 tasks complete — framework seed data applied to production: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles)
+- **Next Action:** Begin STORY-006 (Configure CI/CD Pipeline with GitHub Integration)
 
 ## Blocked Items
 - None currently
@@ -188,6 +196,8 @@
 - ✅ **STORY-003 COMPLETE** (GCP infrastructure operational: Cloud SQL, VPC Connector, Secret Manager, Service Accounts, Cloud Run, Cloud Scheduler) - 2026-04-20
 - ✅ STORY-004 task decomposition complete (10 tasks)
 - ✅ **STORY-004 COMPLETE** (Prisma schema 19 tables, migrations applied, 34 integration tests passing, Dockerfile + Cloud Build updated) - 2026-04-20
+- ✅ STORY-005 task decomposition complete (7 tasks)
+- ✅ **STORY-005 COMPLETE** (Framework seed data: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles applied to production; 16 integration tests passing) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)

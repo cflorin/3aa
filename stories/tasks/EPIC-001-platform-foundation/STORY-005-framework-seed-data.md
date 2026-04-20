@@ -3,7 +3,7 @@
 ## Metadata
 - **Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Story ID:** STORY-005
-- **Status:** in_progress
+- **Status:** done
 - **Priority:** High
 - **Dependencies:** STORY-004 (database tables exist)
 - **Estimated Effort:** Medium (1 day)
@@ -64,7 +64,7 @@ This seed data is derived from the frozen baseline documents (source_of_truth_in
 - **Status:** planned
 - **Description:** Integration tests verifying all seed rows exist with correct values
 - **File:** `tests/integration/database/seed.test.ts`
-- **Test Count:** 10 tests
+- **Test Count:** 16 tests
 - **Coverage:**
   - framework_version: 1 row exists, version=v1.0
   - anchored_thresholds: exactly 16 rows, all 16 codes present

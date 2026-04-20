@@ -295,6 +295,58 @@ Copy this template for each new log entry:
 
 ---
 
+## 2026-04-20 08:45 UTC - STORY-005 Complete: Framework Configuration Seed Data Applied
+
+**Epic:** EPIC-001
+**Story:** STORY-005
+**Task:** TASK-005-001 through TASK-005-007
+**Action:** Implemented idempotent Prisma seed script for all 3 framework configuration tables. Added 16 integration tests. Updated migrator image to run migrate+seed. Deployed to production.
+
+**Tasks Completed:**
+- TASK-005-001: Story spec written with full BDD/TDD scenarios and seed data reference table
+- TASK-005-002: `prisma/seed.ts` — upsert of 1 FrameworkVersion, 16 AnchoredThreshold, 8 TsrHurdle rows (all values sourced from frozen baseline docs)
+- TASK-005-003: `package.json` updated — `prisma.seed` config with explicit `./node_modules/.bin/ts-node`, `db:seed` npm script; `tsconfig.seed.json` for CommonJS module override
+- TASK-005-004: `tests/integration/database/seed.test.ts` — 16 tests: row counts, 16 expected codes, spot-checks (4AA/3AA/4BA/5BB), threshold ordering invariant, TSR hurdle values (bucket 4/8), quality adjustments, formula verification, idempotency
+- TASK-005-005: `Dockerfile` migrator CMD updated to `["/bin/sh", "prisma/migrate-and-seed.sh"]`; `prisma/migrate-and-seed.sh` runs migrate deploy then db seed in sequence
+- TASK-005-006: Cloud Build `6db891fe` triggered; Cloud Run Job `aaa-migrate-nhk2h` succeeded — "Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles"
+- TASK-005-007: Tracking documentation updated
+
+**Files Changed:**
+- `prisma/seed.ts` (created — 16 AnchoredThreshold upserts, 8 TsrHurdle upserts, 1 FrameworkVersion upsert)
+- `prisma/migrate-and-seed.sh` (created — runs migrate deploy then db seed)
+- `tsconfig.seed.json` (created — CommonJS module override for ts-node)
+- `package.json` (updated — prisma.seed config, db:seed script, explicit ts-node path)
+- `Dockerfile` (updated — migrator CMD → migrate-and-seed.sh)
+- `stories/tasks/EPIC-001-platform-foundation/STORY-005-framework-seed-data.md` (created — full story spec)
+- `tests/integration/database/seed.test.ts` (created — 16 integration tests)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (updated — STORY-005 done, progress 5/9)
+- `docs/architecture/IMPLEMENTATION-LOG.md` (updated — this entry)
+
+**Tests Added/Updated:**
+- `tests/integration/database/seed.test.ts` (created — 16 tests)
+- Full integration test suite: 50 tests total (34 STORY-004 + 16 STORY-005), all passing
+
+**Result/Status:** Success — STORY-005 complete
+
+**Blockers/Issues Encountered (all resolved):**
+1. `dotenv -e` flag: system dotenv vs node_modules dotenv-cli — using npm scripts adds node_modules/.bin to PATH
+2. `ts-node` ESM/CJS conflict: main tsconfig.json uses ESNext; resolved via `tsconfig.seed.json` with `"module":"CommonJS"`
+3. `ts-node ENOENT` in Cloud Run Job: Prisma spawns seed command without PATH; resolved by using `./node_modules/.bin/ts-node` instead of `ts-node`
+
+**Baseline Impact:** NO — seed data exactly matches values from frozen baseline documents (source_of_truth_investment_framework_3AA.md, 3_aa_threshold_derivation_spec_valuation_zones_tsr_hurdles_v_1.md)
+
+**Evidence:**
+- 50 integration tests: ALL PASS (schema.test.ts: 15, constraints.test.ts: 19, seed.test.ts: 16)
+- Production Cloud Run Job `aaa-migrate-nhk2h`: "Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles"
+- Health check: `{"status":"healthy","db":"connected"}` ✅
+- All 16 threshold codes present: 1AA, 1BA, 2AA, 2BA, 3AA, 3BA, 4AA, 4BA, 5AA, 5BA, 5BB, 6AA, 6BA, 6BB, 7AA, 7BA
+- All 8 TSR hurdle buckets (1-8) present; bucket 8 baseHurdleDefault=null
+- Idempotency verified: running seed twice produces no duplicates
+
+**Next Action:** Begin STORY-006 (Configure CI/CD Pipeline with GitHub Integration)
+
+---
+
 **Log Started:** 2026-04-19
 **Maintained By:** Claude during implementation
 **Update Frequency:** After each meaningful implementation step (task completion, significant file changes, test additions, blockers encountered, baseline impacts)
