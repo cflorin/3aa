@@ -20,7 +20,7 @@
     "test:all": "npm run test && npm run test:integration"
   },
   "prisma": {
-    "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+    "seed": "./node_modules/.bin/ts-node --project tsconfig.seed.json prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
