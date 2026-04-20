@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 6/9 EPIC-001 stories complete (67%)
+- **Overall Progress:** 0/7 epics complete, 7/9 EPIC-001 stories complete (78%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -160,10 +160,17 @@
 - **Evidence Provided:** 5 unit tests passing, cloudbuild.yaml install-deps→run-tests→build→migrate→deploy; prior manual runs confirm pipeline works end-to-end
 
 ### STORY-007 — Configure Cloud Scheduler for Nightly Batch Orchestration
-- **Status:** validated
-- **Dependencies:** STORY-003 (Cloud Scheduler API), STORY-008 (placeholder endpoints)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** 6 Cloud Scheduler jobs created, manual trigger succeeds, OIDC auth working
+- **Status:** done
+- **Dependencies:** STORY-003 (Cloud Scheduler API), STORY-008 (placeholder endpoints — satisfied by STORY-003)
+- **Tasks:** 6 (TASK-007-001 through TASK-007-006) ✅ ALL COMPLETE
+  - TASK-007-001: Story spec ✅
+  - TASK-007-002: `src/lib/scheduler-auth.ts` — OIDC verification via tokeninfo endpoint ✅
+  - TASK-007-003: All 6 cron endpoints updated with OIDC verification gate (401 on unauthorized) ✅
+  - TASK-007-004: 7 unit tests for scheduler-auth, all passing ✅
+  - TASK-007-005: All 6 Cloud Scheduler jobs manually triggered, all HTTP 200 ✅
+  - TASK-007-006: Tracking updated ✅
+- **Evidence Required:** 6 jobs triggered, OIDC auth working ✅
+- **Evidence Provided:** All 6 jobs status={} (success) × 2 triggers (before and after OIDC deploy); health check healthy; 12 unit tests + 50 integration tests passing
 
 ### STORY-008 — Implement Next.js Application Foundation with Health Check
 - **Status:** validated
@@ -179,10 +186,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** STORY-007 (Configure Cloud Scheduler for Nightly Batch Orchestration)
+- **Current Story:** STORY-008 (Implement Next.js Application Foundation with Health Check)
 - **Current Task:** None (starting)
-- **Last Completed:** STORY-006 (cloudbuild.yaml test gate + 5 pipeline tests; GitHub trigger deferred)
-- **Next Action:** Begin STORY-007 task decomposition
+- **Last Completed:** STORY-007 (OIDC verification on all 6 cron endpoints; 6 Cloud Scheduler jobs verified; 7 unit tests)
+- **Next Action:** Begin STORY-008 task decomposition
 
 ## Blocked Items
 - None currently
@@ -205,6 +212,8 @@
 - ✅ **STORY-005 COMPLETE** (Framework seed data: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles applied to production; 16 integration tests passing) - 2026-04-20
 - ✅ STORY-006 task decomposition complete (4 active tasks; GitHub trigger deferred)
 - ✅ **STORY-006 COMPLETE** (cloudbuild.yaml unit test gate; 5 pipeline tests passing; GitHub webhook deferred as negligible for solo workflow) - 2026-04-20
+- ✅ STORY-007 task decomposition complete (6 tasks)
+- ✅ **STORY-007 COMPLETE** (OIDC verification on 6 cron endpoints; all 6 Cloud Scheduler jobs triggered successfully; 7 unit tests) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)

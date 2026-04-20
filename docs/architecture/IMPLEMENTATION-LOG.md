@@ -386,3 +386,45 @@ Copy this template for each new log entry:
 
 **Next Action:** Begin STORY-007 (Configure Cloud Scheduler for Nightly Batch Orchestration)
 
+
+---
+
+## Entry: STORY-007 Complete — Cloud Scheduler OIDC Verification
+
+**Timestamp:** 2026-04-20T12:20:00Z
+**Epic:** EPIC-001
+**Story:** STORY-007
+**Tasks:** TASK-007-001 through TASK-007-006 — ALL COMPLETE
+
+**Action:** Added OIDC token verification to all 6 Cloud Scheduler cron endpoints. All jobs manually triggered and verified against deployed code.
+
+**Files Changed:**
+- `src/lib/scheduler-auth.ts` — CREATED: `verifySchedulerToken()` using Google tokeninfo endpoint; skips in non-production
+- `src/app/api/cron/price-sync/route.ts` — OIDC verification gate added
+- `src/app/api/cron/fundamentals/route.ts` — OIDC verification gate added
+- `src/app/api/cron/estimates/route.ts` — OIDC verification gate added
+- `src/app/api/cron/classification/route.ts` — OIDC verification gate added
+- `src/app/api/cron/valuation/route.ts` — OIDC verification gate added
+- `src/app/api/cron/alerts/route.ts` — OIDC verification gate added
+- `stories/tasks/EPIC-001-platform-foundation/STORY-007-cloud-scheduler.md` — CREATED: full story spec
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-007 → done, progress 7/9 (78%)
+
+**Tests Added:**
+- `tests/unit/lib/scheduler-auth.test.ts` — 7 tests: skip in non-production, missing header, non-Bearer, valid token, tokeninfo 400, audience mismatch, SA email mismatch
+
+**Result/Status:** DONE
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 12 unit tests: ALL PASS (5 pipeline + 7 scheduler-auth)
+- 50 integration tests: ALL PASS
+- All 6 Cloud Scheduler jobs manually triggered (gcloud scheduler jobs run): status={} (HTTP 200)
+- Jobs re-triggered after OIDC deploy: all 6 still OK (OIDC tokens from aaa-scheduler SA accepted)
+- Health check: {"status":"healthy","db":"connected"} ✅
+- Cloud Build SUCCESS (build ID 4cdf4a23-3da9-4056-b3dc-8b7d5319f5da)
+
+**Next Action:** Begin STORY-008 (Implement Next.js Application Foundation with Health Check)
+
