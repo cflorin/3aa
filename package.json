@@ -31,6 +31,9 @@
     "react-dom": "^18.3.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcrypt": "^6.0.0",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
@@ -39,6 +42,7 @@
     "@types/react-dom": "^18.3.0",
     "dotenv-cli": "^8.0.0",
     "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
     "js-yaml": "^4.1.1",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",

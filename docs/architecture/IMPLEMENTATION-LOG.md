@@ -781,3 +781,42 @@ Copy this template for each new log entry:
 - /api/cron/alerts: cleanup called after OIDC auth ✓; sessionCleanup in response ✓; 401 blocks cleanup ✓
 
 **Next Action:** Begin STORY-014 implementation (Sign-In Page UI — Screen 1)
+
+
+---
+
+## Entry: STORY-014 Complete
+
+**Timestamp:** 2026-04-20T19:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-014
+**Tasks:** TASK-014-001 through TASK-014-005 — ALL COMPLETE
+
+**Action:** Implemented sign-in page UI — SignInPage server component (already-auth redirect) and SignInForm client component (form, validation, API call, error display). Added UI testing dependencies and jest config updates for .tsx support.
+
+**Files Changed:**
+- `src/app/signin/page.tsx` — CREATED: async server component; reads cookies() directly (excluded from middleware per ADR-011); calls validateSession(); redirects to /universe if already authenticated
+- `src/app/signin/SignInForm.tsx` — CREATED: 'use client' component; controlled form with email/password; client-side validation; fetch POST /api/auth/signin; verbatim API error messages (prevents enumeration); loading state disables button; noValidate on form
+- `jest.config.ts` — MODIFIED: added .tsx to testMatch; added jsx:react-jsx to ts-jest config; added setupFilesAfterEnv pointing to tests/jest.setup.ts
+- `package.json` — MODIFIED: added @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, jest-environment-jsdom
+- `package-lock.json` — MODIFIED: updated lock file for new deps
+- `tests/jest.setup.ts` — CREATED: imports @testing-library/jest-dom
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-014 → done, EPIC-002 → done, Active Work updated
+
+**Tests Added:**
+- `tests/unit/components/SignInForm.test.tsx` — 10 unit tests (renders form elements, validation errors for empty email/no-@/empty-password, fetch called with correct args, router.push on 200, API error on 401/429, button disabled during in-flight, no Remember Me/Sign Up)
+- `tests/unit/app/signin/page.test.tsx` — 3 unit tests (no redirect when no cookie, no redirect when invalid session, redirect(/universe) when valid session)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 232 total tests: ALL PASSING (219 baseline + 13 new)
+- Unit: 127 passing (114 existing + 13 new)
+- Integration: 105 passing (unchanged)
+- SignInPage: no-cookie → no redirect ✓; invalid session → no redirect ✓; valid session → redirect('/universe') ✓
+- SignInForm: client-side validation fires before fetch ✓; fetch POST with correct body ✓; 401/429/400 errors displayed verbatim ✓; loading state disables button ✓; no Remember Me or Sign Up rendered ✓
+- EPIC-002 complete: all 5 stories done (STORY-010 through STORY-014)
+
+**Next Action:** Begin EPIC-003 (Universe View) — consult IMPLEMENTATION-PLAN-V1.md for next ready story

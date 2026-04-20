@@ -34,11 +34,11 @@
 - **Deployment Milestone:** Infrastructure operational, Next.js app deployed
 
 ### EPIC-002 — Authentication & User Management
-- **Status:** validated
+- **Status:** done ✅
 - **Dependencies:** EPIC-001 (database tables, Cloud Run deployment)
-- **Stories:** 5 (STORY-010 through STORY-014) — validated ✅
-- **Integration Checkpoint:** Sign-in screen functional, session management working
-- **Deployment Milestone:** User authentication operational
+- **Stories:** 5 (STORY-010 through STORY-014) — ALL COMPLETE ✅
+- **Integration Checkpoint:** Sign-in screen functional, session management working ✅
+- **Deployment Milestone:** User authentication operational ✅
 
 ### EPIC-003 — Data Ingestion & Universe Management
 - **Status:** planned
@@ -245,16 +245,22 @@
 - **Evidence:** 219 total tests passing (193 baseline + 26 new); idempotent sign-out, batch cleanup, cron wiring verified
 
 ### STORY-014 — Sign-In Page UI (Screen 1)
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-011 (POST /api/auth/signin), STORY-012 (middleware, validateSession)
-- **Tasks:** [To be decomposed]
+- **Tasks:** 5 (TASK-014-001 through TASK-014-005) ✅ ALL COMPLETE
+  - TASK-014-001: Install React Testing Library + jsdom; jest.config.ts `setupFilesAfterEnv` + `.tsx` testMatch ✅
+  - TASK-014-002: `src/app/signin/page.tsx` — Server Component; direct cookie read + validateSession; redirect to /universe ✅
+  - TASK-014-003: `src/app/signin/SignInForm.tsx` — client component; validation, fetch, error, loading state ✅
+  - TASK-014-004: Unit tests — SignInForm (10) + page (3) = 13 unit tests ✅
+  - TASK-014-005: Tracking update ✅
+- **Evidence:** 232 total tests passing (219 baseline + 13 new); already-auth redirect, client validation, error handling verified
 
 ## Active Work
-- **Current Epic:** EPIC-002
-- **Current Story:** STORY-014 — Sign-In Page UI (Screen 1)
-- **Current Task:** [To be decomposed]
-- **Last Completed:** STORY-013 ✅ (Sign-out API + session cleanup — 26 new tests, 219 total)
-- **Next Action:** Decompose and implement STORY-014
+- **Current Epic:** EPIC-002 — COMPLETE ✅
+- **Current Story:** None — awaiting EPIC-003 planning
+- **Current Task:** None
+- **Last Completed:** STORY-014 ✅ (Sign-in page UI — 13 new tests, 232 total)
+- **Next Action:** Plan and begin EPIC-003 (Data Ingestion & Universe Management)
 
 ## Blocked Items
 - None currently
@@ -274,6 +280,9 @@
 - ✅ **STORY-012 COMPLETE** (Session validation middleware and route protection — 29 new tests, 193 total) - 2026-04-20
 - ✅ STORY-013 task decomposition complete (6 tasks) — status: ready
 - ✅ **STORY-013 COMPLETE** (Sign-out API and expired session cleanup — 26 new tests, 219 total) - 2026-04-20
+- ✅ STORY-014 task decomposition complete (5 tasks) — status: ready
+- ✅ **STORY-014 COMPLETE** (Sign-in page UI — 13 new tests, 232 total) - 2026-04-20
+- ✅ **EPIC-002 COMPLETE** — Authentication & User Management (all 5 stories done, 232 tests passing) - 2026-04-20
 - ✅ STORY-001 task decomposition complete (5 tasks)
 - ✅ STORY-001 validated and marked ready
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19
