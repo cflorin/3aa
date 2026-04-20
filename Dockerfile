@@ -15,15 +15,15 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --ignore-scripts
 
-# ── Database migrator (Cloud Run Job — applies Prisma migrations) ─────────────
-# Full node_modules required: Prisma CLI has transitive deps stripped in runner.
-# CMD overridden at job execution time via --command in Cloud Run Job definition.
+# ── Database migrator (Cloud Run Job — applies migrations then seeds framework data) ──
+# Full node_modules required: Prisma CLI + ts-node (for db seed) absent in runner stage.
 FROM base AS migrator
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+RUN npx prisma generate && chmod +x prisma/migrate-and-seed.sh
+# STORY-005: runs migrate deploy then db seed; see prisma/migrate-and-seed.sh
+CMD ["/bin/sh", "prisma/migrate-and-seed.sh"]
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 FROM base AS builder
