@@ -211,9 +211,15 @@
 - **Evidence:** 120 total tests passing (69 baseline + 51 new); all 3 endpoints verified against real test DB
 
 ### STORY-011 — Sign-In API with Session Creation and Rate Limiting
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-010 (user record exists for integration tests), STORY-004 (user_sessions table)
-- **Tasks:** [To be decomposed]
+- **Tasks:** 5 (TASK-011-001 through TASK-011-005) ✅ ALL COMPLETE
+  - TASK-011-001: In-memory rate limiter (`src/modules/auth/rate-limiter.ts`) ✅
+  - TASK-011-002: AuthService — `signIn()` fully implemented; `validateSession()` + `signOut()` stubs ✅
+  - TASK-011-003: POST /api/auth/signin route — cookie setting + logging ✅
+  - TASK-011-004: Unit tests — rate limiter (8) + AuthService (10) + route (9) = 27 unit tests ✅
+  - TASK-011-005: Integration + contract tests (17) + tracking update ✅
+- **Evidence:** 164 total tests passing (120 baseline + 44 new); full sign-in flow, rate limiting, STORY-010 cross-story AC verified against real test DB; jest.config.ts maxWorkers=1 added to prevent DB race conditions
 
 ### STORY-012 — Session Validation Middleware and Route Protection
 - **Status:** validated
@@ -232,10 +238,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-002
-- **Current Story:** STORY-011 — Sign-In API with Session Creation and Rate Limiting
-- **Current Task:** Awaiting task decomposition
-- **Last Completed:** STORY-010 ✅ (Admin User Creation API — 51 new tests, 120 total)
-- **Next Action:** Decompose and implement STORY-011
+- **Current Story:** STORY-012 — Session Validation Middleware and Route Protection
+- **Current Task:** [To be decomposed]
+- **Last Completed:** STORY-011 ✅ (Sign-In API — 44 new tests, 164 total; rate limiting + constant-time auth)
+- **Next Action:** Decompose and implement STORY-012
 
 ## Blocked Items
 - None currently
@@ -249,6 +255,8 @@
 - ✅ STORY-010 through STORY-014 validated and adversarial review fixes applied
 - ✅ STORY-010 task decomposition complete (6 tasks) — status: ready
 - ✅ **STORY-010 COMPLETE** (Admin user creation, password reset, deactivation — 51 new tests, 120 total) - 2026-04-20
+- ✅ STORY-011 task decomposition complete (5 tasks) — status: ready
+- ✅ **STORY-011 COMPLETE** (Sign-In API with session creation, rate limiting, constant-time auth — 44 new tests, 164 total) - 2026-04-20
 - ✅ STORY-001 task decomposition complete (5 tasks)
 - ✅ STORY-001 validated and marked ready
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19

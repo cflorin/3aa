@@ -638,5 +638,69 @@ Copy this template for each new log entry:
 **Cross-story dependency:**
 - STORY-010 AC "deactivated user blocked at sign-in" tested in STORY-011 integration suite
 
-**Next Action:** Begin STORY-011 (Sign-In API with Session Creation and Rate Limiting)
+**Next Action:** Begin STORY-011 implementation (TASK-011-001 first)
 
+---
+
+## Entry: STORY-011 Prepared for Development
+
+**Timestamp:** 2026-04-20T15:30:00Z
+**Epic:** EPIC-002
+**Story:** STORY-011
+**Task:** N/A — task decomposition
+
+**Action:** Decomposed STORY-011 into 5 tasks with full specs. STORY-011 promoted to `ready`.
+
+**Files Changed:**
+- `docs/stories/tasks/EPIC-002-authentication/TASK-011-001-rate-limiter.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-011-002-auth-service.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-011-003-post-auth-signin-route.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-011-004-unit-tests.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-011-005-integration-contract-tests-tracking.md` — CREATED
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-011 tasks added, status → ready
+
+**Result/Status:** STORY-011 status: `ready`
+**Baseline Impact:** NO
+**Next Action:** Implement TASK-011-001 (rate limiter)
+
+
+---
+
+## Entry: STORY-011 Complete
+
+**Timestamp:** 2026-04-20T16:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-011
+**Tasks:** TASK-011-001 through TASK-011-005 — ALL COMPLETE
+
+**Action:** Implemented sign-in API with session creation, in-memory rate limiting, and constant-time auth protection. Added validateSession/signOut stubs for forward-compatibility with STORY-012/013.
+
+**Files Changed:**
+- `src/modules/auth/rate-limiter.ts` — CREATED: per-email counter, 5 attempts / 15-min window, `clearAll()` test helper
+- `src/modules/auth/auth.service.ts` — CREATED: `signIn()` discriminated union; DUMMY_HASH for unknown-email timing protection; `validateSession()` + `signOut()` stubs
+- `src/app/api/auth/signin/route.ts` — CREATED: POST handler; Set-Cookie (HttpOnly, SameSite=Lax, Secure prod-only, maxAge=604800); returns {userId, email} only
+- `jest.config.ts` — MODIFIED: added `maxWorkers: 1` to prevent integration test DB race conditions
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-011 → done, Active Work → STORY-012
+
+**Tests Added:**
+- `tests/unit/modules/auth/rate-limiter.test.ts` — 8 unit tests (window expiry, counter isolation, clearAll, isRateLimited read-only)
+- `tests/unit/modules/auth/auth.service.test.ts` — 10 unit tests (rate-limited short-circuit, DUMMY_HASH pattern, isActive check, session create, lastLoginAt, resetRateLimit)
+- `tests/unit/api/auth/signin.test.ts` — 9 unit tests (400 validation, 429 rate-limit, 401 invalid, 200 success, cookie attrs, Secure absent in non-prod)
+- `tests/integration/api/auth/signin.test.ts` — 17 integration + contract tests (full flow, expiresAt, lastLoginAt, duplicate sessions, inactive user, rate-limit 429, counter reset, response shapes, UUID cookie, STORY-010 cross-story AC)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO — `maxWorkers: 1` is a test infrastructure change, not an architecture change
+
+**Evidence:**
+- 164 total tests: ALL PASSING (120 baseline + 44 new)
+- Unit: 76 passing (49 existing + 27 new)
+- Integration: 88 passing (71 existing + 17 new)
+- POST /api/auth/signin: 200 with session row inserted, Set-Cookie with valid UUID sessionId
+- Rate limiter: 5 failures → 429; reset on success; per-email isolation confirmed
+- bcrypt DUMMY_HASH used for unknown-email path (constant-time protection)
+- isActive=false → 401 (bcrypt still runs before isActive check)
+- STORY-010 AC verified: deactivated user → 401 at sign-in
+- No passwordHash or password in any response body
+
+**Next Action:** Begin STORY-012 implementation (Session Validation Middleware and Route Protection)

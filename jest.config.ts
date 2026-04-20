@@ -19,6 +19,8 @@ const config: Config = {
   },
   testTimeout: 30000,
   verbose: true,
+  // Integration tests share a single test DB; serial execution prevents race conditions
+  maxWorkers: 1,
 };
 
 export default config;
