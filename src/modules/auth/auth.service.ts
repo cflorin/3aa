@@ -1,9 +1,9 @@
 // EPIC-002: Authentication & User Management
-// STORY-011: Sign-In API with Session Creation and Rate Limiting
-// TASK-011-002: AuthService — signIn() fully implemented; validateSession() and signOut() stubs
-// ADR-011: bcrypt.compare; no sliding window; constant-time unknown-email path; in-memory rate limiter
+// STORY-011: Sign-In API with Session Creation and Rate Limiting (signIn)
+// STORY-012: Session Validation Middleware and Route Protection (validateSession)
+// ADR-011: bcrypt.compare; no sliding window; constant-time unknown-email path; in-memory rate limiter; lazy expiry cleanup
 // RFC-002: user_sessions schema (sessionId, userId, expiresAt, ipAddress, userAgent, lastActivityAt)
-// PRD §9A: 7-day sessions; generic error for all failure cases
+// PRD §9A: 7-day sessions; generic error for all failure cases; expired/inactive → null
 
 import bcrypt from 'bcrypt';
 import { prisma } from '@/infrastructure/database/prisma';
@@ -67,11 +67,31 @@ export async function signIn(
   return { status: 'success', sessionId: session.sessionId, userId: user.userId, email: user.email };
 }
 
-// STORY-012 will implement validateSession() fully.
-// Stub returns null — middleware treats null as "unauthenticated" (safe default).
-export async function validateSession(_sessionId: string): Promise<null> {
-  console.warn('[STUB] validateSession() called before STORY-012 implementation — returning null');
-  return null;
+// EPIC-002: Authentication & User Management
+// STORY-012: Session Validation Middleware and Route Protection
+// TASK-012-001: validateSession() — replaces STORY-011 stub
+// ADR-011: lazy expiry cleanup; no sliding window (lastActivityAt never touched here)
+// PRD §9A: expired or missing session → null; inactive user → null
+export async function validateSession(
+  sessionId: string,
+): Promise<{ userId: string; email: string } | null> {
+  const session = await prisma.userSession.findUnique({
+    where: { sessionId },
+    include: { user: true },
+  });
+
+  if (!session) return null;
+
+  if (session.expiresAt < new Date()) {
+    // Lazy cleanup — delete expired row so it doesn't accumulate (ADR-011)
+    await prisma.userSession.delete({ where: { sessionId } });
+    return null;
+  }
+
+  // Inactive user: session row survives (admin can reactivate), but access is denied
+  if (!session.user.isActive) return null;
+
+  return { userId: session.user.userId, email: session.user.email };
 }
 
 // STORY-013 will implement signOut() fully.

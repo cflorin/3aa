@@ -222,9 +222,15 @@
 - **Evidence:** 164 total tests passing (120 baseline + 44 new); full sign-in flow, rate limiting, STORY-010 cross-story AC verified against real test DB; jest.config.ts maxWorkers=1 added to prevent DB race conditions
 
 ### STORY-012 — Session Validation Middleware and Route Protection
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-011 (AuthService.validateSession() available)
-- **Tasks:** [To be decomposed]
+- **Tasks:** 5 (TASK-012-001 through TASK-012-005) ✅ ALL COMPLETE
+  - TASK-012-001: validateSession() — replaces stub; lazy expiry cleanup; inactive user check ✅
+  - TASK-012-002: `src/middleware.ts` — Node.js runtime; header injection; matcher config ✅
+  - TASK-012-003: `src/lib/auth.ts` — getCurrentUser() reads x-user-id/x-user-email ✅
+  - TASK-012-004: Unit tests — validateSession (7) + middleware (9) + getCurrentUser (5) = 21 unit tests ✅
+  - TASK-012-005: Integration tests — validateSession (8) + tracking update ✅
+- **Evidence:** 193 total tests passing (164 baseline + 29 new); validateSession lazy-delete and inactive-user invariants verified against real DB
 
 ### STORY-013 — Sign-Out API and Expired Session Cleanup
 - **Status:** validated
@@ -238,10 +244,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-002
-- **Current Story:** STORY-012 — Session Validation Middleware and Route Protection
+- **Current Story:** STORY-013 — Sign-Out API and Expired Session Cleanup
 - **Current Task:** [To be decomposed]
-- **Last Completed:** STORY-011 ✅ (Sign-In API — 44 new tests, 164 total; rate limiting + constant-time auth)
-- **Next Action:** Decompose and implement STORY-012
+- **Last Completed:** STORY-012 ✅ (Session validation middleware — 29 new tests, 193 total)
+- **Next Action:** Decompose and implement STORY-013
 
 ## Blocked Items
 - None currently
@@ -257,6 +263,8 @@
 - ✅ **STORY-010 COMPLETE** (Admin user creation, password reset, deactivation — 51 new tests, 120 total) - 2026-04-20
 - ✅ STORY-011 task decomposition complete (5 tasks) — status: ready
 - ✅ **STORY-011 COMPLETE** (Sign-In API with session creation, rate limiting, constant-time auth — 44 new tests, 164 total) - 2026-04-20
+- ✅ STORY-012 task decomposition complete (5 tasks) — status: ready
+- ✅ **STORY-012 COMPLETE** (Session validation middleware and route protection — 29 new tests, 193 total) - 2026-04-20
 - ✅ STORY-001 task decomposition complete (5 tasks)
 - ✅ STORY-001 validated and marked ready
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19

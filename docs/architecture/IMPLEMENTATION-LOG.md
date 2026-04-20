@@ -704,3 +704,41 @@ Copy this template for each new log entry:
 - No passwordHash or password in any response body
 
 **Next Action:** Begin STORY-012 implementation (Session Validation Middleware and Route Protection)
+
+---
+
+## Entry: STORY-012 Complete
+
+**Timestamp:** 2026-04-20T17:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-012
+**Tasks:** TASK-012-001 through TASK-012-005 — ALL COMPLETE
+
+**Action:** Implemented session validation middleware with lazy expiry cleanup, header injection, and getCurrentUser() helper. Replaced validateSession() stub with full implementation.
+
+**Files Changed:**
+- `src/modules/auth/auth.service.ts` — MODIFIED: validateSession() stub replaced with full implementation; lazy expiry cleanup; return type → `{ userId, email } | null`
+- `src/middleware.ts` — CREATED: Node.js runtime export; sessionId cookie validation; x-user-id/x-user-email header injection; matcher excludes /signin, /api/auth/*, /api/health, /api/cron/*, /api/admin/*, /_next/*, /favicon.ico
+- `src/lib/auth.ts` — CREATED: getCurrentUser() reads x-user-id/x-user-email from middleware-injected headers
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-012 → done, Active Work → STORY-013
+
+**Tests Added:**
+- `tests/unit/modules/auth/auth.service.validateSession.test.ts` — 7 unit tests (null for unknown, valid session, expired → delete, inactive → no delete, no full User leaked, no lastActivityAt update)
+- `tests/unit/middleware.test.ts` — 9 unit tests (no cookie → 302, null session → 302 + clear cookie, valid → 200, spoofed header overwritten, validateSession called with exact sessionId, root path, matcher excludes api/auth)
+- `tests/unit/lib/auth.test.ts` — 5 unit tests (both headers, missing userId, missing email, both missing, no transformation)
+- `tests/integration/modules/auth/validateSession.test.ts` — 8 integration tests (unknown sessionId, valid session, expired session, delete on expiry, no delete on valid, inactive user no delete, no lastLoginAt update, deactivated after session created)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 193 total tests: ALL PASSING (164 baseline + 29 new)
+- Unit: 97 passing (76 existing + 21 new)
+- Integration: 96 passing (88 existing + 8 new)
+- validateSession: expired row deleted ✓; inactive user row kept ✓; lastLoginAt not updated ✓
+- middleware: no-cookie → 302 ✓; invalid session → 302 + cookie cleared ✓; valid → 200 + headers set ✓
+- matcher: api/auth excluded ✓ (sign-in endpoint reachable without session)
+- getCurrentUser: returns { userId, email } or null from injected headers ✓
+
+**Next Action:** Begin STORY-013 implementation (Sign-Out API and Expired Session Cleanup)
