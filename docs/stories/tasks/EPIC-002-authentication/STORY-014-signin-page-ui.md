@@ -86,7 +86,7 @@ so that **I can authenticate and access the application**.
 **Unit tests:**
 - Client-side validation: empty email → error shown before fetch; empty password → error before fetch; email without `@` → error before fetch
 - Form submit calls fetch to `/api/auth/signin` with body `{ email, password }`
-- 200 response → `router.push('/')` called
+- 200 response → `router.push('/universe')` called
 - 401 response → "Invalid email or password" displayed
 - 429 response → rate limit message displayed
 - Submit button disabled during in-flight request, re-enabled after response
@@ -96,9 +96,9 @@ so that **I can authenticate and access the application**.
 - GET /signin with valid session cookie → redirect to `/universe` (Server Component reads cookie directly, calls validateSession)
 
 **E2E tests:**
-- Render /signin → fill email + password → submit → verify redirect to /
-- Render /signin → fill wrong password → submit → verify error message displayed
-- Render /signin without auth → verify form visible, not redirected
+- Render /signin → fill email + password → submit → verify redirect to /universe
+- Render /signin → fill wrong password → submit → verify error message displayed; no redirect
+- Render /signin without auth → verify form visible, not redirected to /universe
 - Navigate to protected route without auth → verify redirect to /signin
 
 **Accessibility:**

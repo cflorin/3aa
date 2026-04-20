@@ -93,7 +93,7 @@ so that **the `user_sessions` table does not grow unboundedly**.
 - "Given a request with no session cookie, when POST /api/auth/signout, then 200 and no error"
 - "Given 5 expired session rows, when cleanup runs, then all 5 rows deleted"
 
-**E2E tests:** Covered by STORY-014 (sign-out button on the UI exercises this endpoint)
+**E2E tests:** Sign-out E2E (sign-out button click → POST /api/auth/signout → redirect to /signin) is deferred to the first story that builds an authenticated page with a navigation header. STORY-014 covers only the /signin page; no sign-out button exists in EPIC-002's UI scope.
 
 ## Regression / Invariant Risks
 

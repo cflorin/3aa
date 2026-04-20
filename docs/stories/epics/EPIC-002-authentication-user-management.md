@@ -9,7 +9,11 @@ Authenticated users can:
 - Maintain sessions (7-day expiration, HTTP-only cookies)
 - Access protected routes (Next.js middleware auth guard)
 - Sign out securely
-- Admins can create user accounts (no self-service signup)
+
+Admins can:
+- Create user accounts (no self-service signup)
+- Reset user passwords
+- Deactivate and reactivate user accounts
 
 **UI Delivered:** Screen 1 (Sign-In)
 
@@ -30,7 +34,7 @@ Authenticated users can:
 - Social login (Google, GitHub OAuth)
 - Two-factor authentication (2FA)
 - Self-service user registration UI
-- Password reset workflow (admin-assisted for V1)
+- Self-service password reset workflow (admin-assisted reset IS in scope via `PATCH /api/admin/users/:userId/password`)
 - Email verification
 - User roles/permissions (all users have same access level for V1)
 - "Remember me" checkbox (session duration fixed at 7 days)

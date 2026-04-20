@@ -30,7 +30,7 @@ so that **I can access protected parts of the application**.
 - Generic error: "Invalid email or password" for all failure cases (wrong password, unknown email, inactive user)
 - Rate limiting: in-memory, per-email, 5 failed attempts per 15-minute window → 429
 - Rate limit counter increments only on failed attempts; resets after window expires
-- `AuthService` at `src/modules/auth/auth.service.ts`: `signIn()`, `validateSession()` (STORY-012), `signOut()` (STORY-013)
+- `AuthService` module created at `src/modules/auth/auth.service.ts`: `signIn()` fully implemented here; `validateSession()` stub only — fully implemented in STORY-012; `signOut()` stub only — fully implemented in STORY-013
 - In-memory rate limiter at `src/modules/auth/rate-limiter.ts`
 
 ## Scope Out
@@ -45,7 +45,7 @@ so that **I can access protected parts of the application**.
 - **PRD:** Section 9A (email/password authentication, 7-day sessions, no social login)
 - **RFCs:** RFC-002 (user_sessions table: session_id, user_id, expires_at, last_activity_at)
 - **ADRs:** ADR-011 (bcrypt 10 rounds, session cookie attributes, in-memory rate limiting, no sliding window)
-- **Upstream stories:** STORY-004 (user_sessions table migrated), STORY-010 (users table exists with password_hash; AuthService.createUser reused)
+- **Upstream stories:** STORY-004 (user_sessions table migrated), STORY-010 (users table exists with password_hash; at least one active user must exist for integration test setup)
 
 ## Preconditions
 - `users` and `user_sessions` tables exist in database (migrated in STORY-004)
@@ -84,6 +84,7 @@ so that **I can access protected parts of the application**.
 - `signIn()` with inactive user: null returned, same 401 path as wrong password
 - `signIn()` with unknown email: null returned; bcrypt.compare run against dummy hash (constant-time protection)
 - Rate limiter: 5 calls within window → 6th blocked; counter resets after window; different emails are independent
+- Rate limiter on successful sign-in: counter resets to zero (successful auth clears failed-attempt history for that email)
 - Cookie attributes serialized correctly (httpOnly, secure, sameSite, maxAge)
 
 **Integration tests:**
@@ -154,7 +155,7 @@ so that **I can access protected parts of the application**.
 ## Definition of Done
 
 - [ ] `POST /api/auth/signin` implemented at `src/app/api/auth/signin/route.ts`
-- [ ] `AuthService` created at `src/modules/auth/auth.service.ts` (signIn, validateSession, signOut)
+- [ ] `AuthService` module created at `src/modules/auth/auth.service.ts` with `signIn()` fully implemented; `validateSession()` and `signOut()` stubbed (throw NotImplemented or return null) — completed in STORY-012 and STORY-013 respectively
 - [ ] In-memory rate limiter at `src/modules/auth/rate-limiter.ts`
 - [ ] Tests added and passing (unit, integration, contract)
 - [ ] Traceability comments in source: ADR-011, PRD Section 9A

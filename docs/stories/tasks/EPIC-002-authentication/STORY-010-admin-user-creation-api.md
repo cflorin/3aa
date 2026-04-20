@@ -44,7 +44,7 @@ so that **I can fully manage the user lifecycle without exposing a public regist
 - **Epic:** EPIC-002 — Authentication & User Management
 - **PRD:** Section 9A (Admin creates accounts, no self-service signup; password reset admin-assisted)
 - **RFCs:** RFC-002 (users table: email, password_hash, full_name, is_active, created_at)
-- **ADRs:** ADR-011 (bcrypt 10 rounds, ADMIN_API_KEY gate, no self-service), ADR-007 (users table schema)
+- **ADRs:** ADR-011 (bcrypt 10 rounds, ADMIN_API_KEY gate, no self-service, users table schema), ADR-007 (multi-user architecture — user isolation context)
 - **Upstream stories:** STORY-004 (users table migrated to production)
 
 ## Preconditions
@@ -159,6 +159,10 @@ so that **I can fully manage the user lifecycle without exposing a public regist
 **Deactivation with active sessions:**
 - Deactivation does not delete existing sessions; middleware rejects them on next request via isActive check
 - If immediate session termination is required in future, add cascade delete to deactivation path
+
+**Email case-sensitivity:**
+- PostgreSQL unique constraint on `email` is case-sensitive by default; "User@example.com" and "user@example.com" are treated as distinct, potentially allowing duplicate accounts for the same human identity
+- V1 mitigation: normalize email to lowercase before insert and before lookup; document as implementation requirement
 
 ## Definition of Done
 

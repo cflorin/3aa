@@ -16,7 +16,7 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 - Valid sessions: request proceeds with `x-user-id` and `x-user-email` injected into request headers
 - Invalid or expired sessions: `sessionId` cookie cleared, redirect to `/signin`
 - Expired session rows deleted from `user_sessions` during validation (lazy cleanup)
-- Already-authenticated users visiting `/signin` redirected to `/`
+- Already-authenticated redirect on `/signin` is handled by STORY-014's Server Component page (direct cookie read + validateSession call) — middleware does not run on `/signin` and does not perform this redirect
 - `getCurrentUser()` helper at `src/lib/auth.ts` reads injected headers from Server Components and API routes
 - Matcher explicitly excludes routes with their own auth: `/signin`, `/api/health`, `/api/cron/*`, `/api/admin/*`
 
@@ -57,8 +57,8 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 ## Outputs
 - Authenticated request: forwarded with `x-user-id` and `x-user-email` headers set
 - Unauthenticated request: `302 Redirect` to `/signin`, `sessionId` cookie cleared
-- Authenticated user visiting `/signin`: `302 Redirect` to `/`
 - `getCurrentUser()`: returns `{ userId: string, email: string }` or `null`
+- Already-authenticated redirect on `/signin`: not a middleware output — handled by STORY-014
 
 ## Acceptance Criteria
 - [ ] Valid session → request proceeds with `x-user-id` and `x-user-email` in headers
@@ -66,11 +66,10 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 - [ ] Invalid session (not in DB) → redirect to `/signin`, cookie cleared
 - [ ] Expired session → redirect to `/signin`, cookie cleared, expired row deleted from DB
 - [ ] Inactive user session → redirect to `/signin` (validateSession returns null for inactive users)
-- [ ] `/signin` bypasses middleware (no redirect loop for unauthenticated access)
+- [ ] `/signin` bypasses middleware entirely (no session validation, no redirect — middleware is not invoked)
 - [ ] `/api/health` bypasses middleware (health check remains unauthenticated)
 - [ ] `/api/cron/*` bypasses middleware (cron endpoints use OIDC auth, not session cookies)
 - [ ] `/api/admin/*` bypasses middleware (admin endpoints use API key auth, not session cookies)
-- [ ] Authenticated user visiting `/signin` redirected to `/`
 - [ ] `getCurrentUser()` returns correct user from headers when middleware has run; returns null otherwise
 
 ## Test Strategy Expectations
@@ -80,11 +79,10 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 - Middleware with no cookie: redirect to /signin, no DB call
 - Middleware with invalid sessionId: validateSession returns null, redirect to /signin, cookie cleared
 - Middleware with expired session: redirect, cookie cleared
-- Middleware on `/signin`: next() called without validateSession call
-- Middleware on `/api/health`: next() called without validateSession call
-- Middleware on `/api/cron/price-sync`: next() called without validateSession call
-- Middleware on `/api/admin/users`: next() called without validateSession call
-- Authenticated user on `/signin`: redirect to `/`
+- Middleware on `/signin`: middleware function not invoked (excluded by matcher config)
+- Middleware on `/api/health`: middleware function not invoked (excluded by matcher config)
+- Middleware on `/api/cron/price-sync`: middleware function not invoked (excluded by matcher config)
+- Middleware on `/api/admin/users`: middleware function not invoked (excluded by matcher config)
 - `getCurrentUser()`: valid headers → `{ userId, email }`; missing headers → null
 
 **Integration tests:**
@@ -100,10 +98,10 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 - Redirect response has `Location: /signin` header
 
 **BDD acceptance tests:**
-- "Given a valid session cookie, when accessing a protected route, then request proceeds"
+- "Given a valid session cookie, when accessing a protected route, then request proceeds with x-user-id set"
 - "Given no session cookie, when accessing a protected route, then redirected to /signin"
 - "Given an expired session, when accessing a protected route, then redirected to /signin"
-- "Given an authenticated user visiting /signin, then redirected to /"
+- "Given an authenticated user visiting /signin, then the sign-in page Server Component handles the redirect (not middleware)"
 
 **E2E tests:** Covered by STORY-014 (full sign-in flow exercises middleware)
 
