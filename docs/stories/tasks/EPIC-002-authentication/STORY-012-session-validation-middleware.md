@@ -28,8 +28,9 @@ so that **unauthenticated users are redirected to sign-in and authenticated user
 - Missing cookie or invalid/expired session: deletes `sessionId` cookie, redirects to `/signin`
 - Expired session row: deleted from `user_sessions` during `validateSession()` (lazy cleanup)
 - Already-authenticated users visiting `/signin`: redirected to `/`
-- `src/lib/auth.ts` — `getCurrentUser()` reads `x-user-id` / `x-user-email` from `headers()` in Server Components
+- `src/lib/auth.ts` — `getCurrentUser()` reads `x-user-id` / `x-user-email` from `headers()` — **protected-route helper only**; only valid when middleware has already run; not a universal auth primitive
 - Matcher excludes: `/signin`, `/api/health`, `/api/cron/*`, `/api/admin/*`, `/_next/*`, `/favicon.ico`
+- `/signin` already-authenticated redirect: handled in STORY-014's Server Component page by reading the session cookie **directly** via `cookies()` and calling `validateSession()` — NOT via `getCurrentUser()` (middleware does not run on /signin)
 
 ## Scope Out
 - Sliding window session renewal on each request (ADR-011: no sliding window; `lastActivityAt` not updated by middleware)

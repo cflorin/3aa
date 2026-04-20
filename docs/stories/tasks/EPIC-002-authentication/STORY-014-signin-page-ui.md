@@ -14,9 +14,9 @@ so that **I can authenticate and access the application**.
 ## Outcome
 - Sign-in page at `/signin` with email/password form, submit button, and inline error display
 - Client-side validation before submission (non-empty, email format)
-- On success: browser navigates to `/` (session cookie set by API response)
+- On success: browser navigates to `/universe` (session cookie set by API response)
 - On failure: inline error message displayed ("Invalid email or password", rate limit message, or generic fallback)
-- Already-authenticated users visiting `/signin` redirected to `/` server-side
+- Already-authenticated users visiting `/signin` redirected to `/universe` server-side — the page Server Component reads the `sessionId` cookie directly via `cookies()` and calls `validateSession()` directly (middleware does not run on `/signin`, so `getCurrentUser()` cannot be used here)
 - "Forgot password?" shown as static contact-admin note (no self-service reset in V1)
 - No "Remember me" checkbox (out of scope per ADR-011 and epic scope)
 - No "Sign up" link (no self-service registration per PRD)
@@ -27,13 +27,13 @@ so that **I can authenticate and access the application**.
 - Email input (type="email"), password input (type="password"), submit button
 - Client-side validation before fetch: non-empty email, non-empty password, email must contain `@`
 - Form submission: `fetch('POST /api/auth/signin', { body: JSON.stringify({ email, password }) })`
-- Success: navigate to `/` using `router.push('/')`
+- Success: navigate to `/universe` using `router.push('/universe')`
 - 401 response: display "Invalid email or password"
 - 429 response: display "Too many sign-in attempts. Please try again later."
 - Other failure: display "Something went wrong. Please try again."
 - Submit button disabled and shows "Signing in…" while request is in flight
 - "Forgot password?" static note: "Contact your administrator to reset your password."
-- Server-side redirect for already-authenticated users (using `getCurrentUser()` in the page Server Component)
+- Server-side redirect for already-authenticated users: the page Server Component reads the `sessionId` cookie directly via `cookies()` and calls `validateSession()` — NOT `getCurrentUser()`, which depends on middleware-injected headers that are absent on `/signin`
 
 ## Scope Out
 - "Remember me" checkbox (ADR-011: V2; epic scope out; PRD mentions it but ADR-011 is authoritative)
@@ -51,12 +51,12 @@ so that **I can authenticate and access the application**.
 - **ADRs:** ADR-011 (no self-service, admin-assisted password reset, no "Remember me" in V1)
 - **Upstream stories:**
   - STORY-011 (`POST /api/auth/signin` returns 200/401/429)
-  - STORY-012 (middleware excludes `/signin`; `getCurrentUser()` available)
+  - STORY-012 (middleware excludes `/signin`; `AuthService.validateSession()` available for direct cookie read)
 
 ## Preconditions
 - `POST /api/auth/signin` returns 200 + Set-Cookie on success, 401/429/400 on failure
 - `/signin` is excluded from auth middleware matcher (reachable unauthenticated)
-- `getCurrentUser()` available for server-side already-auth redirect
+- `AuthService.validateSession()` available (Server Component reads `sessionId` cookie directly for already-auth redirect)
 
 ## Inputs
 - User-entered email and password
@@ -64,17 +64,17 @@ so that **I can authenticate and access the application**.
 
 ## Outputs
 - Rendered HTML sign-in form at `/signin`
-- On success: browser navigates to `/` (session cookie set by API)
+- On success: browser navigates to `/universe` (session cookie set by API)
 - On failure: inline error message below the form
-- On load for authenticated user: server redirect to `/`
+- On load for authenticated user: server redirect to `/universe`
 
 ## Acceptance Criteria
 - [ ] `/signin` renders email input, password input, and submit button
-- [ ] Submitting with valid credentials navigates to `/`
+- [ ] Submitting with valid credentials navigates to `/universe`
 - [ ] Submitting with wrong credentials shows "Invalid email or password" inline
 - [ ] Submitting while rate-limited shows "Too many sign-in attempts. Please try again later."
 - [ ] Submit button is disabled while the request is in flight
-- [ ] An already-authenticated user visiting `/signin` is redirected to `/` (server-side)
+- [ ] An already-authenticated user visiting `/signin` is redirected to `/universe` (server-side, via direct cookie read + validateSession)
 - [ ] "Forgot password?" note reads "Contact your administrator to reset your password."
 - [ ] No "Remember me" checkbox is rendered
 - [ ] No "Sign up" or "Create account" link is rendered
@@ -93,7 +93,7 @@ so that **I can authenticate and access the application**.
 
 **Integration tests:**
 - GET /signin without session cookie → 200, form rendered
-- GET /signin with valid session cookie → redirect to `/` (server-side already-auth redirect)
+- GET /signin with valid session cookie → redirect to `/universe` (Server Component reads cookie directly, calls validateSession)
 
 **E2E tests:**
 - Render /signin → fill email + password → submit → verify redirect to /
@@ -132,9 +132,9 @@ so that **I can authenticate and access the application**.
 - This story omits it; ADR-011 is authoritative for implementation
 
 **Server Component vs Client Component boundary:**
-- Already-auth redirect requires `getCurrentUser()` in a Server Component (uses `headers()`)
+- Already-auth redirect requires reading the `sessionId` cookie directly via `cookies()` in the Server Component page, then calling `AuthService.validateSession()`. `getCurrentUser()` cannot be used (it reads middleware-injected headers; middleware does not run on `/signin`).
 - Form state, fetch, and error display require `'use client'`
-- Resolution: Server Component page wraps a `'use client'` SignInForm child component
+- Resolution: Server Component page handles the already-auth redirect, then renders a `'use client'` SignInForm child component
 
 **HTTPS in local development:**
 - `Secure` cookie flag only set in production; cookie works without it in local dev

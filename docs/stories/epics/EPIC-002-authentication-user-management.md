@@ -21,8 +21,8 @@ Authenticated users can:
 - **Screen 1: Sign-In UI** (email/password form, validation, error handling, success redirect)
 - Sign-out functionality
 - Next.js middleware auth guard (protect routes, redirect unauthenticated to /signin)
-- Admin-assisted account creation (CLI script or API endpoint)
-- Session expiration and renewal (sliding window)
+- Admin-only user management API (create user, reset password, deactivate/reactivate — STORY-010)
+- Session expiration enforcement (fixed 7-day expiry; no sliding window per ADR-011)
 - Rate limiting (5 sign-in attempts per 15 minutes per email)
 - Session cleanup job (delete expired sessions)
 
@@ -55,12 +55,12 @@ Authenticated users can:
 
 ## Flows Covered
 - **Sign-In flow (UI):** User enters email/password on Sign-In screen → submit → client-side validation → POST /api/auth/signin → bcrypt verify → create session → set cookie → redirect to /universe
-- **Session validation (middleware):** User requests protected route → middleware reads sessionId cookie → queries user_sessions → validates expiration → allows request or redirects to /signin
-- **Session renewal:** User activity updates last_activity_at → expiration extended (sliding window)
+- **Session validation (middleware):** User requests protected route → middleware reads sessionId cookie → queries user_sessions → validates expiration + isActive → allows request or redirects to /signin
 - **Sign-out flow:** User clicks Sign-Out → POST /api/auth/signout → delete session from user_sessions → clear cookie → redirect to /signin
-- **Admin creates user:** Admin runs CLI script → bcrypt hash password → INSERT users → account created
-- **Rate limiting:** Track failed sign-in attempts → >5 attempts in 15 min → block further attempts → return rate limit error
-- **Expired session cleanup:** Periodic job (daily) → DELETE FROM user_sessions WHERE expires_at < NOW()
+- **Admin creates user:** Admin calls POST /api/admin/users with x-api-key header → bcrypt hash password → INSERT users → 201 returned
+- **Admin deactivates user:** Admin calls PATCH /api/admin/users/:userId/active with `{ isActive: false }` → users.isActive set to false → existing sessions rejected by middleware on next use
+- **Rate limiting:** Track failed sign-in attempts per email → >5 attempts in 15 min → block further attempts → return 429
+- **Expired session cleanup:** Nightly cron (/api/cron/alerts, Mon-Fri) → DELETE FROM user_sessions WHERE expires_at < NOW(); lazy single-row cleanup also occurs in validateSession()
 
 ## Acceptance Criteria
 - [ ] `users` table created with email unique constraint, password_hash not null
@@ -72,12 +72,13 @@ Authenticated users can:
 - [ ] Session expiration enforced (expired sessions rejected by middleware)
 - [ ] Next.js middleware protects routes (redirects unauthenticated users to /signin)
 - [ ] Sign-out endpoint deletes session and clears cookie (`POST /api/auth/signout`)
-- [ ] Admin script can create user accounts (CLI: `npm run create-user --email=... --password=...`)
+- [ ] Admin can create user accounts via `POST /api/admin/users` (x-api-key protected)
+- [ ] Admin can reset passwords via `PATCH /api/admin/users/:userId/password`
+- [ ] Admin can deactivate/reactivate users via `PATCH /api/admin/users/:userId/active`
 - [ ] Rate limiting prevents brute force (5 attempts per 15 min per email, enforced)
 - [ ] Invalid credentials return generic error message (no email enumeration: "Invalid email or password")
-- [ ] User `is_active` flag enforced (inactive users cannot sign in)
-- [ ] Session renewal functional (activity extends expiration with sliding window)
-- [ ] Expired session cleanup job functional (deletes sessions where expires_at < NOW())
+- [ ] User `is_active` flag enforced (inactive users cannot sign in; deactivated sessions rejected)
+- [ ] Expired session cleanup job functional (nightly via /api/cron/alerts + lazy cleanup in validateSession)
 
 ## Test Strategy Expectations
 
@@ -96,16 +97,16 @@ Authenticated users can:
 - Session validation with valid cookie (middleware → session found → expires_at valid → request allowed)
 - Session validation with expired session (middleware → expires_at < NOW() → redirect to /signin)
 - Sign-out flow (POST /api/auth/signout → session deleted from user_sessions → cookie cleared)
-- Admin account creation (CLI script → user inserted → password hashed → can sign in)
+- Admin account creation (POST /api/admin/users → user inserted → password hashed → can sign in)
+- Admin deactivation (PATCH /api/admin/users/:userId/active → isActive=false → sign-in returns 401)
 - Rate limiting enforcement (6 failed attempts → 7th blocked → rate limit error)
-- Session renewal (activity → last_activity_at updated → expires_at extended)
 
 **Contract/schema tests:**
 - `users` table schema (email VARCHAR UNIQUE, password_hash VARCHAR NOT NULL, is_active BOOLEAN DEFAULT TRUE)
 - `user_sessions` table schema (session_id UUID PK, user_id UUID FK, expires_at TIMESTAMPTZ NOT NULL)
 - Session cookie format (HTTP-only, Secure, SameSite=Lax attributes present)
 - Sign-In request schema (POST /api/auth/signin body: {email, password})
-- Sign-In response schema (success: {userId, email}, error: {message})
+- Sign-In response schema (success: `{ userId, email }`, error: `{ error: string }`)
 
 **BDD acceptance tests:**
 - "Given valid credentials, when user submits sign-in form, then session created and redirected to /universe"
@@ -182,21 +183,13 @@ Authenticated users can:
 - Admin forgets user password (no self-service reset, admin must manually update password_hash)
 - User account deleted while session active (foreign key CASCADE deletes session, user logged out)
 
-## Likely Stories
+## Stories
 
-- **STORY-015:** Create users and user_sessions tables (Prisma migration)
-- **STORY-016:** Implement password hashing service (bcrypt wrapper)
-- **STORY-017:** Implement sign-in endpoint (`POST /api/auth/signin`)
-- **STORY-018:** Implement session cookie management (set/read/clear cookies with correct attributes)
-- **STORY-019:** Implement Next.js middleware auth guard (protect routes, validate session, redirect)
-- **STORY-020:** Implement sign-out endpoint (`POST /api/auth/signout`)
-- **STORY-021:** Build Sign-In screen UI (email/password form, validation, error display, submit)
-- **STORY-022:** Implement rate limiting (in-memory or Redis, 5 attempts per 15 min per email)
-- **STORY-023:** Implement admin account creation script (CLI tool)
-- **STORY-024:** Implement session renewal logic (sliding window expiration)
-- **STORY-025:** Implement session cleanup job (cron or Cloud Scheduler, delete expired sessions)
-- **STORY-026:** Add integration tests (sign-in flow, session validation, rate limiting)
-- **STORY-027:** Add E2E tests (full sign-in/sign-out flows)
+- **STORY-010:** Admin User Creation, Password Reset, and User Deactivation API (`POST /api/admin/users`, `PATCH /api/admin/users/:userId/password`, `PATCH /api/admin/users/:userId/active`)
+- **STORY-011:** Sign-In API with Session Creation and Rate Limiting (`POST /api/auth/signin`, bcrypt verify, session insert, in-memory rate limiting)
+- **STORY-012:** Session Validation Middleware and Route Protection (`src/middleware.ts`, `getCurrentUser()` protected-route helper)
+- **STORY-013:** Sign-Out API and Expired Session Cleanup (`POST /api/auth/signout`, `cleanupExpiredSessions()` wired to `/api/cron/alerts`)
+- **STORY-014:** Sign-In Page UI — Screen 1 (`/signin`, email/password form, error display, redirect to /universe)
 
 ## Definition of Done
 
@@ -208,8 +201,8 @@ Authenticated users can:
 - [ ] Migrations included (users, user_sessions tables committed)
 - [ ] Traceability links recorded (code comments reference ADR-011, PRD Section 9A)
 - [ ] Security review completed (password hashing verified, session cookies validated, rate limiting tested)
-- [ ] Admin script tested (can create first user account successfully)
-- [ ] Sign-In screen accessible at /signin (renders correctly, form functional)
+- [ ] Admin API tested (POST /api/admin/users, PATCH password, PATCH active all verified with integration tests)
+- [ ] Sign-In screen accessible at /signin (renders correctly, form functional, redirects to /universe on success)
 
 ## Traceability
 
