@@ -34,9 +34,9 @@
 - **Deployment Milestone:** Infrastructure operational, Next.js app deployed
 
 ### EPIC-002 — Authentication & User Management
-- **Status:** planned
+- **Status:** validated
 - **Dependencies:** EPIC-001 (database tables, Cloud Run deployment)
-- **Stories:** [To be decomposed]
+- **Stories:** 5 (STORY-010 through STORY-014) — validated ✅
 - **Integration Checkpoint:** Sign-in screen functional, session management working
 - **Deployment Milestone:** User authentication operational
 
@@ -196,12 +196,46 @@
   - TASK-009-006: Tracking updated ✅
 - **Evidence Required:** README, CONTRIBUTING, CHANGELOG, .env.example all complete ✅
 
+## EPIC-002 Story Execution Order
+
+### STORY-010 — Admin User Creation, Password Reset, and User Deactivation API
+- **Status:** done
+- **Dependencies:** STORY-004 (users table), STORY-003 (ADMIN_API_KEY secret)
+- **Tasks:** 6 (TASK-010-001 through TASK-010-006) ✅ ALL COMPLETE
+  - TASK-010-001: Install bcrypt + create admin auth guard (`src/lib/admin-auth.ts`) ✅
+  - TASK-010-002: POST /api/admin/users — create user with bcrypt hash ✅
+  - TASK-010-003: PATCH /api/admin/users/[userId]/password — reset password ✅
+  - TASK-010-004: PATCH /api/admin/users/[userId]/active — deactivate/reactivate ✅
+  - TASK-010-005: Unit tests — auth guard (6) + routes (26) = 32 unit tests ✅
+  - TASK-010-006: Integration + contract tests (19) + tracking update ✅
+- **Evidence:** 120 total tests passing (69 baseline + 51 new); all 3 endpoints verified against real test DB
+
+### STORY-011 — Sign-In API with Session Creation and Rate Limiting
+- **Status:** validated
+- **Dependencies:** STORY-010 (user record exists for integration tests), STORY-004 (user_sessions table)
+- **Tasks:** [To be decomposed]
+
+### STORY-012 — Session Validation Middleware and Route Protection
+- **Status:** validated
+- **Dependencies:** STORY-011 (AuthService.validateSession() available)
+- **Tasks:** [To be decomposed]
+
+### STORY-013 — Sign-Out API and Expired Session Cleanup
+- **Status:** validated
+- **Dependencies:** STORY-011 (AuthService module), STORY-007 (cron endpoints)
+- **Tasks:** [To be decomposed]
+
+### STORY-014 — Sign-In Page UI (Screen 1)
+- **Status:** validated
+- **Dependencies:** STORY-011 (POST /api/auth/signin), STORY-012 (middleware, validateSession)
+- **Tasks:** [To be decomposed]
+
 ## Active Work
-- **Current Epic:** EPIC-001
-- **Current Story:** None — EPIC-001 COMPLETE ✅
-- **Current Task:** None
-- **Last Completed:** STORY-009 (README, CONTRIBUTING.md, CHANGELOG, .env.example)
-- **Next Action:** Begin EPIC-002 (Authentication & User Management)
+- **Current Epic:** EPIC-002
+- **Current Story:** STORY-011 — Sign-In API with Session Creation and Rate Limiting
+- **Current Task:** Awaiting task decomposition
+- **Last Completed:** STORY-010 ✅ (Admin User Creation API — 51 new tests, 120 total)
+- **Next Action:** Decompose and implement STORY-011
 
 ## Blocked Items
 - None currently
@@ -211,6 +245,10 @@
 - ✅ EPIC-001 validated
 - ✅ STORY-001 through STORY-009 validated
 - ✅ Implementation tracking system created
+- ✅ EPIC-002 validated (5 stories: STORY-010 through STORY-014)
+- ✅ STORY-010 through STORY-014 validated and adversarial review fixes applied
+- ✅ STORY-010 task decomposition complete (6 tasks) — status: ready
+- ✅ **STORY-010 COMPLETE** (Admin user creation, password reset, deactivation — 51 new tests, 120 total) - 2026-04-20
 - ✅ STORY-001 task decomposition complete (5 tasks)
 - ✅ STORY-001 validated and marked ready
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19

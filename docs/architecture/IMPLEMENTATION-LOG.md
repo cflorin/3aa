@@ -497,6 +497,75 @@ Copy this template for each new log entry:
 
 ---
 
+## Entry: EPIC-002 Validated + STORY-010 Prepared for Development
+
+**Timestamp:** 2026-04-20T14:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-010 (preparation)
+**Task:** N/A — story preparation and task decomposition
+
+**Action:** Validated all 5 EPIC-002 stories (STORY-010 through STORY-014). Applied adversarial review fixes across all stories and the epic spec. Decomposed STORY-010 into 6 tasks with full specs. Updated IMPLEMENTATION-PLAN-V1.md; STORY-010 promoted to `ready`.
+
+**Files Changed:**
+- `docs/stories/epics/EPIC-002-authentication-user-management.md` — adversarial fixes (removed sliding window, CLI ref, fixed error shape, unified /universe redirect)
+- `docs/stories/tasks/EPIC-002-authentication/STORY-010-admin-user-creation-api.md` — validated, ADR-007 ref fixed, email case-sensitivity added
+- `docs/stories/tasks/EPIC-002-authentication/STORY-011-signin-api-session-creation.md` — validated, AuthService ownership clarified
+- `docs/stories/tasks/EPIC-002-authentication/STORY-012-session-validation-middleware.md` — validated, /signin redirect contradiction removed (5 occurrences)
+- `docs/stories/tasks/EPIC-002-authentication/STORY-013-signout-session-cleanup.md` — validated, E2E attribution corrected
+- `docs/stories/tasks/EPIC-002-authentication/STORY-014-signin-page-ui.md` — validated, /universe redirect unified
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-001-install-bcrypt-admin-auth-guard.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-002-post-admin-users-create-user.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-003-patch-admin-users-password.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-004-patch-admin-users-active.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-005-unit-tests.md` — CREATED
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-006-integration-contract-tests-tracking.md` — CREATED
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — EPIC-002 status → validated; STORY-010 task list added; Active Work updated
+
+**Tests Added:** None (preparation only)
+
+**Result/Status:** STORY-010 status: `ready` — implementation can begin
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-010 task specs under revision (Issues 1–5 found in validation pass)
+
+---
+
+## Entry: STORY-010 Task Spec Revision — needs_revision → ready
+
+**Timestamp:** 2026-04-20T14:30:00Z
+**Epic:** EPIC-002
+**Story:** STORY-010
+**Task:** N/A — task spec revision pass
+
+**Action:** Validation pass identified 5 issues in the task breakdown. All 5 fixed. STORY-010 task specs promoted from `needs_revision` to `ready`.
+
+**Issues resolved:**
+1. Logging added to TASK-010-002/003/004 (creation/reset/deactivation events, no passwords/hashes)
+2. DoD on TASK-010-002/003/004 corrected: tasks cannot be individually marked `done`; must wait for TASK-010-005 unit tests
+3. Cross-story dependency documented in TASK-010-006: "deactivated user blocked at sign-in" criterion satisfied by STORY-011 integration test
+4. Integration auth test in TASK-010-006 expanded from 1 bundled test to 3 discrete `it()` blocks (one per route)
+5. Malformed JSON body unit test added to TASK-010-005 POST suite
+
+**Files Changed:**
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-002-post-admin-users-create-user.md` — Logging section + corrected DoD
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-003-patch-admin-users-password.md` — Logging section + corrected DoD
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-004-patch-admin-users-active.md` — Logging section + corrected DoD
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-005-unit-tests.md` — Malformed body test added; count updated 30 → 32
+- `docs/stories/tasks/EPIC-002-authentication/TASK-010-006-integration-contract-tests-tracking.md` — Auth tests split 1→3; cross-story dep note; counts updated ~17 → ~19, total ~116 → ~120
+
+**Tests Added:** None (spec revision only)
+
+**Result/Status:** STORY-010 status: `ready` — all 5 issues resolved
+
+**Baseline Impact:** NO
+
+**Next Action:** Begin STORY-010 implementation starting with TASK-010-001 (npm install bcrypt + create src/lib/admin-auth.ts)
+
+---
+
 ## Entry: EPIC-001 Complete — Platform Foundation & Deployment
 
 **Timestamp:** 2026-04-20T13:00:00Z
@@ -527,4 +596,47 @@ Copy this template for each new log entry:
 - Migrator job: aaa-migrate — runs migrate+seed on every deployment
 
 **Next Action:** Begin EPIC-002 (Authentication & User Management)
+
+---
+
+## Entry: STORY-010 Complete — Admin User Management API
+
+**Timestamp:** 2026-04-20T15:00:00Z
+**Epic:** EPIC-002
+**Story:** STORY-010
+**Tasks:** TASK-010-001 through TASK-010-006 — ALL COMPLETE
+
+**Action:** Implemented admin user creation, password reset, and deactivation/reactivation endpoints with bcrypt password hashing, ADMIN_API_KEY gate, email lowercase normalization, and full test coverage.
+
+**Files Changed:**
+- `package.json` — bcrypt added to dependencies, @types/bcrypt to devDependencies
+- `src/lib/admin-auth.ts` — CREATED: `validateAdminApiKey(req)` — ADMIN_API_KEY gate
+- `src/app/api/admin/users/route.ts` — CREATED: POST /api/admin/users (create user, 201)
+- `src/app/api/admin/users/[userId]/password/route.ts` — CREATED: PATCH password reset (200)
+- `src/app/api/admin/users/[userId]/active/route.ts` — CREATED: PATCH deactivate/reactivate (200)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-010 → done, Active Work → STORY-011
+
+**Tests Added:**
+- `tests/unit/lib/admin-auth.test.ts` — 6 unit tests (auth guard: undefined env, empty env, missing header, empty header, wrong key, correct key)
+- `tests/unit/api/admin/users.test.ts` — 26 unit tests (POST: 12, PATCH password: 7, PATCH active: 7)
+- `tests/integration/api/admin/users.test.ts` — 19 integration + contract tests (full CRUD, 401 per route, P2002, P2025, bcrypt verify, response shapes)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 120 total tests: ALL PASSING (69 baseline + 51 new)
+- Unit: 49 passing (17 existing + 32 new)
+- Integration: 71 passing (52 existing + 19 new)
+- POST /api/admin/users: 201 with bcrypt hash stored; email normalized to lowercase; P2002 → 409
+- PATCH .../password: hash updated; old password no longer verifies; P2025 → 404
+- PATCH .../active: isActive toggled; boolean enforcement; P2025 → 404
+- 401 on all 3 routes without valid ADMIN_API_KEY (no DB call made)
+- No passwordHash in any response body
+
+**Cross-story dependency:**
+- STORY-010 AC "deactivated user blocked at sign-in" tested in STORY-011 integration suite
+
+**Next Action:** Begin STORY-011 (Sign-In API with Session Creation and Rate Limiting)
 
