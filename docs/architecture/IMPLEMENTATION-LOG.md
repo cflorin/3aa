@@ -191,6 +191,76 @@ Copy this template for each new log entry:
 
 ---
 
+## 2026-04-20 08:00 UTC - STORY-004 Complete: Prisma Schema and Database Migrations
+
+**Epic:** EPIC-001
+**Story:** STORY-004
+**Task:** TASK-004-001 through TASK-004-010
+**Action:** Completed full Prisma schema implementation, migrations, integration tests, and deployment. All 10 tasks executed:
+- TASK-004-001: Created `prisma/schema.prisma` — all 19 RFC-002 tables as Prisma models with correct types, relations, and naming maps
+- TASK-004-002: Generated initial migration (`20260420050917_init`) — full DDL for all 19 tables
+- TASK-004-003: Created partial indexes migration (`20260420050934_add_partial_indexes`) — 5 indexes (WHERE clauses not supported in Prisma schema, required raw SQL)
+- TASK-004-004: Created `jest.config.ts` with ts-jest preset, module alias `@/` → `src/`, 30s timeout, ignore `.next/` (avoid haste collision)
+- TASK-004-005: Created `docker-compose.test.yml` (PostgreSQL 15 on port 5433), `.env.test` (connection string), `.env.example` (all 5 env vars documented)
+- TASK-004-006: Created `tests/integration/database/schema.test.ts` — verifies all 19 tables exist, key columns present, 5 partial indexes created
+- TASK-004-007: Created `tests/integration/database/constraints.test.ts` — FK violations, CASCADE delete, P2002 unique, JSONB defaults, NOT NULL, composite PK, nullable field
+- TASK-004-008: Created `src/infrastructure/database/prisma.ts` (singleton with dev logging); updated `src/app/api/health/route.ts` (db connectivity check + `force-dynamic` to prevent Next.js build-time static caching)
+- TASK-004-009: Updated `Dockerfile` — removed Prisma migrate from startup (transitive deps missing in runner), copy `.prisma/client` and `prisma/` to runner stage; updated `next.config.js` — added `serverExternalPackages` to prevent webpack from inlining DATABASE_URL at build time
+- TASK-004-010: Updated `cloudbuild.yaml` — added `--add-cloudsql-instances` flag (required for Cloud SQL Unix socket format in DATABASE_URL); Cloud Build deployed successfully
+
+**Files Changed:**
+- `prisma/schema.prisma` (created — 19 models, ~340 lines)
+- `prisma/migrations/20260420050917_init/migration.sql` (created — full DDL, auto-generated)
+- `prisma/migrations/20260420050934_add_partial_indexes/migration.sql` (created — 5 partial indexes, manual)
+- `prisma/migrations/migration_lock.toml` (created — auto-generated)
+- `jest.config.ts` (created)
+- `docker-compose.test.yml` (created)
+- `.env.test` (created — test DB connection string)
+- `.env.example` (created — all 5 env vars documented)
+- `src/infrastructure/database/prisma.ts` (created — Prisma client singleton)
+- `src/app/api/health/route.ts` (modified — added DB check + `force-dynamic`)
+- `next.config.js` (modified — added `serverExternalPackages`)
+- `Dockerfile` (modified — Prisma artifacts in runner stage, no Prisma CLI at startup)
+- `cloudbuild.yaml` (modified — `--add-cloudsql-instances` for Cloud SQL socket)
+- `package.json` (modified — added Prisma scripts, Jest scripts, `postinstall`, devDeps: `dotenv-cli`, `ts-node`)
+- `stories/tasks/EPIC-001-platform-foundation/STORY-004-prisma-schema-migrations.md` (created — full story spec with 10 tasks)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (updated — STORY-004 done, progress 4/9)
+- `docs/architecture/IMPLEMENTATION-LOG.md` (updated — this entry)
+
+**Tests Added/Updated:**
+- `tests/integration/database/schema.test.ts` (created — 15 tests covering all 19 tables + indexes)
+- `tests/integration/database/constraints.test.ts` (created — 19 tests covering FK, unique, JSONB, composite PK)
+- 34 total integration tests; all passing against Docker test DB
+
+**Result/Status:** Success — STORY-004 complete
+
+**Blockers/Issues Encountered (all resolved):**
+1. Prisma schema validation: AlertHistory `user` relation required matching `alertHistory AlertHistory[]` on User model
+2. Jest 30 renamed `--testPathPattern` → `--testPathPatterns`
+3. Jest haste module collision from `.next/standalone/package.json` — fixed by `testPathIgnorePatterns`
+4. `reasonCodes` JSONB default test: `Prisma.JsonNull` explicitly sets NULL, bypassing DB default; fixed with raw SQL INSERT omitting the column
+5. Docker: WSL2 environment has `docker-compose` v1.29.2, not `docker compose` plugin
+6. Cloud Run startup failure (exit 127): Prisma CLI missing transitive deps in runner stage — removed migration from startup, CMD = `node server.js` only
+7. Health check static caching: Next.js cached response at build time (DATABASE_URL absent at build) — fixed with `export const dynamic = 'force-dynamic'`
+8. `serverExternalPackages`: prevents webpack from inlining `process.env.DATABASE_URL` at build time
+
+**Baseline Impact:** NO — Prisma schema faithfully implements RFC-002 as designed. Two minor technical discoveries documented:
+- Partial indexes (WHERE clauses) cannot be expressed in Prisma schema, require separate raw SQL migration — this is a known Prisma limitation, no RFC change needed
+- `force-dynamic` + `serverExternalPackages` required for correct runtime behavior with Cloud Run Secret Manager — implementation detail, no architecture change
+
+**Evidence:**
+- `prisma/schema.prisma`: 19 models, validated with `npx prisma validate`
+- Migration applied to test DB: all 19 tables + 5 partial indexes confirmed via `pg_tables` and `pg_indexes`
+- 34 integration tests: PASS (schema.test.ts: 15, constraints.test.ts: 19)
+- Cloud Build: deployed successfully with `--add-cloudsql-instances=aa-investor:us-central1:aaa-db`
+- Health check: `force-dynamic` fix deployed — response timestamp is now real-time (not build-time cached)
+
+**Note on Production Migration:** The production Cloud SQL database (`aaa_production`) does not yet have migrations applied. Cloud SQL Auth Proxy requires Application Default Credentials (ADC) which are not configured in the local WSL2 environment. Production migration should be applied via: (a) Cloud Run Job with `prisma migrate deploy`, or (b) Cloud Shell with ADC pre-configured, or (c) trigger via Cloud Build step. This is a known gap — production DB is empty but all infrastructure is in place.
+
+**Next Action:** Begin STORY-005 (Create Framework Configuration Seed Data)
+
+---
+
 **Log Started:** 2026-04-19
 **Maintained By:** Claude during implementation
 **Update Frequency:** After each meaningful implementation step (task completion, significant file changes, test additions, blockers encountered, baseline impacts)

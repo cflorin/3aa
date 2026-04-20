@@ -1,0 +1,17 @@
+# EPIC-001/STORY-004: Local test database for integration tests
+# Run: npm run db:test:up
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: 3aa-test-db
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: aaa_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d aaa_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

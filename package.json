@@ -6,17 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:test:up": "docker compose -f docker-compose.test.yml up -d && sleep 3",
+    "db:test:down": "docker compose -f docker-compose.test.yml down",
+    "test": "jest --testPathPatterns='tests/unit'",
+    "test:integration": "dotenv -e .env.test -- jest --testPathPatterns='tests/integration' --runInBand --forceExit",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "^14.2.21",
+    "prisma": "^6.19.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "dotenv-cli": "^8.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   }
 }

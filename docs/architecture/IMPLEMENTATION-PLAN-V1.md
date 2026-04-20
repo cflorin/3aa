@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 3/9 EPIC-001 stories complete (33%)
+- **Overall Progress:** 0/7 epics complete, 4/9 EPIC-001 stories complete (44%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -118,10 +118,21 @@
 - **Evidence Provided:** aaa-web at https://aaa-web-717628686883.us-central1.run.app, health check 200, Cloud SQL RUNNABLE, VPC Connector READY, 5 secrets, 3 SAs, 6 scheduler jobs ENABLED
 
 ### STORY-004 — Implement Prisma Schema and Database Migrations
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-002 (RFC-002), STORY-003 (Cloud SQL)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** Prisma schema created, migrations applied, 17 tables exist, tests passing
+- **Tasks:** 10 (TASK-004-001 through TASK-004-010) ✅ ALL COMPLETE
+  - TASK-004-001: Write Prisma schema (all 19 RFC-002 tables) ✅
+  - TASK-004-002: Add initial migration (DDL for all 19 tables) ✅
+  - TASK-004-003: Add partial indexes migration (5 indexes) ✅
+  - TASK-004-004: Configure Jest and ts-jest for integration tests ✅
+  - TASK-004-005: Create Docker Compose test environment (PostgreSQL 15) ✅
+  - TASK-004-006: Create schema integration tests (19 tables, indexes) ✅
+  - TASK-004-007: Create constraints integration tests (FK, unique, JSONB defaults) ✅
+  - TASK-004-008: Create Prisma client singleton, update health check (force-dynamic) ✅
+  - TASK-004-009: Update Dockerfile and next.config.js for Prisma standalone ✅
+  - TASK-004-010: Update cloudbuild.yaml (--add-cloudsql-instances), deploy ✅
+- **Evidence Required:** Prisma schema created, migrations applied, 19 tables exist, tests passing ✅
+- **Evidence Provided:** prisma/schema.prisma (19 models), 2 migrations applied to test DB, 34 integration tests passing, Dockerfile updated, cloudbuild.yaml deployed with Cloud SQL socket attachment, health check force-dynamic fix deployed
 
 ### STORY-005 — Create Framework Configuration Seed Data
 - **Status:** validated
@@ -155,10 +166,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** None (STORY-003 complete, STORY-004 next)
+- **Current Story:** None (STORY-004 complete, STORY-005 next)
 - **Current Task:** None
-- **Last Completed:** STORY-003 (all 8 tasks complete — GCP infrastructure operational)
-- **Next Action:** Begin STORY-004 (Implement Prisma Schema and Database Migrations)
+- **Last Completed:** STORY-004 (all 10 tasks complete — Prisma schema, migrations, integration tests, Dockerfile, Cloud Build deployed)
+- **Next Action:** Begin STORY-005 (Create Framework Configuration Seed Data)
 
 ## Blocked Items
 - None currently
@@ -175,6 +186,8 @@
 - ✅ **STORY-002 COMPLETE** (RFC-002 database schema verified - 19 tables, JSONB structures, ER diagram) - 2026-04-19
 - ✅ STORY-003 task decomposition complete (8 tasks)
 - ✅ **STORY-003 COMPLETE** (GCP infrastructure operational: Cloud SQL, VPC Connector, Secret Manager, Service Accounts, Cloud Run, Cloud Scheduler) - 2026-04-20
+- ✅ STORY-004 task decomposition complete (10 tasks)
+- ✅ **STORY-004 COMPLETE** (Prisma schema 19 tables, migrations applied, 34 integration tests passing, Dockerfile + Cloud Build updated) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)

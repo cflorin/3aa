@@ -1,0 +1,529 @@
+// EPIC-001: Platform Foundation & Deployment
+// STORY-004: Implement Prisma Schema and Database Migrations
+// TASK-004-002 through TASK-004-006: Full schema from RFC-002
+//
+// Table dependency order (for migration):
+// framework_version → anchored_thresholds → tsr_hurdles → users → user_sessions
+// → stocks → classification_state → classification_history
+// → valuation_state → valuation_history
+// → user_monitored_stocks → user_classification_overrides → user_valuation_overrides
+// → user_alert_preferences → user_preferences
+// → user_override_history → user_monitoring_history
+// → alerts → alert_history
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FRAMEWORK CONFIGURATION TABLES (RFC-002 §Framework Configuration Tables)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FrameworkVersion {
+  id            Int       @id @default(autoincrement())
+  version       String    @unique @db.VarChar(10)
+  description   String?   @db.Text
+  effectiveFrom DateTime  @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveUntil DateTime? @db.Timestamptz(6) @map("effective_until")
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  @@map("framework_version")
+}
+
+model AnchoredThreshold {
+  id                    Int       @id @default(autoincrement())
+  code                  String    @unique @db.VarChar(5)
+  bucket                Int
+  earningsQuality       String    @db.Char(1) @map("earnings_quality")
+  balanceSheetQuality   String    @db.Char(1) @map("balance_sheet_quality")
+  primaryMetric         String    @db.VarChar(50) @map("primary_metric")
+  maxThreshold          Decimal   @db.Decimal(10, 2) @map("max_threshold")
+  comfortableThreshold  Decimal   @db.Decimal(10, 2) @map("comfortable_threshold")
+  veryGoodThreshold     Decimal   @db.Decimal(10, 2) @map("very_good_threshold")
+  stealThreshold        Decimal   @db.Decimal(10, 2) @map("steal_threshold")
+  frameworkVersion      String    @default("v1.0") @db.VarChar(10) @map("framework_version")
+  effectiveFrom         DateTime  @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveUntil        DateTime? @db.Timestamptz(6) @map("effective_until")
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  @@index([code], name: "idx_anchored_thresholds_code")
+  @@index([bucket], name: "idx_anchored_thresholds_bucket")
+  @@index([effectiveFrom, effectiveUntil], name: "idx_anchored_thresholds_effective")
+  @@map("anchored_thresholds")
+}
+
+// base_hurdle_default is nullable: bucket 8 has no normal hurdle
+model TsrHurdle {
+  id                          Int       @id @default(autoincrement())
+  bucket                      Int       @unique
+  baseHurdleLabel             String    @db.VarChar(20) @map("base_hurdle_label")
+  baseHurdleDefault           Decimal?  @db.Decimal(5, 2) @map("base_hurdle_default")
+  earningsQualityAAdjustment  Decimal   @default(-1.0) @db.Decimal(5, 2) @map("earnings_quality_a_adjustment")
+  earningsQualityBAdjustment  Decimal   @default(0.0) @db.Decimal(5, 2) @map("earnings_quality_b_adjustment")
+  earningsQualityCAdjustment  Decimal   @default(2.5) @db.Decimal(5, 2) @map("earnings_quality_c_adjustment")
+  balanceSheetAAdjustment     Decimal   @default(-0.5) @db.Decimal(5, 2) @map("balance_sheet_a_adjustment")
+  balanceSheetBAdjustment     Decimal   @default(0.0) @db.Decimal(5, 2) @map("balance_sheet_b_adjustment")
+  balanceSheetCAdjustment     Decimal   @default(1.75) @db.Decimal(5, 2) @map("balance_sheet_c_adjustment")
+  frameworkVersion            String    @default("v1.0") @db.VarChar(10) @map("framework_version")
+  effectiveFrom               DateTime  @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveUntil              DateTime? @db.Timestamptz(6) @map("effective_until")
+  createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  @@map("tsr_hurdles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS (RFC-002 §Multi-User Tables)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  userId      String    @id @default(uuid()) @db.Uuid @map("user_id")
+  email       String    @unique @db.VarChar(255)
+  passwordHash String   @db.VarChar(255) @map("password_hash")
+  fullName    String?   @db.VarChar(255) @map("full_name")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  lastLoginAt DateTime? @db.Timestamptz(6) @map("last_login_at")
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  // Relations
+  sessions                  UserSession[]
+  monitoredStocks           UserMonitoredStock[]
+  classificationOverrides   UserClassificationOverride[]
+  classificationOverridesBy UserClassificationOverride[] @relation("OverriddenBy")
+  valuationOverrides        UserValuationOverride[]
+  alertPreferences          UserAlertPreferences?
+  preferences               UserPreferences?
+  overrideHistory           UserOverrideHistory[]
+  monitoringHistory         UserMonitoringHistory[]
+  alerts                    Alert[]
+  alertHistory              AlertHistory[]
+
+  @@index([email], name: "idx_users_email")
+  @@map("users")
+}
+
+model UserSession {
+  sessionId      String    @id @default(uuid()) @db.Uuid @map("session_id")
+  userId         String    @db.Uuid @map("user_id")
+  expiresAt      DateTime  @db.Timestamptz(6) @map("expires_at")
+  ipAddress      String?   @db.VarChar(45) @map("ip_address")
+  userAgent      String?   @db.Text @map("user_agent")
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  lastActivityAt DateTime  @default(now()) @db.Timestamptz(6) @map("last_activity_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId], name: "idx_user_sessions_user_id")
+  @@index([expiresAt], name: "idx_user_sessions_expires_at")
+  @@map("user_sessions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STOCKS — central entity (RFC-002 §stocks)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Stock {
+  ticker      String  @id @db.VarChar(10)
+  companyName String  @db.VarChar(255) @map("company_name")
+  sector      String? @db.VarChar(100)
+  industry    String? @db.VarChar(100)
+  country     String  @db.VarChar(2)
+
+  // Universe eligibility
+  marketCap               Decimal? @db.Decimal(15, 2) @map("market_cap")
+  inUniverse              Boolean  @default(true) @map("in_universe")
+  universeStatusChangedAt DateTime? @db.Timestamptz(6) @map("universe_status_changed_at")
+
+  // Current price
+  currentPrice Decimal? @db.Decimal(10, 2) @map("current_price")
+
+  // Growth metrics
+  revenueGrowth3y   Decimal? @db.Decimal(5, 2) @map("revenue_growth_3y")
+  revenueGrowthFwd  Decimal? @db.Decimal(5, 2) @map("revenue_growth_fwd")
+  epsGrowth3y       Decimal? @db.Decimal(5, 2) @map("eps_growth_3y")
+  epsGrowthFwd      Decimal? @db.Decimal(5, 2) @map("eps_growth_fwd")
+  grossProfitGrowth Decimal? @db.Decimal(5, 2) @map("gross_profit_growth")
+
+  // Profitability metrics
+  grossMargin       Decimal? @db.Decimal(5, 2) @map("gross_margin")
+  operatingMargin   Decimal? @db.Decimal(5, 2) @map("operating_margin")
+  fcfMargin         Decimal? @db.Decimal(5, 2) @map("fcf_margin")
+  fcfConversion     Decimal? @db.Decimal(5, 4) @map("fcf_conversion")
+  roic              Decimal? @db.Decimal(5, 4)
+  netIncomePositive Boolean? @map("net_income_positive")
+  fcfPositive       Boolean? @map("fcf_positive")
+
+  // Balance sheet metrics
+  cashAndEquivalents Decimal? @db.Decimal(15, 2) @map("cash_and_equivalents")
+  totalDebt          Decimal? @db.Decimal(15, 2) @map("total_debt")
+  netDebtToEbitda    Decimal? @db.Decimal(6, 2) @map("net_debt_to_ebitda")
+  interestCoverage   Decimal? @db.Decimal(8, 2) @map("interest_coverage")
+  shareCountGrowth3y Decimal? @db.Decimal(5, 2) @map("share_count_growth_3y")
+
+  // Valuation metrics with provenance
+  forwardPe                                    Decimal? @db.Decimal(8, 2) @map("forward_pe")
+  forwardPeSource                              String?  @db.VarChar(20) @map("forward_pe_source")
+  trailingPe                                   Decimal? @db.Decimal(8, 2) @map("trailing_pe")
+
+  forwardEvEbit                                Decimal? @db.Decimal(8, 2) @map("forward_ev_ebit")
+  forwardEvEbitSource                          String?  @db.VarChar(20) @map("forward_ev_ebit_source")
+  trailingEvEbit                               Decimal? @db.Decimal(8, 2) @map("trailing_ev_ebit")
+
+  evSales                                      Decimal? @db.Decimal(8, 2) @map("ev_sales")
+  evSalesSource                                String?  @db.VarChar(20) @map("ev_sales_source")
+
+  forwardOperatingEarningsExExcessCash         Decimal? @db.Decimal(8, 2) @map("forward_operating_earnings_ex_excess_cash")
+  forwardOperatingEarningsExExcessCashSource   String?  @db.VarChar(20) @map("forward_operating_earnings_ex_excess_cash_source")
+
+  // Manual flags
+  holdingCompanyFlag          Boolean? @default(false) @map("holding_company_flag")
+  insurerFlag                 Boolean? @default(false) @map("insurer_flag")
+  cyclicalityFlag             Boolean? @default(false) @map("cyclicality_flag")
+  optionalityFlag             Boolean? @default(false) @map("optionality_flag")
+  binaryFlag                  Boolean? @default(false) @map("binary_flag")
+  marketPessimismFlag         Boolean? @default(false) @map("market_pessimism_flag")
+  preOperatingLeverageFlag    Boolean? @default(false) @map("pre_operating_leverage_flag")
+  materialDilutionFlag        Boolean? @default(false) @map("material_dilution_flag")
+
+  // Data freshness
+  fundamentalsLastUpdatedAt DateTime? @db.Timestamptz(6) @map("fundamentals_last_updated_at")
+  priceLastUpdatedAt        DateTime? @db.Timestamptz(6) @map("price_last_updated_at")
+  dataLastSyncedAt          DateTime? @db.Timestamptz(6) @map("data_last_synced_at")
+  dataProviderProvenance    Json      @default("{}") @map("data_provider_provenance")
+  dataFreshnessStatus       String?   @default("fresh") @db.VarChar(20) @map("data_freshness_status")
+  dataQualityIssues         Json      @default("[]") @map("data_quality_issues")
+
+  // Metadata
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  // Relations
+  classificationState         ClassificationState?
+  classificationHistory       ClassificationHistory[]
+  valuationState              ValuationState?
+  valuationHistory            ValuationHistory[]
+  userMonitoredStocks         UserMonitoredStock[]
+  userClassificationOverrides UserClassificationOverride[]
+  userValuationOverrides      UserValuationOverride[]
+  userOverrideHistory         UserOverrideHistory[]
+  userMonitoringHistory       UserMonitoringHistory[]
+  alerts                      Alert[]
+  alertHistory                AlertHistory[]
+
+  @@index([sector], name: "idx_stocks_sector")
+  @@index([dataFreshnessStatus], name: "idx_stocks_data_freshness")
+  // Partial indexes (WHERE in_universe = TRUE / WHERE zone IN ...) added via raw SQL migration
+  @@map("stocks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLASSIFICATION — system-computed shared state (RFC-002 §classification_state)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ClassificationState {
+  ticker                     String    @id @db.VarChar(10)
+  suggestedBucket            Int?      @map("suggested_bucket")
+  suggestedEarningsQuality   String?   @db.Char(1) @map("suggested_earnings_quality")
+  suggestedBalanceSheetQuality String? @db.Char(1) @map("suggested_balance_sheet_quality")
+  suggestedCode              String?   @db.VarChar(5) @map("suggested_code")
+  confidenceLevel            String    @db.VarChar(10) @map("confidence_level")
+  reasonCodes                Json      @default("[]") @map("reason_codes")
+  scores                     Json      @map("scores")
+  classificationLastUpdatedAt DateTime @default(now()) @db.Timestamptz(6) @map("classification_last_updated_at")
+  classificationSource       String    @db.VarChar(20) @map("classification_source")
+  version                    Int       @default(1)
+  createdAt                  DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([confidenceLevel], name: "idx_classification_confidence")
+  @@index([suggestedBucket], name: "idx_classification_suggested_bucket")
+  @@map("classification_state")
+}
+
+model ClassificationHistory {
+  id                  BigInt    @id @default(autoincrement())
+  ticker              String    @db.VarChar(10)
+  oldSuggestedCode    String?   @db.VarChar(5) @map("old_suggested_code")
+  oldFinalCode        String?   @db.VarChar(5) @map("old_final_code")
+  oldConfidenceLevel  String?   @db.VarChar(10) @map("old_confidence_level")
+  newSuggestedCode    String?   @db.VarChar(5) @map("new_suggested_code")
+  newFinalCode        String?   @db.VarChar(5) @map("new_final_code")
+  newConfidenceLevel  String?   @db.VarChar(10) @map("new_confidence_level")
+  changeReason        String    @db.VarChar(50) @map("change_reason")
+  changedAt           DateTime  @default(now()) @db.Timestamptz(6) @map("changed_at")
+  contextSnapshot     Json      @map("context_snapshot")
+  createdAt           DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([ticker], name: "idx_classification_history_ticker")
+  @@index([changedAt(sort: Desc)], name: "idx_classification_history_changed_at")
+  @@index([ticker, changedAt(sort: Desc)], name: "idx_classification_history_ticker_changed")
+  @@map("classification_history")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALUATION — system-computed shared state (RFC-002 §valuation_state)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ValuationState {
+  ticker                  String    @id @db.VarChar(10)
+  activeCode              String    @db.VarChar(5) @map("active_code")
+  primaryMetric           String    @db.VarChar(50) @map("primary_metric")
+  metricReason            String?   @db.VarChar(100) @map("metric_reason")
+  currentMultiple         Decimal?  @db.Decimal(10, 2) @map("current_multiple")
+  currentMultipleBasis    String?   @default("spot") @db.VarChar(20) @map("current_multiple_basis")
+  maxThreshold            Decimal?  @db.Decimal(10, 2) @map("max_threshold")
+  comfortableThreshold    Decimal?  @db.Decimal(10, 2) @map("comfortable_threshold")
+  veryGoodThreshold       Decimal?  @db.Decimal(10, 2) @map("very_good_threshold")
+  stealThreshold          Decimal?  @db.Decimal(10, 2) @map("steal_threshold")
+  thresholdSource         String    @db.VarChar(20) @map("threshold_source")
+  derivedFromCode         String?   @db.VarChar(5) @map("derived_from_code")
+  thresholdAdjustments    Json      @default("[]") @map("threshold_adjustments")
+  baseTsrHurdleLabel      String?   @db.VarChar(20) @map("base_tsr_hurdle_label")
+  baseTsrHurdleDefault    Decimal?  @db.Decimal(5, 2) @map("base_tsr_hurdle_default")
+  adjustedTsrHurdle       Decimal   @db.Decimal(5, 2) @map("adjusted_tsr_hurdle")
+  hurdleSource            String    @db.VarChar(20) @map("hurdle_source")
+  tsrReasonCodes          Json      @default("[]") @map("tsr_reason_codes")
+  valuationZone           String    @db.VarChar(20) @map("valuation_zone")
+  valuationStateStatus    String    @default("ready") @db.VarChar(20) @map("valuation_state_status")
+  valuationOverrideReason String?   @db.Text @map("valuation_override_reason")
+  valuationOverrideTimestamp DateTime? @db.Timestamptz(6) @map("valuation_override_timestamp")
+  valuationLastUpdatedAt  DateTime  @default(now()) @db.Timestamptz(6) @map("valuation_last_updated_at")
+  version                 Int       @default(1)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([valuationZone], name: "idx_valuation_zone")
+  @@index([activeCode], name: "idx_valuation_active_code")
+  @@index([thresholdSource], name: "idx_valuation_threshold_source")
+  @@index([valuationStateStatus], name: "idx_valuation_state_status")
+  // Partial index for steal/very_good/comfortable zones added via raw SQL migration
+  @@map("valuation_state")
+}
+
+model ValuationHistory {
+  id                  BigInt    @id @default(autoincrement())
+  ticker              String    @db.VarChar(10)
+  oldActiveCode       String?   @db.VarChar(5) @map("old_active_code")
+  oldPrimaryMetric    String?   @db.VarChar(50) @map("old_primary_metric")
+  oldCurrentMultiple  Decimal?  @db.Decimal(10, 2) @map("old_current_multiple")
+  oldValuationZone    String?   @db.VarChar(20) @map("old_valuation_zone")
+  oldAdjustedTsrHurdle Decimal? @db.Decimal(5, 2) @map("old_adjusted_tsr_hurdle")
+  newActiveCode       String?   @db.VarChar(5) @map("new_active_code")
+  newPrimaryMetric    String?   @db.VarChar(50) @map("new_primary_metric")
+  newCurrentMultiple  Decimal?  @db.Decimal(10, 2) @map("new_current_multiple")
+  newValuationZone    String?   @db.VarChar(20) @map("new_valuation_zone")
+  newAdjustedTsrHurdle Decimal? @db.Decimal(5, 2) @map("new_adjusted_tsr_hurdle")
+  changeReason        String    @db.VarChar(50) @map("change_reason")
+  changedAt           DateTime  @default(now()) @db.Timestamptz(6) @map("changed_at")
+  contextSnapshot     Json      @map("context_snapshot")
+  createdAt           DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([ticker], name: "idx_valuation_history_ticker")
+  @@index([changedAt(sort: Desc)], name: "idx_valuation_history_changed_at")
+  @@index([ticker, changedAt(sort: Desc)], name: "idx_valuation_history_ticker_changed")
+  @@index([newValuationZone, changedAt(sort: Desc)], name: "idx_valuation_history_zone_transitions")
+  @@map("valuation_history")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER-SCOPED TABLES (RFC-002 §Multi-User Tables)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UserMonitoredStock {
+  userId  String   @db.Uuid @map("user_id")
+  ticker  String   @db.VarChar(10)
+  addedAt DateTime @default(now()) @db.Timestamptz(6) @map("added_at")
+  notes   String?  @db.Text
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@id([userId, ticker])
+  @@index([userId], name: "idx_user_monitored_stocks_user_id")
+  @@index([ticker], name: "idx_user_monitored_stocks_ticker")
+  @@map("user_monitored_stocks")
+}
+
+model UserClassificationOverride {
+  userId                 String    @db.Uuid @map("user_id")
+  ticker                 String    @db.VarChar(10)
+  finalBucket            Int?      @map("final_bucket")
+  finalEarningsQuality   String?   @db.Char(1) @map("final_earnings_quality")
+  finalBalanceSheetQuality String? @db.Char(1) @map("final_balance_sheet_quality")
+  finalCode              String    @db.VarChar(5) @map("final_code")
+  overrideReason         String?   @db.Text @map("override_reason")
+  overriddenAt           DateTime  @default(now()) @db.Timestamptz(6) @map("overridden_at")
+  overriddenBy           String?   @db.Uuid @map("overridden_by")
+  createdAt              DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt              DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  user         User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock        Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+  overriddenByUser User? @relation("OverriddenBy", fields: [overriddenBy], references: [userId])
+
+  @@id([userId, ticker])
+  @@index([userId], name: "idx_user_classification_overrides_user_id")
+  @@index([ticker], name: "idx_user_classification_overrides_ticker")
+  @@map("user_classification_overrides")
+}
+
+model UserValuationOverride {
+  userId               String    @db.Uuid @map("user_id")
+  ticker               String    @db.VarChar(10)
+  maxThreshold         Decimal?  @db.Decimal(10, 2) @map("max_threshold")
+  comfortableThreshold Decimal?  @db.Decimal(10, 2) @map("comfortable_threshold")
+  veryGoodThreshold    Decimal?  @db.Decimal(10, 2) @map("very_good_threshold")
+  stealThreshold       Decimal?  @db.Decimal(10, 2) @map("steal_threshold")
+  overrideReason       String?   @db.Text @map("override_reason")
+  overriddenAt         DateTime  @default(now()) @db.Timestamptz(6) @map("overridden_at")
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt            DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@id([userId, ticker])
+  @@index([userId], name: "idx_user_valuation_overrides_user_id")
+  @@map("user_valuation_overrides")
+}
+
+model UserAlertPreferences {
+  userId                    String  @id @db.Uuid @map("user_id")
+  mutedAlertFamilies        Json    @default("[]") @map("muted_alert_families")
+  priorityThreshold         String  @default("low") @db.VarChar(20) @map("priority_threshold")
+  emailNotificationsEnabled Boolean @default(false) @map("email_notifications_enabled")
+  emailDigestFrequency      String  @default("daily") @db.VarChar(20) @map("email_digest_frequency")
+  createdAt                 DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt                 DateTime @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("user_alert_preferences")
+}
+
+model UserPreferences {
+  userId         String  @id @db.Uuid @map("user_id")
+  defaultSort    String  @default("zone_asc") @db.VarChar(50) @map("default_sort")
+  defaultFilters Json    @default("{}") @map("default_filters")
+  displayDensity String  @default("comfortable") @db.VarChar(20) @map("display_density")
+  preferences    Json    @default("{}") @map("preferences")
+  createdAt      DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserOverrideHistory {
+  id           BigInt    @id @default(autoincrement())
+  userId       String    @db.Uuid @map("user_id")
+  ticker       String    @db.VarChar(10)
+  overrideType String    @db.VarChar(20) @map("override_type")
+  oldValue     Json?     @map("old_value")
+  newValue     Json?     @map("new_value")
+  changeReason String?   @db.Text @map("change_reason")
+  changedAt    DateTime  @default(now()) @db.Timestamptz(6) @map("changed_at")
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([userId], name: "idx_user_override_history_user_id")
+  @@index([ticker], name: "idx_user_override_history_ticker")
+  @@index([changedAt(sort: Desc)], name: "idx_user_override_history_changed_at")
+  @@map("user_override_history")
+}
+
+model UserMonitoringHistory {
+  id        BigInt    @id @default(autoincrement())
+  userId    String    @db.Uuid @map("user_id")
+  ticker    String    @db.VarChar(10)
+  action    String    @db.VarChar(20)
+  actionAt  DateTime  @default(now()) @db.Timestamptz(6) @map("action_at")
+  createdAt DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([userId], name: "idx_user_monitoring_history_user_id")
+  @@index([actionAt(sort: Desc)], name: "idx_user_monitoring_history_action_at")
+  @@map("user_monitoring_history")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALERTS — per-user (RFC-002 §alerts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Alert {
+  id             BigInt    @id @default(autoincrement())
+  userId         String    @db.Uuid @map("user_id")
+  ticker         String    @db.VarChar(10)
+  alertType      String    @db.VarChar(50) @map("alert_type")
+  alertFamily    String    @db.VarChar(20) @map("alert_family")
+  priority       String    @db.VarChar(10)
+  summaryText    String    @db.Text @map("summary_text")
+  detailPayload  Json      @map("detail_payload")
+  activeCode     String?   @db.VarChar(5) @map("active_code")
+  valuationZone  String?   @db.VarChar(20) @map("valuation_zone")
+  currentMultiple Decimal? @db.Decimal(10, 2) @map("current_multiple")
+  thresholdSource String?  @db.VarChar(20) @map("threshold_source")
+  alertState     String    @default("active") @db.VarChar(20) @map("alert_state")
+  triggeredAt    DateTime  @default(now()) @db.Timestamptz(6) @map("triggered_at")
+  resolvedAt     DateTime? @db.Timestamptz(6) @map("resolved_at")
+  // dedup_key: SHA256(user_id + ticker + alert_type + zone + active_code)
+  dedupKey       String    @db.VarChar(100) @map("dedup_key")
+  suppressed     Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock        Stock        @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+  alertHistory AlertHistory[]
+
+  @@index([userId], name: "idx_alerts_user_id")
+  @@index([ticker], name: "idx_alerts_ticker")
+  @@index([alertState], name: "idx_alerts_alert_state")
+  @@index([priority], name: "idx_alerts_priority")
+  @@index([alertFamily], name: "idx_alerts_alert_family")
+  @@index([triggeredAt(sort: Desc)], name: "idx_alerts_triggered_at")
+  @@index([valuationZone], name: "idx_alerts_valuation_zone")
+  // Partial unique index for dedup and partial index for active alerts added via raw SQL migration
+  @@map("alerts")
+}
+
+model AlertHistory {
+  id              BigInt    @id @default(autoincrement())
+  alertId         BigInt    @map("alert_id")
+  userId          String    @db.Uuid @map("user_id")
+  ticker          String    @db.VarChar(10)
+  oldAlertState   String?   @db.VarChar(20) @map("old_alert_state")
+  newAlertState   String?   @db.VarChar(20) @map("new_alert_state")
+  transitionReason String?  @db.VarChar(50) @map("transition_reason")
+  transitionedAt  DateTime  @default(now()) @db.Timestamptz(6) @map("transitioned_at")
+  alertSnapshot   Json      @map("alert_snapshot")
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@index([alertId], name: "idx_alert_history_alert_id")
+  @@index([ticker], name: "idx_alert_history_ticker")
+  @@index([transitionedAt(sort: Desc)], name: "idx_alert_history_transitioned_at")
+  @@map("alert_history")
+}
