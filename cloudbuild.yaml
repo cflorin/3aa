@@ -1,10 +1,11 @@
 # EPIC-001/STORY-003/TASK-003-006 (initial)
-# EPIC-001/STORY-004/TASK-004-010 (add-cloudsql-instances for socket-based DB connection)
+# EPIC-001/STORY-004/TASK-004-010 (add-cloudsql-instances, migrator image, Cloud Run Job)
 # Cloud Build configuration for 3AA Monitoring Product
 
 steps:
-  # Build the Docker image
+  # Build the web app image (runner stage)
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-web'
     args:
       - 'build'
       - '-t'
@@ -13,17 +14,68 @@ steps:
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:v1.0.0'
       - '.'
 
-  # Push the Docker image to Artifact Registry
+  # Build the migrator image (migrator stage — full node_modules, no next build)
+  # Reuses Docker layer cache from build-web step (shared base/deps/migrator stages)
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-migrator'
+    args:
+      - 'build'
+      - '--target=migrator'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest'
+      - '.'
+    waitFor: ['build-web']
+
+  # Push web image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-web'
     args:
       - 'push'
       - '--all-tags'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web'
+    waitFor: ['build-web']
 
-  # Deploy to Cloud Run
+  # Push migrator image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-migrator'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest'
+    waitFor: ['build-migrator']
+
+  # Create or update the migration Cloud Run Job, then execute and wait for success.
+  # The job uses --add-cloudsql-instances so DATABASE_URL ?host= socket is available.
+  # Migrations run before the new app revision is deployed to prevent schema/code mismatch.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'run-migrations'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        gcloud run jobs describe aaa-migrate --region=us-central1 --project=$PROJECT_ID > /dev/null 2>&1 \
+          && gcloud run jobs update aaa-migrate \
+               --image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest \
+               --add-cloudsql-instances=$PROJECT_ID:us-central1:aaa-db \
+               --set-secrets=DATABASE_URL=DATABASE_URL:latest \
+               --service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com \
+               --memory=512Mi --cpu=1 \
+               --region=us-central1 --project=$PROJECT_ID \
+          || gcloud run jobs create aaa-migrate \
+               --image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest \
+               --add-cloudsql-instances=$PROJECT_ID:us-central1:aaa-db \
+               --set-secrets=DATABASE_URL=DATABASE_URL:latest \
+               --service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com \
+               --memory=512Mi --cpu=1 \
+               --region=us-central1 --project=$PROJECT_ID
+        gcloud run jobs execute aaa-migrate \
+          --region=us-central1 --project=$PROJECT_ID --wait
+    waitFor: ['push-migrator']
+
+  # Deploy to Cloud Run (after migrations complete successfully)
   # --add-cloudsql-instances: mounts Cloud SQL socket at /cloudsql/... matching DATABASE_URL format
   # --vpc-connector: kept for future private network access to other GCP services
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-web'
     args:
       - 'gcloud'
       - 'run'
@@ -41,9 +93,11 @@ steps:
       - '--timeout=60'
       - '--cpu=1'
       - '--memory=512Mi'
+    waitFor: ['push-web', 'run-migrations']
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:latest'
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:v1.0.0'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-migrator:latest'
 
 timeout: '1200s'

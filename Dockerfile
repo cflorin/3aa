@@ -2,8 +2,8 @@
 # STORY-003: Provision Core GCP Infrastructure (initial)
 # STORY-004: Implement Prisma Schema and Database Migrations
 #
-# Migrations are NOT run at container startup to keep startup fast and predictable.
-# Apply migrations via: npm run db:migrate:prod (see package.json) or Cloud Run Job.
+# Migrations run via the `migrator` stage (Cloud Run Job `aaa-migrate`) triggered from
+# Cloud Build before each deployment. See cloudbuild.yaml run-migrations step.
 
 FROM node:20-alpine AS base
 # libc6-compat required for Prisma query engine binary on Alpine/musl
@@ -14,6 +14,16 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --ignore-scripts
+
+# ── Database migrator (Cloud Run Job — applies Prisma migrations) ─────────────
+# Full node_modules required: Prisma CLI has transitive deps stripped in runner.
+# CMD overridden at job execution time via --command in Cloud Run Job definition.
+FROM base AS migrator
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npx prisma generate
+CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 FROM base AS builder
