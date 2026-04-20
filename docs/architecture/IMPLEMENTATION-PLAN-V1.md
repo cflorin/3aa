@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 8/9 EPIC-001 stories complete (89%)
+- **Overall Progress:** 0/7 epics complete (EPIC-001 complete ✅), 9/9 EPIC-001 stories complete (100%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -185,17 +185,23 @@
 - **Evidence Provided:** 17 unit + 52 integration tests passing (69 total); health check {"status":"healthy","db":"connected"} ✅
 
 ### STORY-009 — Document Development Environment Setup and Workflows
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-001 through STORY-008 (all prior setup complete)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** README.md created, CONTRIBUTING.md created, CHANGELOG.md created, .env.example created
+- **Tasks:** 6 (TASK-009-001 through TASK-009-006) ✅ ALL COMPLETE
+  - TASK-009-001: Story spec ✅
+  - TASK-009-002: README.md — full setup guide (prerequisites, install, local DB, tests, deploy) ✅
+  - TASK-009-003: CONTRIBUTING.md — commit format, test requirements, implementation tracking ✅
+  - TASK-009-004: CHANGELOG.md — v1.0.0-foundation entry with full EPIC-001 summary ✅
+  - TASK-009-005: .env.example — accurate local Docker dev setup ✅
+  - TASK-009-006: Tracking updated ✅
+- **Evidence Required:** README, CONTRIBUTING, CHANGELOG, .env.example all complete ✅
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** STORY-009 (Document Development Environment Setup and Workflows)
-- **Current Task:** None (starting)
-- **Last Completed:** STORY-008 (health endpoint unit + integration tests; page.tsx updated; 69 total tests)
-- **Next Action:** Begin STORY-009 task decomposition
+- **Current Story:** None — EPIC-001 COMPLETE ✅
+- **Current Task:** None
+- **Last Completed:** STORY-009 (README, CONTRIBUTING.md, CHANGELOG, .env.example)
+- **Next Action:** Begin EPIC-002 (Authentication & User Management)
 
 ## Blocked Items
 - None currently
@@ -222,6 +228,9 @@
 - ✅ **STORY-007 COMPLETE** (OIDC verification on 6 cron endpoints; all 6 Cloud Scheduler jobs triggered successfully; 7 unit tests) - 2026-04-20
 - ✅ STORY-008 task decomposition complete (5 tasks)
 - ✅ **STORY-008 COMPLETE** (health endpoint unit + integration tests; 69 total tests passing) - 2026-04-20
+- ✅ STORY-009 task decomposition complete (6 tasks)
+- ✅ **STORY-009 COMPLETE** (README setup guide, CONTRIBUTING.md, CHANGELOG v1.0.0-foundation, .env.example updated) - 2026-04-20
+- ✅ **EPIC-001 COMPLETE** — Platform Foundation & Deployment (all 9 stories done, 69 tests passing, Cloud Run deployed, Cloud SQL seeded) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)
