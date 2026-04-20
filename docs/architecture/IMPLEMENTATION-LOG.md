@@ -261,6 +261,40 @@ Copy this template for each new log entry:
 
 ---
 
+## 2026-04-20 08:10 UTC - STORY-004 Addendum: Production DB Connected and Healthy
+
+**Epic:** EPIC-001
+**Story:** STORY-004
+**Task:** TASK-004-010 (continuation)
+**Action:** Resolved production database connectivity after discovering Cloud SQL Auth Proxy socket was not reliably mounted in Cloud Run Jobs. Switched to VPC connector + private IP approach.
+
+**Root Causes Resolved:**
+1. Cloud SQL socket (`/cloudsql/aa-investor:us-central1:aaa-db`) was not mounted in Cloud Run Job containers even with `--set-cloudsql-instances`. Switched to VPC connector + Cloud SQL private IP (172.24.0.3).
+2. `DATABASE_URL` password contained `+` (base64 special char) that was URL-decoded incorrectly by some parsers. Reset `aaa_user` password to alphanumeric-only value; updated secret.
+3. `gcloud run jobs` uses `--set-cloudsql-instances` (not `--add-cloudsql-instances` which is for services).
+
+**Files Changed:**
+- `cloudbuild.yaml` (updated — migration job uses `--vpc-connector`, service deploy removes `--add-cloudsql-instances`)
+- `Dockerfile` (minor comment update to migrator stage)
+
+**GCP Changes (live):**
+- `aaa_user` password reset to clean alphanumeric value
+- `DATABASE_URL` secret updated to version 5: `postgresql://aaa_user:PASS@172.24.0.3/aaa_production`
+- `aaa-migrate` Cloud Run Job updated: `--clear-cloudsql-instances`, `--vpc-connector=aaa-vpc-connector`
+- `aaa-migrate-fwt5z` execution: 2 migrations applied (`20260420050917_init`, `20260420050934_add_partial_indexes`)
+- `aaa-web` Cloud Run service redeployed with new DATABASE_URL (VPC connector + private IP)
+
+**Evidence:**
+- Migration job `aaa-migrate-fwt5z`: "All migrations have been successfully applied" (2 migrations)
+- Health check: `{"status":"healthy","db":"connected","timestamp":"2026-04-20T08:05:04.666Z","service":"3aa-web"}`
+- All 19 tables in `aaa_production`, all 5 partial indexes applied
+
+**Baseline Impact:** NO — private IP + VPC connector is an equivalent and simpler connection method vs Cloud SQL Auth Proxy socket. No architecture change needed (VPC connector was already provisioned in STORY-003).
+
+**Next Action:** Begin STORY-005 (Create Framework Configuration Seed Data)
+
+---
+
 **Log Started:** 2026-04-19
 **Maintained By:** Claude during implementation
 **Update Frequency:** After each meaningful implementation step (task completion, significant file changes, test additions, blockers encountered, baseline impacts)
