@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 2/9 EPIC-001 stories complete (22%)
+- **Overall Progress:** 0/7 epics complete, 3/9 EPIC-001 stories complete (33%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -103,10 +103,19 @@
 - **Evidence Provided:** RFC-002 at /docs/rfc/RFC-002-canonical-data-model-persistence.md, 19 tables defined, 15 JSONB fields documented, entity relationship diagram included, indexing strategy documented, migration strategy outlined
 
 ### STORY-003 — Provision Core GCP Infrastructure
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-001 (for IaC scripts in repo)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** Cloud Run deployed, Cloud SQL running, VPC Connector functional, Secret Manager configured
+- **Tasks:** 8 (TASK-003-001 through TASK-003-008) ✅ ALL COMPLETE
+  - TASK-003-001: GCP project aa-investor configured, all 9 APIs enabled ✅
+  - TASK-003-002: Cloud SQL instance aaa-db (PostgreSQL 15, db-f1-micro, private IP 172.24.0.3, aaa_production DB) ✅
+  - TASK-003-003: VPC Connector aaa-vpc-connector (READY, 10.8.0.0/28, e2-micro, 2-10 instances) ✅
+  - TASK-003-004: Secret Manager secrets created (DATABASE_URL, SESSION_SECRET, TIINGO_API_KEY, FMP_API_KEY, ADMIN_API_KEY) ✅
+  - TASK-003-005: Service accounts aaa-web, aaa-scheduler, aaa-builder with correct IAM roles ✅
+  - TASK-003-006: Cloud Run service aaa-web deployed, health check 200 OK ✅
+  - TASK-003-007: 6 Cloud Scheduler jobs created (price-sync, fundamentals-sync, estimates-sync, classification, valuation, alerts) ✅
+  - TASK-003-008: Infrastructure verified, tracking updated ✅
+- **Evidence Required:** Cloud Run deployed, Cloud SQL running, VPC Connector functional, Secret Manager configured ✅
+- **Evidence Provided:** aaa-web at https://aaa-web-717628686883.us-central1.run.app, health check 200, Cloud SQL RUNNABLE, VPC Connector READY, 5 secrets, 3 SAs, 6 scheduler jobs ENABLED
 
 ### STORY-004 — Implement Prisma Schema and Database Migrations
 - **Status:** validated
@@ -146,10 +155,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** None (awaiting STORY-003 task decomposition)
+- **Current Story:** None (STORY-003 complete, STORY-004 next)
 - **Current Task:** None
-- **Last Completed:** STORY-002 (all 6 tasks complete)
-- **Next Action:** Decompose STORY-003 into tasks (Provision Core GCP Infrastructure)
+- **Last Completed:** STORY-003 (all 8 tasks complete — GCP infrastructure operational)
+- **Next Action:** Begin STORY-004 (Implement Prisma Schema and Database Migrations)
 
 ## Blocked Items
 - None currently
@@ -164,6 +173,8 @@
 - ✅ **STORY-001 COMPLETE** (GitHub repository setup with version control foundation) - 2026-04-19
 - ✅ STORY-002 task decomposition complete (6 tasks)
 - ✅ **STORY-002 COMPLETE** (RFC-002 database schema verified - 19 tables, JSONB structures, ER diagram) - 2026-04-19
+- ✅ STORY-003 task decomposition complete (8 tasks)
+- ✅ **STORY-003 COMPLETE** (GCP infrastructure operational: Cloud SQL, VPC Connector, Secret Manager, Service Accounts, Cloud Run, Cloud Scheduler) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)
@@ -201,5 +212,5 @@ If implementation reveals needed architecture changes:
 
 ---
 
-**Last Updated:** 2026-04-19 20:50 UTC
-**Updated By:** Claude (STORY-002 Complete)
+**Last Updated:** 2026-04-20 04:50 UTC
+**Updated By:** Claude (STORY-003 Complete)

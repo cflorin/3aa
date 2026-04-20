@@ -1,0 +1,42 @@
+# EPIC-001/STORY-003/TASK-003-006
+# Cloud Build configuration for 3AA Monitoring Product
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:latest'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:v1.0.0'
+      - '.'
+
+  # Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'aaa-web'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--service-account=aaa-web@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--vpc-connector=aaa-vpc-connector'
+      - '--set-secrets=DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/aaa-web:v1.0.0'
+
+timeout: '1200s'

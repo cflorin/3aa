@@ -144,6 +144,53 @@ Copy this template for each new log entry:
 
 ---
 
+## 2026-04-20 04:50 UTC - STORY-003 Complete: GCP Infrastructure Provisioned
+
+**Epic:** EPIC-001
+**Story:** STORY-003
+**Task:** TASK-003-001 through TASK-003-008
+**Action:** Completed full GCP infrastructure provisioning. All 8 tasks executed and verified:
+- TASK-003-001: Verified GCP project `aa-investor` configured with all 9 required APIs enabled
+- TASK-003-002: Verified Cloud SQL instance `aaa-db` (PostgreSQL 15, db-f1-micro, private IP 172.24.0.3, RUNNABLE, database `aaa_production` exists)
+- TASK-003-003: Verified VPC Connector `aaa-vpc-connector` (us-central1, 10.8.0.0/28, e2-micro, 2-10 instances, READY)
+- TASK-003-004: Verified 5 Secret Manager secrets exist (DATABASE_URL, SESSION_SECRET, TIINGO_API_KEY, FMP_API_KEY, ADMIN_API_KEY)
+- TASK-003-005: Verified 3 service accounts with correct IAM roles (aaa-web: cloudsql.client + secretmanager.secretAccessor + logging.logWriter; aaa-scheduler: run.invoker; aaa-builder: run.admin + iam.serviceAccountUser + storage.admin)
+- TASK-003-006: Cloud Run `aaa-web` deployed, fixed unauthenticated access (allUsers run.invoker), health check confirmed 200 OK
+- TASK-003-007: Created 6 Cloud Scheduler jobs (ENABLED, America/New_York timezone): price-sync 17:00, fundamentals-sync 18:00, estimates-sync 19:00, classification 20:00, valuation 20:15, alerts 20:30 (all Mon-Fri)
+- TASK-003-008: Full infrastructure verification sweep passed
+
+**Files Changed:**
+- `stories/tasks/EPIC-001-platform-foundation/STORY-003-provision-gcp-infrastructure.md` (updated — status done, `3aa-*` → `aaa-*` naming corrected throughout, cron schedules fixed to ET times, URL updated)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (updated — STORY-003 marked done, progress 3/9, active work updated)
+- `docs/architecture/IMPLEMENTATION-LOG.md` (updated — this entry)
+- `cloudbuild.yaml` (committed — previously untracked, already uses correct `aaa-*` naming)
+
+**GCP Changes (live infrastructure):**
+- Cloud Run IAM: added `allUsers` as `roles/run.invoker` (enables unauthenticated access for web app)
+- Cloud Scheduler: created 6 jobs (price-sync, fundamentals-sync, estimates-sync, classification, valuation, alerts)
+
+**Tests Added/Updated:** None (infrastructure provisioning task)
+
+**Result/Status:** Success — STORY-003 complete, all infrastructure operational
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** YES (minor, approved) — GCP resource names use `aaa-` prefix instead of `3aa-` because GCP resource names cannot start with a number. Story spec corrected to reflect actual naming. No architecture change, no RFC amendment required.
+
+**Cron Schedule Fix:** Original spec had a bug — cron expressions used UTC hours (e.g., "0 22") but set `--time-zone="America/New_York"`. This would have scheduled jobs at 10pm ET, not 5pm ET. Fixed to use correct ET hours ("0 17" = 5pm ET) with America/New_York timezone, matching the described intent.
+
+**Evidence:**
+- Cloud SQL: `aaa-db` RUNNABLE, private IP 172.24.0.3, `aaa_production` DB exists
+- VPC Connector: `aaa-vpc-connector` READY
+- Secrets: 5 secrets in Secret Manager
+- Service Accounts: `aaa-web`, `aaa-scheduler`, `aaa-builder` with correct IAM roles
+- Cloud Run: `https://aaa-web-717628686883.us-central1.run.app` returns 200 from `/api/health`
+- Cloud Scheduler: 6 jobs all ENABLED with correct ET schedules
+
+**Next Action:** Begin STORY-004 (Implement Prisma Schema and Database Migrations)
+
+---
+
 **Log Started:** 2026-04-19
 **Maintained By:** Claude during implementation
 **Update Frequency:** After each meaningful implementation step (task completion, significant file changes, test additions, blockers encountered, baseline impacts)
