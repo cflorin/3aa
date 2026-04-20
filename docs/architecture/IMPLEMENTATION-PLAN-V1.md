@@ -12,7 +12,7 @@
 - **Current Phase:** EPIC-001 Implementation
 - **Active Epic:** EPIC-001 — Platform Foundation & Deployment
 - **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete, 7/9 EPIC-001 stories complete (78%)
+- **Overall Progress:** 0/7 epics complete, 8/9 EPIC-001 stories complete (89%)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -173,10 +173,16 @@
 - **Evidence Provided:** All 6 jobs status={} (success) × 2 triggers (before and after OIDC deploy); health check healthy; 12 unit tests + 50 integration tests passing
 
 ### STORY-008 — Implement Next.js Application Foundation with Health Check
-- **Status:** validated
+- **Status:** done
 - **Dependencies:** STORY-003 (Cloud Run), STORY-004 (Prisma schema)
-- **Tasks:** [To be decomposed]
-- **Evidence Required:** Next.js app running, health check passes, Dockerfile created, manual deployment succeeds
+- **Tasks:** 5 (TASK-008-001 through TASK-008-005) ✅ ALL COMPLETE
+  - TASK-008-001: Story spec ✅
+  - TASK-008-002: page.tsx updated (removed story number reference) ✅
+  - TASK-008-003: 5 unit tests for health endpoint (mocked Prisma), all passing ✅
+  - TASK-008-004: 2 integration tests for health endpoint (real test DB), all passing ✅
+  - TASK-008-005: Tracking updated ✅
+- **Evidence Required:** Health check passes, tests passing ✅
+- **Evidence Provided:** 17 unit + 52 integration tests passing (69 total); health check {"status":"healthy","db":"connected"} ✅
 
 ### STORY-009 — Document Development Environment Setup and Workflows
 - **Status:** validated
@@ -186,10 +192,10 @@
 
 ## Active Work
 - **Current Epic:** EPIC-001
-- **Current Story:** STORY-008 (Implement Next.js Application Foundation with Health Check)
+- **Current Story:** STORY-009 (Document Development Environment Setup and Workflows)
 - **Current Task:** None (starting)
-- **Last Completed:** STORY-007 (OIDC verification on all 6 cron endpoints; 6 Cloud Scheduler jobs verified; 7 unit tests)
-- **Next Action:** Begin STORY-008 task decomposition
+- **Last Completed:** STORY-008 (health endpoint unit + integration tests; page.tsx updated; 69 total tests)
+- **Next Action:** Begin STORY-009 task decomposition
 
 ## Blocked Items
 - None currently
@@ -214,6 +220,8 @@
 - ✅ **STORY-006 COMPLETE** (cloudbuild.yaml unit test gate; 5 pipeline tests passing; GitHub webhook deferred as negligible for solo workflow) - 2026-04-20
 - ✅ STORY-007 task decomposition complete (6 tasks)
 - ✅ **STORY-007 COMPLETE** (OIDC verification on 6 cron endpoints; all 6 Cloud Scheduler jobs triggered successfully; 7 unit tests) - 2026-04-20
+- ✅ STORY-008 task decomposition complete (5 tasks)
+- ✅ **STORY-008 COMPLETE** (health endpoint unit + integration tests; 69 total tests passing) - 2026-04-20
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)

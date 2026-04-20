@@ -428,3 +428,38 @@ Copy this template for each new log entry:
 
 **Next Action:** Begin STORY-008 (Implement Next.js Application Foundation with Health Check)
 
+
+---
+
+## Entry: STORY-008 Complete — Next.js Application Foundation
+
+**Timestamp:** 2026-04-20T12:40:00Z
+**Epic:** EPIC-001
+**Story:** STORY-008
+**Tasks:** TASK-008-001 through TASK-008-005 — ALL COMPLETE
+
+**Action:** Formally documented and tested the Next.js foundation. Pre-existing deliverables (health check, Prisma singleton, Dockerfile, next.config.js, Cloud Run deployment) were implemented in STORY-003/004; this story adds test coverage and closes the story.
+
+**Files Changed:**
+- `src/app/page.tsx` — removed story number reference from placeholder
+- `stories/tasks/EPIC-001-platform-foundation/STORY-008-nextjs-foundation.md` — CREATED: full story spec
+- `tests/unit/api/health.test.ts` — CREATED: 5 unit tests with mocked Prisma
+- `tests/integration/api/health.test.ts` — CREATED: 2 integration tests against real test DB
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-008 → done, progress 8/9 (89%)
+
+**Tests Added:**
+- `tests/unit/api/health.test.ts`: 5 tests (healthy, degraded, db field, error field, timestamp+service)
+- `tests/integration/api/health.test.ts`: 2 tests (HTTP 200, status=healthy)
+
+**Result/Status:** DONE
+
+**Baseline Impact:** NO
+
+**Evidence:**
+- 17 unit tests: ALL PASS (5 pipeline + 7 scheduler-auth + 5 health)
+- 52 integration tests: ALL PASS (50 database + 2 health)
+- 69 total tests passing
+- Health check: {"status":"healthy","db":"connected"} ✅
+
+**Next Action:** Begin STORY-009 (Document Development Environment Setup and Workflows) — final EPIC-001 story
+
