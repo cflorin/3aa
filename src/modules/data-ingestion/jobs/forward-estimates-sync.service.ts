@@ -180,6 +180,16 @@ export async function syncForwardEstimates(
         ? ((revenueNtm - revenueTtmNum) / revenueTtmNum) * 100
         : null;
 
+      // STORY-031: gaap_adjustment_factor = epsTtm (GAAP, from DB) / nonGaapEpsMostRecentFy
+      // epsTtmNum is FMP annual epsDiluted for FMP-primary stocks (set by prior fundamentals sync)
+      // V1 simplification: date-matching guard skipped (requires extra DB column not in spec)
+      const nonGaapEpsMostRecentFy: number | null = estimatesResult.value?.nonGaapEpsMostRecentFy ?? null;
+      let gaapAdjustmentFactor: number | null = null;
+      if (epsTtmNum !== null && nonGaapEpsMostRecentFy !== null && Math.abs(nonGaapEpsMostRecentFy) >= 0.10) {
+        const raw = epsTtmNum / nonGaapEpsMostRecentFy;
+        gaapAdjustmentFactor = Math.max(0.10, Math.min(2.00, raw));
+      }
+
       let fwdPeValue: number | null = forwardPeFromProvider;
       let fwdPeProviderUsed: string = estimatesResult.source_provider;
       let fwdPeFallbackUsed: boolean = estimatesResult.fallback_used;
@@ -265,6 +275,14 @@ export async function syncForwardEstimates(
       if (revenueGrowthFwdComputed !== null) {
         updateData.revenueGrowthFwd = revenueGrowthFwdComputed;
         provenanceUpdates['revenue_growth_fwd'] = computedProvenance;
+      }
+      if (gaapAdjustmentFactor !== null) {
+        updateData.gaapAdjustmentFactor = gaapAdjustmentFactor;
+        provenanceUpdates['gaap_adjustment_factor'] = {
+          provider: 'computed_fmp',
+          synced_at: provenanceNow,
+          fallback_used: false,
+        };
       }
 
       if (Object.keys(updateData).length > 0) {

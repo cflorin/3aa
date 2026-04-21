@@ -44,3 +44,6 @@ prisma/migrations/*_migration.sql
 # IDE
 .vscode/
 .idea/
+
+# Archive files
+*.zip

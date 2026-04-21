@@ -258,6 +258,9 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
         ebit: 120_000_000,
         interestExpense: 3_000_000,  // interest_coverage = 120M/3M = 40
         epsDiluted: 4.00,
+        // STORY-030: tax fields → rate=24M/120M=20%; NOPAT=120M*0.8=96M; IC=50+100-20=130M; roic≈0.7385
+        incomeTaxExpense: 24_000_000,
+        incomeBeforeTax: 120_000_000,
       },
       {
         // FY2024 (prior)
@@ -300,7 +303,9 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result!.interest_coverage).toBeCloseTo(40);
       expect(result!.roe).toBeCloseTo(80_000_000 / 50_000_000);
       expect(result!.roa).toBeCloseTo(80_000_000 / 500_000_000);
-      expect(result!.roic).toBeCloseTo(80_000_000 / 150_000_000);
+      expect(result!.roic).toBeCloseTo(96_000_000 / 130_000_000); // STORY-030: NOPAT=96M (120M*0.8), IC=130M (50+100-20)
+      expect(result!.gaapEps).toBeCloseTo(4.0);                  // STORY-031: epsDiluted exposed
+      expect(result!.gaapEpsFiscalYearEnd).toBe('2025-09-27');   // STORY-031: FY end date from latest.date
       expect(result!.debt_to_equity).toBeCloseTo(100_000_000 / 50_000_000);
       expect(result!.current_ratio).toBeCloseTo(150_000_000 / 75_000_000);
       expect(result!.trailing_pe).toBeNull();
@@ -389,6 +394,20 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result).not.toBeNull();
       expect(result!.ticker).toBe('AAPL');
       expect(result!.eps_ntm).toBeCloseTo(8.49);
+      // STORY-031: most recently completed FY = 2025-09-27 entry (epsAvg=7.38)
+      expect(result!.nonGaapEpsMostRecentFy).toBeCloseTo(7.38);
+      expect(result!.nonGaapEpsFiscalYearEnd).toBe('2025-09-27');
+    });
+
+    it('STORY-031: nonGaapEpsMostRecentFy=null when all entries are future', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue(mockResponse(200, [
+        { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32, ebitAvg: null, estimatedRevenueAvg: null },
+        { symbol: 'AAPL', date: '2028-09-27', epsAvg: 10.0, ebitAvg: null, estimatedRevenueAvg: null },
+      ]));
+      const result = await adapter.fetchForwardEstimates('AAPL');
+      expect(result).not.toBeNull();
+      expect(result!.nonGaapEpsMostRecentFy).toBeNull();
+      expect(result!.nonGaapEpsFiscalYearEnd).toBeNull();
     });
 
     it('402 response returns null (plan restriction)', async () => {

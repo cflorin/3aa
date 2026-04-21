@@ -1,0 +1,5 @@
+[
+  { "symbol": "AAPL", "date": "2025-09-30", "epsAvg": 7.20, "ebitAvg": 130000000000, "estimatedRevenueAvg": 415000000000, "numAnalystsEps": 12 },
+  { "symbol": "AAPL", "date": "2024-09-30", "epsAvg": 6.60, "ebitAvg": 120000000000, "estimatedRevenueAvg": 398000000000, "numAnalystsEps": 14 },
+  { "symbol": "AAPL", "date": "2023-09-30", "epsAvg": 6.10, "ebitAvg": 114000000000, "estimatedRevenueAvg": 383000000000, "numAnalystsEps": 15 }
+]

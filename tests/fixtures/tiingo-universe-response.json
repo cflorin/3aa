@@ -1,0 +1,18 @@
+[
+  {
+    "ticker": "AAPL",
+    "name": "Apple Inc",
+    "isActive": true,
+    "location": "Cupertino, CA, USA",
+    "sector": "Technology",
+    "industry": "Consumer Electronics"
+  },
+  {
+    "ticker": "SMLL",
+    "name": "Small Corp",
+    "isActive": false,
+    "location": "New York, NY, USA",
+    "sector": null,
+    "industry": null
+  }
+]

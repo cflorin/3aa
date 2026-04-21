@@ -43,8 +43,20 @@ export interface FundamentalData {
   // Growth
   revenue_growth_yoy: number | null;
   eps_growth_yoy: number | null;
+  /** 3-year revenue CAGR, percentage (e.g. 12 = 12%). STORY-029. */
+  revenue_growth_3y: number | null;
+  /** 3-year diluted EPS CAGR, percentage; null when base EPS ≤ 0. STORY-029. */
+  eps_growth_3y: number | null;
+  /** YoY gross profit growth, percentage (TTM vs prior TTM for Tiingo; FY0 vs FY-1 for FMP). STORY-029. */
+  gross_profit_growth: number | null;
+  /** 3-year diluted share count CAGR, percentage (FMP only; null from Tiingo). STORY-029. */
+  share_count_growth_3y: number | null;
   /** Stored as percentage: 10 = 10% growth. Confirmed format per STORY-021. */
   eps_growth_fwd: number | null;
+  /** GAAP diluted EPS for most recent fiscal year — FMP annual epsDiluted. Null for Tiingo. STORY-031. */
+  gaapEps: number | null;
+  /** Fiscal year end date (ISO string) for gaapEps — e.g. "2024-09-30". Null for Tiingo. STORY-031. */
+  gaapEpsFiscalYearEnd: string | null;
   /** Trailing twelve months revenue, absolute USD */
   revenue_ttm: number | null;
   /** Trailing twelve months net income, absolute USD */
@@ -59,7 +71,8 @@ export interface FundamentalData {
   roe: number | null;
   /** Return on assets */
   roa: number | null;
-  /** Return on invested capital — see STORY-030 for correct NOPAT formula */
+  /** NOPAT / Invested Capital. NOPAT = TTM EBIT × (1 − effective_tax_rate);
+   *  IC = equity + debt − cash. Null when IC ≤ 0 (e.g. AAPL buybacks). STORY-030. */
   roic: number | null;
   trailing_pe: number | null;
   /** TTM free cash flow, absolute USD. Null if provider does not supply FCF DataCode at this tier. */
@@ -97,6 +110,10 @@ export interface ForwardEstimates {
   ebit_ntm: number | null;
   /** NTM revenue in absolute USD — FMP estimatedRevenueAvg */
   revenue_ntm: number | null;
+  /** Non-GAAP consensus EPS (FMP epsAvg) for the most recently completed fiscal year. STORY-031. */
+  nonGaapEpsMostRecentFy: number | null;
+  /** Fiscal year end date for nonGaapEpsMostRecentFy — ISO string. STORY-031. */
+  nonGaapEpsFiscalYearEnd: string | null;
 }
 
 /**

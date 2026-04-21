@@ -11,7 +11,7 @@
 ## Status Summary
 - **Current Phase:** EPIC-003 Data Quality Extension
 - **Active Epic:** EPIC-003 — Data Ingestion & Universe Management (extended)
-- **Active Story:** STORY-029 — 3-Year Growth CAGRs
+- **Active Story:** STORY-032 (next story — to be identified)
 - **Overall Progress:** 2/7 epics complete (EPIC-001 ✅, EPIC-002 ✅), EPIC-003 extended with 5 new stories (025–029)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
@@ -125,22 +125,22 @@
 - **Files:** types.ts, fmp.adapter.ts, forward-estimates-sync.service.ts, prisma/schema.prisma, migration SQL
 
 #### STORY-029 — 3-Year Growth CAGRs
-- **Status:** ready
+- **Status:** done ✅ (TASK-029-001–005 complete 2026-04-21)
 - **Dependencies:** STORY-026 (TTM pattern); STORY-027 (eps_ttm for eps_growth_fwd)
 - **Tasks:** Upgrade FMP to limit=5 annual periods, compute revenue/eps/share CAGR, gross_profit_growth from Tiingo 8-quarter window; provenance tracking for all new fields
 - **Files:** fmp.adapter.ts, tiingo.adapter.ts, fundamentals-sync.service.ts
 
 #### STORY-030 — ROIC: NOPAT / Invested Capital
-- **Status:** ready
+- **Status:** done ✅ (TASK-030-001–002 complete 2026-04-21)
 - **Dependencies:** STORY-026 Fix 4 (cashAndEq DataCode confirmed); Tiingo taxExp/pretaxinc DataCode verification
-- **Tasks:** Fix Tiingo adapter ROIC formula (TTM NOPAT / IC); fix FMP adapter ROIC formula; update FMP income statement fixture with tax fields; integration tests
-- **Files:** tiingo.adapter.ts, fmp.adapter.ts, fmp-income-statement-response.json
+- **Tasks:** Fixed NOPAT/IC formula in both adapters; added taxExp/pretaxinc DataCodes to fixtures; 12 edge case tests (IC=0/negative, loss-year, 50% cap, ebit=0, cash-absent)
+- **Evidence:** 391/391 unit tests passing
 
 #### STORY-031 — GAAP / Non-GAAP EPS Reconciliation Factor
-- **Status:** ready
+- **Status:** done ✅ (TASK-031-001–006 complete 2026-04-21)
 - **Dependencies:** STORY-028 (ForwardEstimates type extension); FMP epsDiluted in income statement fixture
-- **Tasks:** Schema migration (+1 column); extend FundamentalData/ForwardEstimates types; compute factor with FY date-matching; clamp guard; integration tests
-- **Files:** fmp.adapter.ts, fundamentals-sync.service.ts, prisma/schema.prisma
+- **Tasks:** Schema migration (+1 column); FundamentalData/ForwardEstimates type extensions; FMP adapter exposes gaapEps + nonGaapEpsMostRecentFy; Tiingo returns null for gaapEps; computation in syncForwardEstimates with clamp [0.10, 2.00]; 11 new tests
+- **Evidence:** 402/402 unit tests passing
 
 ### EPIC-004 — Classification Engine & Universe Screen
 - **Status:** planned

@@ -1,0 +1,18 @@
+[
+  {
+    "symbol": "AAPL",
+    "companyName": "Apple Inc.",
+    "price": 213.49,
+    "marketCap": 3282000000000,
+    "sharesOutstanding": 15380000000,
+    "exchange": "NASDAQ",
+    "exchangeShortName": "NASDAQ",
+    "sector": "Technology",
+    "industry": "Consumer Electronics",
+    "country": "US",
+    "currency": "USD",
+    "ipoDate": "1980-12-12",
+    "isEtf": false,
+    "isActivelyTrading": true
+  }
+]

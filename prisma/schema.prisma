@@ -175,9 +175,11 @@ model Stock {
 
   // Valuation metrics with provenance
   // NTM raw inputs (STORY-028) — absolute USD; used to compute forward ratios in syncForwardEstimates()
-  epsNtm         Decimal? @db.Decimal(10, 4) @map("eps_ntm")
-  ebitNtm        Decimal? @db.Decimal(20, 2) @map("ebit_ntm")
-  revenueNtm     Decimal? @db.Decimal(20, 2) @map("revenue_ntm")
+  epsNtm               Decimal? @db.Decimal(10, 4) @map("eps_ntm")
+  ebitNtm              Decimal? @db.Decimal(20, 2) @map("ebit_ntm")
+  revenueNtm           Decimal? @db.Decimal(20, 2) @map("revenue_ntm")
+  // STORY-031: GAAP/non-GAAP adjustment factor = GAAP epsDiluted / non-GAAP analyst consensus epsAvg
+  gaapAdjustmentFactor Decimal? @db.Decimal(5, 4)  @map("gaap_adjustment_factor")
 
   forwardPe                                    Decimal? @db.Decimal(8, 2) @map("forward_pe")
   forwardPeSource                              String?  @db.VarChar(20) @map("forward_pe_source")

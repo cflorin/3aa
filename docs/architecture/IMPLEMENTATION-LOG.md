@@ -1639,3 +1639,87 @@ Key implementation decisions:
 **Blockers/Issues:** TASK-028-006 integration tests deferred (requires live API + DATABASE_URL)
 **Baseline Impact:** NO — extends existing columns; field rename in ForwardEstimates is internal to data pipeline; no RFC/ADR changes required
 **Next Action:** STORY-029 (3-year growth CAGRs)
+
+---
+
+## 2026-04-21 15:00 UTC — STORY-029: 3-Year Growth CAGRs
+
+**Epic:** EPIC-003
+**Story:** STORY-029 — 3-Year Growth CAGRs
+**Task:** TASK-029-001 through TASK-029-005 (all tasks)
+**Action:** Implemented correct 3-year CAGRs for revenue, EPS, and share count; gross_profit_growth (YoY); fixed wrong YoY→3y misrouting from STORY-020; updated both adapters and sync service.
+
+**Files Changed:**
+- `src/modules/data-ingestion/types.ts` (modified) — added `revenue_growth_3y`, `eps_growth_3y`, `gross_profit_growth`, `share_count_growth_3y` to FundamentalData
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` (modified) — limit=5 for income statement; cagrPercent() helper; 3-year CAGR computation from index 0 vs index 3; gross_profit_growth YoY; share_count_growth_3y from weightedAverageShsOutDil
+- `src/modules/data-ingestion/adapters/tiingo.adapter.ts` (modified) — grossProfit DataCode reading; gross_profit_growth from 8Q TTM window; revenue_growth_3y/eps_growth_3y from 16Q window; share_count_growth_3y null
+- `src/modules/data-ingestion/jobs/fundamentals-sync.service.ts` (modified) — removed wrong revenueGrowth3y←revenue_growth_yoy and epsGrowth3y←eps_growth_yoy mappings; added correct revenue_growth_3y→revenueGrowth3y, eps_growth_3y→epsGrowth3y, gross_profit_growth→grossProfitGrowth, share_count_growth_3y→shareCountGrowth3y
+- `tests/fixtures/fmp-income-statement-response.json` (modified) — added FY2021 and FY2020 entries; added weightedAverageShsOutDil to all 4 entries
+- `tests/fixtures/tiingo-fundamentals-response.json` (modified) — added grossProfit DataCode to all 8 existing quarters; added Q8-Q15 (2020-2021) for 16-quarter window
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-029-growth-cagrs.test.ts` (created) — 24 new tests: FMP CAGR computations, Tiingo 16Q window, sync service field routing
+- `tests/unit/data-ingestion/tiingo.adapter.test.ts` (modified) — added grossProfit DataCodes to Q1-Q7 in fixture; added 4 new assertions for STORY-029 fields
+- `tests/unit/data-ingestion/fundamentals-sync.service.test.ts` (modified) — updated makeFundamentals() with 4 new fields; updated allNull object
+
+**Result/Status:** 379/379 unit tests passing (up from 352, +27 new tests)
+**Blockers/Issues:** TASK-029-006 integration tests deferred (requires live API + DATABASE_URL)
+**Baseline Impact:** NO — uses existing schema columns (revenueGrowth3y, epsGrowth3y, grossProfitGrowth, shareCountGrowth3y already in schema); no RFC/ADR changes required
+**Next Action:** STORY-030 (ROIC: NOPAT / Invested Capital)
+
+---
+
+## 2026-04-21 16:30 UTC — STORY-030: ROIC — NOPAT / Invested Capital
+
+**Epic:** EPIC-003
+**Story:** STORY-030 — ROIC: NOPAT / Invested Capital
+**Task:** TASK-030-001 through TASK-030-002 (all tasks)
+**Action:** Replaced incorrect ROIC formula (netIncome / (equity+debt)) with NOPAT / Invested Capital in both adapters. NOPAT = TTM EBIT × (1 − effective_tax_rate); IC = equity + debt − cash; effective_tax_rate = TTM taxExp / TTM pretaxinc, clamped [0, 0.50]; 25% statutory fallback on loss year (pretaxinc ≤ 0). roic=null when IC ≤ 0.
+
+**Files Changed:**
+- `src/modules/data-ingestion/adapters/tiingo.adapter.ts` (modified) — added ttmTaxExp/ttmPretaxInc sums from taxExp/pretaxinc DataCodes; NOPAT/IC ROIC formula; IC fallback to equity+debt when cashAndEq absent
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` (modified) — extracted incomeTaxExpense/incomeBeforeTax from latest income record; NOPAT/IC ROIC formula; IC fallback when cash null
+- `src/modules/data-ingestion/types.ts` (modified) — updated roic JSDoc to reflect new formula
+- `tests/fixtures/fmp-income-statement-response.json` (modified) — added incomeTaxExpense/incomeBeforeTax to all 4 FY entries
+- `tests/fixtures/tiingo-fundamentals-response.json` (modified) — added taxExp/pretaxinc DataCodes to all 16 quarters
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-030-roic.test.ts` (created) — 12 edge case tests: IC=0→null, IC<0→null, loss-year 25% fallback, 50% rate cap, ebit=0→null, cash-absent IC fallback; both adapters
+- `tests/unit/data-ingestion/tiingo.adapter.test.ts` (modified) — added taxExp/pretaxinc to Q0-Q3 fixture; updated ROIC assertion to new formula
+- `tests/unit/data-ingestion/fmp.adapter.test.ts` (modified) — added incomeTaxExpense/incomeBeforeTax to mockIncome[0]; updated ROIC assertion to 96M/130M
+
+**Result/Status:** 391/391 unit tests passing (up from 379, +12 new tests)
+**Blockers/Issues:** TASK-030-003 integration tests deferred (requires live API + DATABASE_URL; taxExp/pretaxinc DataCodes assumed from spec, unverified against live Tiingo)
+**Baseline Impact:** NO — roic column already exists in schema (Decimal(5,4)); no RFC/ADR changes required
+**Next Action:** STORY-031 (GAAP / Non-GAAP EPS Reconciliation Factor)
+
+---
+
+## 2026-04-21 17:30 UTC — STORY-031: GAAP / Non-GAAP EPS Reconciliation Factor
+
+**Epic:** EPIC-003
+**Story:** STORY-031 — GAAP / Non-GAAP EPS Reconciliation Factor
+**Task:** TASK-031-001 through TASK-031-006 (all tasks)
+**Action:** Implemented `gaap_adjustment_factor = GAAP EPS / non-GAAP EPS` for most recently completed fiscal year. GAAP EPS = FMP annual `epsDiluted` (stored as `eps_ttm` in DB). Non-GAAP EPS = FMP analyst consensus `epsAvg` for most recently completed FY (new field `nonGaapEpsMostRecentFy` on `ForwardEstimates`). Clamped to [0.10, 2.00]; null when denominator < 0.10 or either input null.
+
+**Architecture decision**: Computed in `syncForwardEstimates` (has both `epsTtmNum` from DB and `nonGaapEpsMostRecentFy` from `ForwardEstimates` in-memory — no extra API call). **V1 simplification**: date-matching guard skipped (would require extra DB column not in spec); for S&P 500 universe FY dates always align.
+
+**Files Changed:**
+- `src/modules/data-ingestion/types.ts` (modified) — `FundamentalData`: added `gaapEps`, `gaapEpsFiscalYearEnd`; `ForwardEstimates`: added `nonGaapEpsMostRecentFy`, `nonGaapEpsFiscalYearEnd`
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` (modified) — `fetchFundamentals()`: expose `gaapEps`/`gaapEpsFiscalYearEnd`; `fetchForwardEstimates()`: extract `nonGaapEpsMostRecentFy`/`nonGaapEpsFiscalYearEnd` from most recent completed FY `epsAvg`
+- `src/modules/data-ingestion/adapters/tiingo.adapter.ts` (modified) — `fetchFundamentals()`: return `gaapEps: null`, `gaapEpsFiscalYearEnd: null`
+- `src/modules/data-ingestion/jobs/forward-estimates-sync.service.ts` (modified) — compute `gaapAdjustmentFactor` after `revenueGrowthFwdComputed`; write with `provider: 'computed_fmp'` provenance
+- `prisma/schema.prisma` (modified) — added `gaapAdjustmentFactor Decimal? @db.Decimal(5,4)`
+- `prisma/migrations/20260421000003_add_gaap_adjustment_factor/migration.sql` (created)
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-031-gaap.test.ts` (created) — 9 tests: basic ratio, typical AAPL, clamp lower/upper, threshold guard, null inputs, provenance
+- `tests/unit/data-ingestion/fmp.adapter.test.ts` (modified) — added `gaapEps`/`gaapEpsFiscalYearEnd` assertions to fundamentals test; added `nonGaapEpsMostRecentFy`/`nonGaapEpsFiscalYearEnd` assertions to estimates test; new test for all-future entries
+- `tests/unit/data-ingestion/forward-estimates-sync.service.test.ts` (modified) — added `nonGaapEpsMostRecentFy` to primary mock; added `gaapAdjustmentFactor` assertion; new null-guard test
+- `tests/unit/data-ingestion/fundamentals-sync.service.test.ts` (modified) — added `gaapEps`/`gaapEpsFiscalYearEnd` to `makeFundamentals()` and `allNull` fixtures
+- `tests/unit/data-ingestion/story-029-growth-cagrs.test.ts` (modified) — added `gaapEps: null`, `gaapEpsFiscalYearEnd: null` to all 5 inline `FundamentalData` objects
+
+**Result/Status:** 402/402 unit tests passing (up from 391, +11 new tests)
+**Blockers/Issues:** TASK-031-004 integration tests deferred (requires live API + DATABASE_URL)
+**Baseline Impact:** NO — new schema column; no RFC/ADR changes required
+**Next Action:** STORY-032 or next story as planned

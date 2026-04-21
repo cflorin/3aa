@@ -170,12 +170,13 @@ export class FMPAdapter implements VendorAdapter {
    * Fetches fundamentals by merging annual income statement and balance sheet.
    * Two parallel FMP calls; most recent entry (index 0) is latest fiscal year.
    * BC-026-001: revenue_ttm and earnings_ttm returned as absolute USD (not divided by 1_000_000).
+   * STORY-029: limit=5 for 3-year CAGR (index 0 vs index 3).
    */
   async fetchFundamentals(ticker: string): Promise<FundamentalData | null> {
     const encoded = encodeURIComponent(ticker);
 
     const [incomeRaw, balanceRaw] = await Promise.all([
-      this.fmpFetch(`/income-statement?symbol=${encoded}&period=annual&limit=2`) as Promise<Record<string, unknown>[] | null>,
+      this.fmpFetch(`/income-statement?symbol=${encoded}&period=annual&limit=5`) as Promise<Record<string, unknown>[] | null>,
       this.fmpFetch(`/balance-sheet-statement?symbol=${encoded}&period=annual&limit=2`) as Promise<Record<string, unknown>[] | null>,
     ]);
 
@@ -192,9 +193,13 @@ export class FMPAdapter implements VendorAdapter {
     const ebit = latest.ebit != null ? Number(latest.ebit) : null;
     const interestExpense = latest.interestExpense != null ? Number(latest.interestExpense) : null;
     const epsDiluted = latest.epsDiluted != null ? Number(latest.epsDiluted) : null;
+    // STORY-030: tax fields for NOPAT computation
+    const incomeTax = latest.incomeTaxExpense != null ? Number(latest.incomeTaxExpense) : null;
+    const pretaxIncome = latest.incomeBeforeTax != null ? Number(latest.incomeBeforeTax) : null;
 
     const priorRevenue = prior ? (Number(prior.revenue) || null) : null;
     const priorEpsDiluted = prior && prior.epsDiluted != null ? Number(prior.epsDiluted) : null;
+    const priorGrossProfit = prior ? (Number(prior.grossProfit) || null) : null;
 
     // YoY growth using epsDiluted (not netIncome — share count changes distort the latter)
     const revenueGrowthYoy =
@@ -205,6 +210,32 @@ export class FMPAdapter implements VendorAdapter {
       epsDiluted !== null && priorEpsDiluted !== null && priorEpsDiluted !== 0
         ? ((epsDiluted - priorEpsDiluted) / Math.abs(priorEpsDiluted)) * 100
         : null;
+
+    // YoY gross profit growth: FY0 vs FY-1
+    const grossProfitGrowth =
+      grossProfit !== null && priorGrossProfit !== null && priorGrossProfit !== 0
+        ? ((grossProfit - priorGrossProfit) / Math.abs(priorGrossProfit)) * 100
+        : null;
+
+    // 3-year CAGRs: index 0 (latest) vs index 3 (3 years ago); needs at least 4 entries
+    // CAGR formula: (end/start)^(1/3) - 1) * 100; null when start ≤ 0 or end ≤ 0
+    const threeYearsAgo = incomeRaw.length >= 4 ? incomeRaw[3] : null;
+    const cagrPercent = (end: number | null, start: number | null): number | null => {
+      if (end == null || start == null || start <= 0 || end <= 0) return null;
+      return (Math.pow(end / start, 1 / 3) - 1) * 100;
+    };
+
+    const rev3 = threeYearsAgo ? (Number(threeYearsAgo.revenue) || null) : null;
+    const eps3 = threeYearsAgo && threeYearsAgo.epsDiluted != null
+      ? Number(threeYearsAgo.epsDiluted) : null;
+    const shares0 = latest.weightedAverageShsOutDil != null
+      ? Number(latest.weightedAverageShsOutDil) : null;
+    const shares3 = threeYearsAgo && threeYearsAgo.weightedAverageShsOutDil != null
+      ? Number(threeYearsAgo.weightedAverageShsOutDil) : null;
+
+    const revenueGrowth3y = cagrPercent(revenue, rev3);
+    const epsGrowth3y = cagrPercent(epsDiluted, eps3);
+    const shareCountGrowth3y = cagrPercent(shares0, shares3);
 
     const grossMargin = revenue && grossProfit !== null ? grossProfit / revenue : null;
     const operatingMargin = revenue && operatingIncome !== null ? operatingIncome / revenue : null;
@@ -234,9 +265,23 @@ export class FMPAdapter implements VendorAdapter {
 
     const roe = equity !== null && equity !== 0 && netIncome !== null ? netIncome / equity : null;
     const roa = totalAssets !== null && totalAssets !== 0 && netIncome !== null ? netIncome / totalAssets : null;
-    const investedCapital = equity !== null && totalDebt !== null ? equity + totalDebt : null;
-    const roic = investedCapital !== null && investedCapital !== 0 && netIncome !== null
-      ? netIncome / investedCapital : null;
+    // STORY-030: ROIC = NOPAT / Invested Capital
+    // effective_tax_rate = incomeTax / pretaxIncome, clamped [0, 0.50]; 25% fallback on loss year
+    const effectiveTaxRate =
+      pretaxIncome != null && pretaxIncome > 0 && incomeTax != null && incomeTax >= 0
+        ? Math.min(incomeTax / pretaxIncome, 0.50)
+        : 0.25;
+    const nopat = ebit != null ? ebit * (1 - effectiveTaxRate) : null;
+    const investedCapital =
+      equity !== null && totalDebt !== null && cashAndEquivalents !== null
+        ? equity + totalDebt - cashAndEquivalents
+        : equity !== null && totalDebt !== null
+          ? equity + totalDebt
+          : null;
+    const roic =
+      nopat !== null && investedCapital !== null && investedCapital > 0
+        ? nopat / investedCapital
+        : null;
     const debtToEquity = equity !== null && equity !== 0 && totalDebt !== null
       ? totalDebt / equity : null;
     const currentRatio = currentLiabilities !== null && currentLiabilities !== 0 && currentAssets !== null
@@ -248,6 +293,10 @@ export class FMPAdapter implements VendorAdapter {
       earnings_ttm: netIncome,        // BC-026-001: absolute USD (was /1_000_000)
       revenue_growth_yoy: revenueGrowthYoy,
       eps_growth_yoy: epsGrowthYoy,
+      revenue_growth_3y: revenueGrowth3y,
+      eps_growth_3y: epsGrowth3y,
+      gross_profit_growth: grossProfitGrowth,
+      share_count_growth_3y: shareCountGrowth3y,
       eps_growth_fwd: null,           // Set by estimates sync
       gross_margin: grossMargin,
       operating_margin: operatingMargin,
@@ -259,6 +308,8 @@ export class FMPAdapter implements VendorAdapter {
       fcf_ttm: null,                  // Not available without cash flow statement endpoint
       ebit_ttm: ebit ?? operatingIncome ?? null, // ebit preferred; operatingIncome ≈ EBIT when absent
       eps_ttm: epsDiluted,            // Annual diluted EPS (not TTM; best available from annual endpoint)
+      gaapEps: epsDiluted,            // STORY-031: GAAP diluted EPS — same value; exposed for adjustment factor
+      gaapEpsFiscalYearEnd: String(latest.date), // STORY-031: FY end date for date-matching
       net_debt_to_ebitda: null,       // Tiingo handles; FMP fallback returns null
       total_debt: totalDebt,          // Fix 6: from balance sheet totalDebt
       cash_and_equivalents: cashAndEquivalents, // Fix 6: from balance sheet cashAndCashEquivalents
@@ -306,6 +357,12 @@ export class FMPAdapter implements VendorAdapter {
     // Return null if no estimate data available from any field
     if (epsNtm === null && ebitNtm === null && revenueNtm === null) return null;
 
+    // STORY-031: Most recently completed FY = last sorted entry with date ≤ today
+    const mostRecentCompletedFy = sorted.filter(e => new Date(String(e.date)) <= today).at(-1) ?? null;
+    const nonGaapEpsMostRecentFy = mostRecentCompletedFy?.epsAvg != null
+      ? Number(mostRecentCompletedFy.epsAvg) : null;
+    const nonGaapEpsFiscalYearEnd = mostRecentCompletedFy ? String(mostRecentCompletedFy.date) : null;
+
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
       ticker,
@@ -318,6 +375,8 @@ export class FMPAdapter implements VendorAdapter {
       eps_ntm: epsNtm,
       ebit_ntm: ebitNtm,
       revenue_ntm: revenueNtm,
+      nonGaapEpsMostRecentFy,
+      nonGaapEpsFiscalYearEnd,
     };
   }
 

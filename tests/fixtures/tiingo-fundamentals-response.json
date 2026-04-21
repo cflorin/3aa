@@ -1,0 +1,285 @@
+[
+  {
+    "date": "2023-12-31", "year": 2023, "quarter": 4,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",      "value": 119575000000 },
+        { "dataCode": "netinc",       "value": 29998000000 },
+        { "dataCode": "eps",          "value": 1.89 },
+        { "dataCode": "ebit",         "value": 40380000000 },
+        { "dataCode": "intexp",       "value": 1000000000 },
+        { "dataCode": "grossProfit",  "value": 54000000000 },
+        { "dataCode": "taxExp",       "value": 9500000000 },
+        { "dataCode": "pretaxinc",    "value": 38000000000 }
+      ],
+      "balanceSheet": [
+        { "dataCode": "equity",    "value": 62146000000 },
+        { "dataCode": "debt",      "value": 123930000000 },
+        { "dataCode": "cashAndEq", "value": 29965000000 }
+      ],
+      "overview": [
+        { "dataCode": "grossMargin",   "value": 0.458 },
+        { "dataCode": "profitMargin",  "value": 0.251 },
+        { "dataCode": "roe",           "value": 0.482 },
+        { "dataCode": "roa",           "value": 0.085 },
+        { "dataCode": "debtEquity",    "value": 1.994 },
+        { "dataCode": "currentRatio",  "value": 0.988 }
+      ]
+    }
+  },
+  {
+    "date": "2023-09-30", "year": 2023, "quarter": 3,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 89498000000 },
+        { "dataCode": "netinc",      "value": 22956000000 },
+        { "dataCode": "eps",         "value": 1.46 },
+        { "dataCode": "ebit",        "value": 28283000000 },
+        { "dataCode": "intexp",      "value": 900000000 },
+        { "dataCode": "grossProfit", "value": 40000000000 },
+        { "dataCode": "taxExp",      "value": 7000000000 },
+        { "dataCode": "pretaxinc",   "value": 28000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2023-06-30", "year": 2023, "quarter": 2,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 94836000000 },
+        { "dataCode": "netinc",      "value": 24160000000 },
+        { "dataCode": "eps",         "value": 1.53 },
+        { "dataCode": "ebit",        "value": 28318000000 },
+        { "dataCode": "intexp",      "value": 900000000 },
+        { "dataCode": "grossProfit", "value": 42000000000 },
+        { "dataCode": "taxExp",      "value": 7500000000 },
+        { "dataCode": "pretaxinc",   "value": 30000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2023-03-31", "year": 2023, "quarter": 1,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 117154000000 },
+        { "dataCode": "netinc",      "value": 29959000000 },
+        { "dataCode": "eps",         "value": 1.89 },
+        { "dataCode": "ebit",        "value": 36016000000 },
+        { "dataCode": "intexp",      "value": 1000000000 },
+        { "dataCode": "grossProfit", "value": 52000000000 },
+        { "dataCode": "taxExp",      "value": 9000000000 },
+        { "dataCode": "pretaxinc",   "value": 36000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2022-12-31", "year": 2022, "quarter": 4,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 97278000000 },
+        { "dataCode": "netinc",      "value": 20721000000 },
+        { "dataCode": "eps",         "value": 1.30 },
+        { "dataCode": "ebit",        "value": 29517000000 },
+        { "dataCode": "intexp",      "value": 830000000 },
+        { "dataCode": "grossProfit", "value": 43000000000 },
+        { "dataCode": "taxExp",      "value": 7500000000 },
+        { "dataCode": "pretaxinc",   "value": 30000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2022-09-30", "year": 2022, "quarter": 3,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 83360000000 },
+        { "dataCode": "netinc",      "value": 19442000000 },
+        { "dataCode": "eps",         "value": 1.20 },
+        { "dataCode": "ebit",        "value": 25010000000 },
+        { "dataCode": "intexp",      "value": 780000000 },
+        { "dataCode": "grossProfit", "value": 36000000000 },
+        { "dataCode": "taxExp",      "value": 6000000000 },
+        { "dataCode": "pretaxinc",   "value": 24000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2022-06-30", "year": 2022, "quarter": 2,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 97278000000 },
+        { "dataCode": "netinc",      "value": 25010000000 },
+        { "dataCode": "eps",         "value": 1.55 },
+        { "dataCode": "ebit",        "value": 29517000000 },
+        { "dataCode": "intexp",      "value": 830000000 },
+        { "dataCode": "grossProfit", "value": 43000000000 },
+        { "dataCode": "taxExp",      "value": 7500000000 },
+        { "dataCode": "pretaxinc",   "value": 30000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2022-03-31", "year": 2022, "quarter": 1,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 123945000000 },
+        { "dataCode": "netinc",      "value": 34630000000 },
+        { "dataCode": "eps",         "value": 2.10 },
+        { "dataCode": "ebit",        "value": 40427000000 },
+        { "dataCode": "intexp",      "value": 900000000 },
+        { "dataCode": "grossProfit", "value": 54000000000 },
+        { "dataCode": "taxExp",      "value": 10000000000 },
+        { "dataCode": "pretaxinc",   "value": 40000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2021-12-31", "year": 2021, "quarter": 4,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 115000000000 },
+        { "dataCode": "netinc",      "value": 30000000000 },
+        { "dataCode": "eps",         "value": 1.85 },
+        { "dataCode": "ebit",        "value": 38000000000 },
+        { "dataCode": "intexp",      "value": 800000000 },
+        { "dataCode": "grossProfit", "value": 53000000000 },
+        { "dataCode": "taxExp",      "value": 9000000000 },
+        { "dataCode": "pretaxinc",   "value": 36000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2021-09-30", "year": 2021, "quarter": 3,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 83360000000 },
+        { "dataCode": "netinc",      "value": 20551000000 },
+        { "dataCode": "eps",         "value": 1.24 },
+        { "dataCode": "ebit",        "value": 26120000000 },
+        { "dataCode": "intexp",      "value": 800000000 },
+        { "dataCode": "grossProfit", "value": 35000000000 },
+        { "dataCode": "taxExp",      "value": 6000000000 },
+        { "dataCode": "pretaxinc",   "value": 24000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2021-06-30", "year": 2021, "quarter": 2,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 81434000000 },
+        { "dataCode": "netinc",      "value": 21744000000 },
+        { "dataCode": "eps",         "value": 1.30 },
+        { "dataCode": "ebit",        "value": 26142000000 },
+        { "dataCode": "intexp",      "value": 800000000 },
+        { "dataCode": "grossProfit", "value": 34000000000 },
+        { "dataCode": "taxExp",      "value": 5000000000 },
+        { "dataCode": "pretaxinc",   "value": 20000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2021-03-31", "year": 2021, "quarter": 1,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 89584000000 },
+        { "dataCode": "netinc",      "value": 23630000000 },
+        { "dataCode": "eps",         "value": 1.40 },
+        { "dataCode": "ebit",        "value": 27443000000 },
+        { "dataCode": "intexp",      "value": 800000000 },
+        { "dataCode": "grossProfit", "value": 38000000000 },
+        { "dataCode": "taxExp",      "value": 6000000000 },
+        { "dataCode": "pretaxinc",   "value": 24000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2020-12-31", "year": 2020, "quarter": 4,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 111439000000 },
+        { "dataCode": "netinc",      "value": 28755000000 },
+        { "dataCode": "eps",         "value": 1.68 },
+        { "dataCode": "ebit",        "value": 34179000000 },
+        { "dataCode": "intexp",      "value": 700000000 },
+        { "dataCode": "grossProfit", "value": 45000000000 },
+        { "dataCode": "taxExp",      "value": 7000000000 },
+        { "dataCode": "pretaxinc",   "value": 28000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2020-09-30", "year": 2020, "quarter": 3,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 64698000000 },
+        { "dataCode": "netinc",      "value": 12673000000 },
+        { "dataCode": "eps",         "value": 0.73 },
+        { "dataCode": "ebit",        "value": 16179000000 },
+        { "dataCode": "intexp",      "value": 700000000 },
+        { "dataCode": "grossProfit", "value": 25000000000 },
+        { "dataCode": "taxExp",      "value": 3000000000 },
+        { "dataCode": "pretaxinc",   "value": 12000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2020-06-30", "year": 2020, "quarter": 2,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 59685000000 },
+        { "dataCode": "netinc",      "value": 11253000000 },
+        { "dataCode": "eps",         "value": 0.64 },
+        { "dataCode": "ebit",        "value": 14085000000 },
+        { "dataCode": "intexp",      "value": 700000000 },
+        { "dataCode": "grossProfit", "value": 22000000000 },
+        { "dataCode": "taxExp",      "value": 2500000000 },
+        { "dataCode": "pretaxinc",   "value": 10000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  },
+  {
+    "date": "2020-03-31", "year": 2020, "quarter": 1,
+    "statementData": {
+      "incomeStatement": [
+        { "dataCode": "revenue",     "value": 58313000000 },
+        { "dataCode": "netinc",      "value": 11249000000 },
+        { "dataCode": "eps",         "value": 0.56 },
+        { "dataCode": "ebit",        "value": 13113000000 },
+        { "dataCode": "intexp",      "value": 700000000 },
+        { "dataCode": "grossProfit", "value": 23000000000 },
+        { "dataCode": "taxExp",      "value": 2500000000 },
+        { "dataCode": "pretaxinc",   "value": 10000000000 }
+      ],
+      "balanceSheet": [],
+      "overview": []
+    }
+  }
+]

@@ -141,7 +141,10 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
 
   it('STORY-028: FMP returns eps_ntm → forwardPe computed; provider_count=1; computed_fallback_count=0', async () => {
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
-      value: { ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: 155769099889, revenue_ntm: 415000000000 },
+      value: {
+        ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: 155769099889, revenue_ntm: 415000000000,
+        nonGaapEpsMostRecentFy: 7.20, nonGaapEpsFiscalYearEnd: '2023-09-30',
+      },
       source_provider: 'fmp',
       synced_at: FIXED_NOW,
       fallback_used: false,
@@ -157,6 +160,25 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
     expect(updateCall.data.epsNtm).toBe(8.49);
     // forwardPe = 213.49 / 8.49 ≈ 25.15
     expect(Number(updateCall.data.forwardPe)).toBeCloseTo(213.49 / 8.49, 2);
+    // STORY-031: gaapAdjustmentFactor = epsTtm(6.13) / nonGaapEps(7.20) ≈ 0.8514
+    expect(Number(updateCall.data.gaapAdjustmentFactor)).toBeCloseTo(6.13 / 7.20, 4);
+  });
+
+  it('STORY-031: gaapAdjustmentFactor not written when nonGaapEpsMostRecentFy is null', async () => {
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: null, revenue_ntm: null,
+        nonGaapEpsMostRecentFy: null, nonGaapEpsFiscalYearEnd: null,
+      },
+      source_provider: 'fmp',
+      synced_at: FIXED_NOW,
+      fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data.gaapAdjustmentFactor).toBeUndefined();
   });
 
   it('Both providers null; guardrails pass → computed fallback used; provenance provider=computed_trailing', async () => {

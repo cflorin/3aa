@@ -1,0 +1,20 @@
+[
+  {
+    "symbol": "AAPL",
+    "companyName": "Apple Inc",
+    "marketCap": 2500000000000,
+    "exchangeShortName": "NASDAQ",
+    "sector": "Technology",
+    "industry": "Consumer Electronics",
+    "country": "US"
+  },
+  {
+    "symbol": "SHOP",
+    "companyName": "Shopify Inc",
+    "marketCap": 80000000000,
+    "exchangeShortName": "TSX",
+    "sector": "Technology",
+    "industry": "Software",
+    "country": "CA"
+  }
+]
