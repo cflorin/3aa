@@ -261,7 +261,7 @@ describe('EPIC-003/STORY-028/TASK-028-005: FMPAdapter.fetchForwardEstimates() ST
       date: '2025-09-30',
       epsAvg: 7.20,
       ebitAvg: 130000000000,
-      estimatedRevenueAvg: 415000000000,
+      revenueAvg: 415000000000,
       numAnalystsEps: 12,
     }]);
     const result = await adapter.fetchForwardEstimates('AAPL');
@@ -273,14 +273,14 @@ describe('EPIC-003/STORY-028/TASK-028-005: FMPAdapter.fetchForwardEstimates() ST
 
   it('returns null when all three fields absent', async () => {
     mockFetchResponse([{
-      symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, estimatedRevenueAvg: null, numAnalystsEps: 0,
+      symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, revenueAvg: null, numAnalystsEps: 0,
     }]);
     expect(await adapter.fetchForwardEstimates('AAPL')).toBeNull();
   });
 
   it('returns result when only revenue_ntm available (ebitAvg/epsAvg absent)', async () => {
     mockFetchResponse([{
-      symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, estimatedRevenueAvg: 415000000000,
+      symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, revenueAvg: 415000000000,
     }]);
     const result = await adapter.fetchForwardEstimates('AAPL');
     expect(result).not.toBeNull();

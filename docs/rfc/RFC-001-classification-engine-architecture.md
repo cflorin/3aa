@@ -157,7 +157,8 @@ interface ClassificationEngine {
 interface ClassificationInput {
   ticker: string;
   fundamentals: FundamentalFields;
-  flags: ManualFlags;
+  flags: ClassificationFlags;
+  enrichment?: ClassificationEnrichmentScores; // E1–E6 qualitative scores (EPIC-003.1)
 }
 
 interface FundamentalFields {
@@ -183,13 +184,41 @@ interface FundamentalFields {
   share_count_growth_3y?: number;
 }
 
-interface ManualFlags {
-  holding_company_flag?: boolean;
-  insurer_flag?: boolean;
-  cyclicality_flag?: boolean;
-  binary_flag?: boolean;
-  pre_operating_leverage_flag?: boolean;
+/**
+ * ClassificationFlags — populated by EPIC-003 (deterministic) and EPIC-003.1 (LLM-enriched).
+ * Manual override always takes precedence; stored separately in data_provider_provenance.
+ *
+ * Sourcing tiers:
+ *   deterministic_computed:   share_count_growth_3y → material_dilution_flag
+ *   deterministic_heuristic:  insurer_flag (SIC/industry), pre_operating_leverage_flag (revenue)
+ *   hybrid (heuristic + LLM): holding_company_flag, cyclicality_flag, binary_flag
+ *   manual_override:          any flag; stored with provider="manual" in provenance
+ */
+interface ClassificationFlags {
+  holding_company_flag?: boolean;       // LLM-enriched (heuristic pre-filter)
+  insurer_flag?: boolean;               // deterministic: SIC 6311–6399 or industry string
+  cyclicality_flag?: boolean;           // sector heuristic + LLM for ambiguous sectors
+  binary_flag?: boolean;               // heuristic (pre-revenue biotech) + LLM
+  pre_operating_leverage_flag?: boolean; // deterministic: revenue_ttm < $50M threshold
+  material_dilution_flag?: boolean;     // deterministic: share_count_growth_3y > 0.05
 }
+
+/**
+ * ClassificationEnrichmentScores — qualitative 1–5 scores from EPIC-003.1 LLM enrichment.
+ * Half-integer precision (1.0, 1.5, 2.0 … 5.0). Null if confidence < 0.60 at enrichment time.
+ * Optional in ClassificationInput: engine degrades gracefully when scores absent.
+ */
+interface ClassificationEnrichmentScores {
+  moat_strength_score?: number;           // 1=no moat, 5=very wide moat
+  pricing_power_score?: number;           // 1=price-taker, 5=strong pricing power
+  revenue_recurrence_score?: number;      // 1=transactional, 5=fully recurring
+  margin_durability_score?: number;       // 1=commodity pressure, 5=structurally protected
+  capital_intensity_score?: number;       // 1=asset-light, 5=heavy capex
+  qualitative_cyclicality_score?: number; // 1=counter-cyclical, 5=highly cyclical
+}
+
+/** @deprecated Use ClassificationFlags instead */
+type ManualFlags = ClassificationFlags;
 
 interface ClassificationResult {
   suggested_bucket: number | null;
@@ -230,9 +259,9 @@ interface ClassificationOutput {
   confidence_level: 'high' | 'medium' | 'low';
 
   /**
-   * Manual flags affecting metric selection.
+   * Classification flags (auto-detected and/or manual override).
    */
-  flags: ManualFlags;
+  flags: ClassificationFlags;
 
   /**
    * Last classification update timestamp.
@@ -652,6 +681,31 @@ logger.warn('classification.low_confidence', {
 4. **ADR-004: Missing Data Handling Policy**
 5. **ADR-005: Tie-Break Algorithm Precedence**
 6. **ADR-006: Bucket/Quality Rule Set v1**
+
+---
+
+## Amendment — 2026-04-21: Classification Flags Sourcing (EPIC-003 / EPIC-003.1)
+
+**Change:** `ManualFlags` renamed to `ClassificationFlags` with explicit sourcing tiers.
+`ClassificationEnrichmentScores` interface added for E1–E6 qualitative scores.
+
+**Sourcing tiers:**
+
+| Flag / Field | Source tier | EPIC |
+|---|---|---|
+| `share_count_growth_3y` | vendor_native (FMP historical shares) | EPIC-003 STORY-032 |
+| `material_dilution_flag` | deterministic_computed (> 0.05 threshold) | EPIC-003 STORY-033 |
+| `insurer_flag` | deterministic_heuristic (SIC / industry string) | EPIC-003 STORY-033 |
+| `pre_operating_leverage_flag` | deterministic_heuristic (revenue_ttm threshold) | EPIC-003 STORY-033 |
+| `holding_company_flag` | hybrid: SIC heuristic + LLM fallback | EPIC-003.1 STORY-035 |
+| `cyclicality_flag` | hybrid: sector rules + LLM for ambiguous sectors | EPIC-003.1 STORY-036 |
+| `binary_flag` | hybrid: biotech heuristic + LLM | EPIC-003.1 STORY-037 |
+| E1–E6 scores | claude_llm_enriched (batch call) | EPIC-003.1 STORY-040 |
+
+**Flag override policy:** Manual override accepted for all flags via admin endpoint.
+Provider = "manual" recorded in `dataProviderProvenance`. Manual override takes precedence over any auto-detected value.
+
+**Related:** ADR-012, RFC-007
 
 ---
 

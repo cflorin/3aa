@@ -219,6 +219,8 @@ export class FMPAdapter implements VendorAdapter {
 
     // 3-year CAGRs: index 0 (latest) vs index 3 (3 years ago); needs at least 4 entries
     // CAGR formula: (end/start)^(1/3) - 1) * 100; null when start ≤ 0 or end ≤ 0
+    // STORY-032: share_count_growth_3y removed from this path — ShareCountSyncService is
+    // the authoritative writer (same income-statement source, dedicated service + provenance).
     const threeYearsAgo = incomeRaw.length >= 4 ? incomeRaw[3] : null;
     const cagrPercent = (end: number | null, start: number | null): number | null => {
       if (end == null || start == null || start <= 0 || end <= 0) return null;
@@ -228,14 +230,9 @@ export class FMPAdapter implements VendorAdapter {
     const rev3 = threeYearsAgo ? (Number(threeYearsAgo.revenue) || null) : null;
     const eps3 = threeYearsAgo && threeYearsAgo.epsDiluted != null
       ? Number(threeYearsAgo.epsDiluted) : null;
-    const shares0 = latest.weightedAverageShsOutDil != null
-      ? Number(latest.weightedAverageShsOutDil) : null;
-    const shares3 = threeYearsAgo && threeYearsAgo.weightedAverageShsOutDil != null
-      ? Number(threeYearsAgo.weightedAverageShsOutDil) : null;
 
     const revenueGrowth3y = cagrPercent(revenue, rev3);
     const epsGrowth3y = cagrPercent(epsDiluted, eps3);
-    const shareCountGrowth3y = cagrPercent(shares0, shares3);
 
     const grossMargin = revenue && grossProfit !== null ? grossProfit / revenue : null;
     const operatingMargin = revenue && operatingIncome !== null ? operatingIncome / revenue : null;
@@ -296,7 +293,7 @@ export class FMPAdapter implements VendorAdapter {
       revenue_growth_3y: revenueGrowth3y,
       eps_growth_3y: epsGrowth3y,
       gross_profit_growth: grossProfitGrowth,
-      share_count_growth_3y: shareCountGrowth3y,
+      share_count_growth_3y: null,       // STORY-032: authoritative source is ShareCountSyncService
       eps_growth_fwd: null,           // Set by estimates sync
       gross_margin: grossMargin,
       operating_margin: operatingMargin,
@@ -310,6 +307,7 @@ export class FMPAdapter implements VendorAdapter {
       eps_ttm: epsDiluted,            // Annual diluted EPS (not TTM; best available from annual endpoint)
       gaapEps: epsDiluted,            // STORY-031: GAAP diluted EPS — same value; exposed for adjustment factor
       gaapEpsFiscalYearEnd: String(latest.date), // STORY-031: FY end date for date-matching
+      statementPeriodEnd: String(latest.date),   // most recent annual report date
       net_debt_to_ebitda: null,       // Tiingo handles; FMP fallback returns null
       total_debt: totalDebt,          // Fix 6: from balance sheet totalDebt
       cash_and_equivalents: cashAndEquivalents, // Fix 6: from balance sheet cashAndCashEquivalents
@@ -352,7 +350,9 @@ export class FMPAdapter implements VendorAdapter {
 
     const epsNtm = ntmEntry.epsAvg != null ? Number(ntmEntry.epsAvg) : null;
     const ebitNtm = ntmEntry.ebitAvg != null ? Number(ntmEntry.ebitAvg) : null;
-    const revenueNtm = ntmEntry.estimatedRevenueAvg != null ? Number(ntmEntry.estimatedRevenueAvg) : null;
+    // FMP field is revenueAvg (not estimatedRevenueAvg — that field does not exist in the stable API)
+    const revenueNtm = ntmEntry.revenueAvg != null ? Number(ntmEntry.revenueAvg) : null;
+    const nonGaapEarningsNtm = ntmEntry.netIncomeAvg != null ? Number(ntmEntry.netIncomeAvg) : null;
 
     // Return null if no estimate data available from any field
     if (epsNtm === null && ebitNtm === null && revenueNtm === null) return null;
@@ -362,6 +362,8 @@ export class FMPAdapter implements VendorAdapter {
     const nonGaapEpsMostRecentFy = mostRecentCompletedFy?.epsAvg != null
       ? Number(mostRecentCompletedFy.epsAvg) : null;
     const nonGaapEpsFiscalYearEnd = mostRecentCompletedFy ? String(mostRecentCompletedFy.date) : null;
+    const nonGaapEarningsMostRecentFy = mostRecentCompletedFy?.netIncomeAvg != null
+      ? Number(mostRecentCompletedFy.netIncomeAvg) : null;
 
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
@@ -375,9 +377,38 @@ export class FMPAdapter implements VendorAdapter {
       eps_ntm: epsNtm,
       ebit_ntm: ebitNtm,
       revenue_ntm: revenueNtm,
+      nonGaapEarningsNtm,
       nonGaapEpsMostRecentFy,
       nonGaapEpsFiscalYearEnd,
+      nonGaapEarningsMostRecentFy,
+      ntmFiscalYearEnd: String(ntmEntry.date),
     };
+  }
+
+  /**
+   * Fetches annual share counts for share_count_growth_3y computation.
+   * EPIC-003: STORY-032: TASK-032-002
+   * Uses the same income-statement endpoint as fetchFundamentals but extracts only
+   * weightedAverageShsOutDil to keep the call lean and the derivation self-consistent.
+   * Both anchors (FY0 and FY-3) come from the same endpoint and same field.
+   * Returns newest-first; 402 or null response → [].
+   */
+  async fetchAnnualShareCounts(ticker: string): Promise<{ date: string; shares: number }[]> {
+    const raw = await this.fmpFetch(
+      `/income-statement?symbol=${encodeURIComponent(ticker)}&period=annual&limit=5`,
+    ) as Record<string, unknown>[] | null;
+
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+
+    const entries = raw
+      .map((item) => ({
+        date: String(item.date ?? ''),
+        shares: item.weightedAverageShsOutDil != null ? Number(item.weightedAverageShsOutDil) : 0,
+      }))
+      .filter((entry) => entry.date !== '' && entry.shares > 0);
+
+    // FMP returns descending (newest first) — enforce sort defensively
+    return entries.sort((a, b) => b.date.localeCompare(a.date));
   }
 
   /**
@@ -401,7 +432,14 @@ export class FMPAdapter implements VendorAdapter {
       exchange: String(item.exchange ?? ''),
       market_cap_millions: item.marketCap != null ? Number(item.marketCap) / 1_000_000 : null,
       market_cap_usd: item.marketCap != null ? Number(item.marketCap) : null,
-      shares_outstanding: item.sharesOutstanding != null ? Number(item.sharesOutstanding) : null,
+      // FMP stable/profile does not return sharesOutstanding directly; derive from marketCap / price.
+      shares_outstanding:
+        item.marketCap != null && item.price != null && Number(item.price) > 0
+          ? Math.round(Number(item.marketCap) / Number(item.price))
+          : null,
+      description: item.description ? String(item.description) : null,
+      // BC-035-001: FMP stable profile returns no SIC code — sicCode will always be null
+      sicCode: item.sic ? String(item.sic) : null,
     };
   }
 }

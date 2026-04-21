@@ -184,6 +184,8 @@ export async function syncForwardEstimates(
       // epsTtmNum is FMP annual epsDiluted for FMP-primary stocks (set by prior fundamentals sync)
       // V1 simplification: date-matching guard skipped (requires extra DB column not in spec)
       const nonGaapEpsMostRecentFy: number | null = estimatesResult.value?.nonGaapEpsMostRecentFy ?? null;
+      const nonGaapEarningsMostRecentFy: number | null = estimatesResult.value?.nonGaapEarningsMostRecentFy ?? null;
+      const nonGaapEarningsNtm: number | null = estimatesResult.value?.nonGaapEarningsNtm ?? null;
       let gaapAdjustmentFactor: number | null = null;
       if (epsTtmNum !== null && nonGaapEpsMostRecentFy !== null && Math.abs(nonGaapEpsMostRecentFy) >= 0.10) {
         const raw = epsTtmNum / nonGaapEpsMostRecentFy;
@@ -224,15 +226,18 @@ export async function syncForwardEstimates(
       const updateData: Prisma.StockUpdateInput = {};
       const provenanceUpdates: Record<string, ProvenanceEntry> = {};
 
+      const ntmPeriodEnd = estimatesResult.value?.ntmFiscalYearEnd ?? undefined;
       const fmpProvenance: ProvenanceEntry = {
         provider: estimatesResult.source_provider as ProvenanceEntry['provider'],
         synced_at: provenanceNow,
         fallback_used: estimatesResult.fallback_used,
+        ...(ntmPeriodEnd != null && { period_end: ntmPeriodEnd }),
       };
       const computedProvenance: ProvenanceEntry = {
         provider: 'computed',
         synced_at: provenanceNow,
         fallback_used: false,
+        ...(ntmPeriodEnd != null && { period_end: ntmPeriodEnd }),
       };
 
       // Raw NTM inputs from provider
@@ -247,6 +252,18 @@ export async function syncForwardEstimates(
       if (revenueNtm !== null) {
         updateData.revenueNtm = revenueNtm;
         provenanceUpdates['revenue_ntm'] = fmpProvenance;
+      }
+      if (nonGaapEarningsNtm !== null) {
+        updateData.nonGaapEarningsNtm = nonGaapEarningsNtm;
+        provenanceUpdates['non_gaap_earnings_ntm'] = fmpProvenance;
+      }
+      if (nonGaapEarningsMostRecentFy !== null) {
+        updateData.nonGaapEarningsFy = nonGaapEarningsMostRecentFy;
+        provenanceUpdates['non_gaap_earnings_fy'] = fmpProvenance;
+      }
+      if (nonGaapEpsMostRecentFy !== null) {
+        updateData.nonGaapEpsFy = nonGaapEpsMostRecentFy;
+        provenanceUpdates['non_gaap_eps_fy'] = fmpProvenance;
       }
 
       // Computed forward ratios

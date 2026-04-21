@@ -158,11 +158,10 @@ describe('EPIC-003/STORY-029/TASK-029-005: FMPAdapter 3-year CAGR computations',
     expect(result!.gross_profit_growth).toBeCloseTo(expected, 2);
   });
 
-  it('share_count_growth_3y ≈ -3.91% (FY2020→FY2023, buybacks)', async () => {
+  it('share_count_growth_3y always null from fetchFundamentals (STORY-032: ShareCountSyncService is authoritative writer)', async () => {
     mockIncomeFetch(FOUR_YEAR_INCOME);
     const result = await adapter.fetchFundamentals('AAPL');
-    const expected = (Math.pow(15550061952 / 17528214000, 1 / 3) - 1) * 100;
-    expect(result!.share_count_growth_3y).toBeCloseTo(expected, 2);
+    expect(result!.share_count_growth_3y).toBeNull();
   });
 
   it('revenue_growth_3y null when fewer than 4 income entries', async () => {
@@ -217,11 +216,10 @@ describe('EPIC-003/STORY-029/TASK-029-005: FMPAdapter 3-year CAGR computations',
     expect(result!.eps_growth_3y).toBeLessThan(24);
   });
 
-  it('AAPL share_count_growth_3y acceptance range: -3% to -4% (buybacks)', async () => {
+  it('share_count_growth_3y null from fetchFundamentals regardless of income data (STORY-032)', async () => {
     mockIncomeFetch(FOUR_YEAR_INCOME);
     const result = await adapter.fetchFundamentals('AAPL');
-    expect(result!.share_count_growth_3y).toBeLessThan(-3);
-    expect(result!.share_count_growth_3y).toBeGreaterThan(-5);
+    expect(result!.share_count_growth_3y).toBeNull();
   });
 });
 
@@ -351,7 +349,7 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
       roic: null, trailing_pe: null, fcf_ttm: null, ebit_ttm: null,
       eps_ttm: null, net_debt_to_ebitda: null, total_debt: null,
       cash_and_equivalents: null, debt_to_equity: null, current_ratio: null,
-      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null,
+      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null, statementPeriodEnd: null,
     };
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: fundamentals,
@@ -381,7 +379,7 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
       roic: null, trailing_pe: null, fcf_ttm: null, ebit_ttm: null,
       eps_ttm: null, net_debt_to_ebitda: null, total_debt: null,
       cash_and_equivalents: null, debt_to_equity: null, current_ratio: null,
-      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null,
+      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null, statementPeriodEnd: null,
     };
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: fundamentals,
@@ -395,20 +393,21 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
     expect(Number(updateCall.data.grossProfitGrowth)).toBeCloseTo(6.82, 2);
   });
 
-  it('share_count_growth_3y written to shareCountGrowth3y column', async () => {
+  it('shareCountGrowth3y never written by syncFundamentals (STORY-032: removed from fundamentals sync)', async () => {
     const fundamentals: FundamentalData = {
       ticker: 'AAPL',
       revenue_growth_yoy: null, eps_growth_yoy: null,
-      revenue_growth_3y: null, eps_growth_3y: null,
+      revenue_growth_3y: 11.77, // non-null so sync proceeds to DB update
+      eps_growth_3y: null,
       gross_profit_growth: null,
-      share_count_growth_3y: -3.91,
+      share_count_growth_3y: -3.91, // non-null input — must NOT be written by fundamentals sync
       eps_growth_fwd: null,
       revenue_ttm: null, earnings_ttm: null, gross_margin: null,
       operating_margin: null, net_margin: null, roe: null, roa: null,
       roic: null, trailing_pe: null, fcf_ttm: null, ebit_ttm: null,
       eps_ttm: null, net_debt_to_ebitda: null, total_debt: null,
       cash_and_equivalents: null, debt_to_equity: null, current_ratio: null,
-      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null,
+      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null, statementPeriodEnd: null,
     };
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: fundamentals,
@@ -419,7 +418,8 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
 
     await syncFundamentals(makeMockAdapter('tiingo'), makeMockAdapter('fmp'), { now: FIXED_NOW });
     const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
-    expect(Number(updateCall.data.shareCountGrowth3y)).toBeCloseTo(-3.91, 2);
+    // shareCountGrowth3y must be absent from the DB update — ShareCountSyncService owns this field
+    expect(updateCall.data.shareCountGrowth3y).toBeUndefined();
   });
 
   it('revenue_growth_3y null → revenueGrowth3y not written (null-not-overwrite)', async () => {
@@ -434,7 +434,7 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
       roic: null, trailing_pe: null, fcf_ttm: null, ebit_ttm: null,
       eps_ttm: null, net_debt_to_ebitda: null, total_debt: null,
       cash_and_equivalents: null, debt_to_equity: null, current_ratio: null,
-      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null,
+      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null, statementPeriodEnd: null,
     };
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: fundamentals,
@@ -465,7 +465,7 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
       roic: null, trailing_pe: null, fcf_ttm: null, ebit_ttm: null,
       eps_ttm: null, net_debt_to_ebitda: null, total_debt: null,
       cash_and_equivalents: null, debt_to_equity: null, current_ratio: null,
-      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null,
+      interest_coverage: null, gaapEps: null, gaapEpsFiscalYearEnd: null, statementPeriodEnd: null,
     };
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: fundamentals,
@@ -480,6 +480,7 @@ describe('EPIC-003/STORY-029/TASK-029-005: syncFundamentals() STORY-029 field ro
     expect(prov['revenue_growth_3y']['provider']).toBe('fmp');
     expect(prov['eps_growth_3y']['provider']).toBe('fmp');
     expect(prov['gross_profit_growth']['provider']).toBe('fmp');
-    expect(prov['share_count_growth_3y']['provider']).toBe('fmp');
+    // share_count_growth_3y provenance is no longer written by fundamentals sync (STORY-032)
+    expect(prov['share_count_growth_3y']).toBeUndefined();
   });
 });

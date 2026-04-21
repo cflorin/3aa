@@ -213,19 +213,19 @@ describe('EPIC-003/STORY-027/TASK-027-007: FMPAdapter.fetchMetadata() extensions
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('returns market_cap_usd and shares_outstanding from profile response', async () => {
+  it('returns market_cap_usd and shares_outstanding derived from marketCap/price', async () => {
     mockFetchResponse([{
       symbol: 'AAPL',
       companyName: 'Apple Inc.',
       marketCap: 3282000000000,
-      sharesOutstanding: 15380000000,
+      price: 213.35,    // shares = 3282B / 213.35 ≈ 15_380_000_000
       exchange: 'NASDAQ',
       sector: 'Technology',
       industry: 'Consumer Electronics',
     }]);
     const result = await adapter.fetchMetadata('AAPL');
     expect(result!.market_cap_usd).toBe(3282000000000);
-    expect(result!.shares_outstanding).toBe(15380000000);
+    expect(result!.shares_outstanding).toBe(Math.round(3282000000000 / 213.35));
     expect(result!.market_cap_millions).toBeCloseTo(3282000, 0);
   });
 

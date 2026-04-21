@@ -1723,3 +1723,467 @@ Key implementation decisions:
 **Blockers/Issues:** TASK-031-004 integration tests deferred (requires live API + DATABASE_URL)
 **Baseline Impact:** NO — new schema column; no RFC/ADR changes required
 **Next Action:** STORY-032 or next story as planned
+
+---
+
+## 2026-04-21 UTC — Classification Delta Planning + Baseline Documentation Update
+
+**Epic:** EPIC-003 / EPIC-003.1
+**Story:** Planning — no code implementation
+**Task:** N/A (documentation-only milestone)
+**Action:** Completed classification delta analysis. Identified all missing classification-support fields. Designed EPIC-003.1 (Classification LLM Enrichment) as a new V1.0 epic covering all LLM-based enrichment work. Updated baseline documentation.
+
+**Analysis findings:**
+- RFC-001 `ManualFlags` interface: all 7 flags at DEFAULT FALSE for entire universe (classification blocker)
+- `share_count_growth_3y`: NULL for all stocks despite being in RFC-001 FundamentalFields and RFC-002 schema
+- E1–E6 qualitative scores (moat, pricing power, etc.): completely absent from all RFCs and schema
+- RFC-001 tie-break resolver directly reads holding_company_flag, insurer_flag, cyclicality_flag, binary_flag — making these classification blockers, not nice-to-haves
+
+**Documentation changes:**
+- `docs/adr/ADR-012-llm-enrichment-for-classification.md` (created) — decision to use Claude API for LLM-based flag detection; alignment with ADR-004 rules-first principle
+- `docs/rfc/RFC-007-llm-enrichment-provider-architecture.md` (created) — abstract LLMProvider interface, ClaudeProvider spec, prompt file conventions, confidence gating, provenance shape, error handling
+- `docs/rfc/RFC-001-classification-engine-architecture.md` (amended) — ManualFlags renamed ClassificationFlags with sourcing tiers; ClassificationEnrichmentScores interface added for E1–E6; amendment section appended
+- `docs/rfc/RFC-002-canonical-data-model-persistence.md` (amended) — flag column comments updated to reflect auto-detection pipeline; E1–E6 column spec added in amendment section
+- `docs/rfc/RFC-004-data-ingestion-refresh-pipeline.md` (amended) — two new sync jobs added to pipeline diagram and amendment section
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (modified) — STORY-032–033 added to EPIC-003; EPIC-003.1 section added with STORY-034–040; EPIC-004 dependency updated; status summary updated
+
+**Story specs created:**
+- `stories/tasks/EPIC-003-data-ingestion/STORY-032-share-count-growth.md`
+- `stories/tasks/EPIC-003-data-ingestion/STORY-033-deterministic-classification-flags.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-034-llm-provider-infrastructure.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-035-holding-company-flag.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-036-cyclicality-flag.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-037-binary-flag.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-038-classification-enrichment-sync-job.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-039-enrichment-scores-schema.md`
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md`
+
+**Tests Added/Updated:** None (documentation-only)
+**Result/Status:** Documentation complete; no code changes
+**Blockers/Issues:** None
+**Baseline Impact:** YES — RFC-001 amended (ClassificationFlags); RFC-002 amended (flag descriptions + E1-E6 spec); RFC-004 amended (new sync jobs); RFC-007 created; ADR-012 created. All amendments approved per classification delta planning session 2026-04-21.
+**Next Action:** STORY-032 — implement share_count_growth_3y from FMP historical share data
+
+---
+
+## 2026-04-21 UTC — Classification Stories Revised (Adversarial Review Response)
+
+**Epic:** EPIC-003 / EPIC-003.1
+**Story:** N/A (planning revision)
+**Action:** Applied accepted fixes from adversarial review of STORY-032–040. Rejected points that conflicted with explicit user requirements (EPIC-003.1 split, abstract provider, separate prompt files, JSONB provenance). Answered deferred questions independently.
+
+**Accepted and applied:**
+- Single combined LLM call per stock (not 4 separate calls) — STORY-038/040 redesigned; RFC-007 updated
+- STORY-032: pinned share count derivation to single FMP historical endpoint consistently; added admin auth cross-reference
+- STORY-033: enumerated all insurer industry strings including "Managed Care" (Cigna/UHC case); removed overstatement; added threshold rationale inline
+- STORY-034: removed YAML frontmatter from prompt file convention; output schema lives in TypeScript
+- STORY-035: removed "subsidiary keyword" heuristic (false positives); SIC → LLM directly
+- STORY-036: added explicit note on Real Estate → LLM (not FALSE); documented V1 decision on deferring volatility signals
+- STORY-037: narrowed LLM gate to targeted cohorts; added large-cap exclusion rule (market_cap > $10B, non-Healthcare/Financials/Energy → FALSE without LLM)
+- STORY-038: added 5 explicit recomputation triggers (prompt version drift, model drift, error state, new stock, recent data change); integration test marked as optional smoke test
+- STORY-040: redesigned as combined flag + score call; `combined-enrichment.md` is the primary operational prompt; deterministic context passed to LLM to prevent contradictions
+
+**Rejected (with reasoning logged):**
+- EPIC-003.1 removal: user explicitly requested this split
+- Abstract provider removal: user explicitly required swappable provider
+- *_final/*_source columns: user approved JSONB provenance approach
+- "draft" status: not in our defined status model
+- Confidence 0-1 vs score 1-5 conflict: these are orthogonal fields
+
+**Deferred questions answered:**
+- Threshold grounding: no ADR needed; rationale documented inline in STORY-033 (grounded in 3AA Bucket 6-8 logic)
+- Cyclicality volatility signals: deferred for V1; sector heuristic + LLM accepted
+
+**Files Changed:**
+- `stories/tasks/EPIC-003-data-ingestion/STORY-032-share-count-growth.md` (rewritten)
+- `stories/tasks/EPIC-003-data-ingestion/STORY-033-deterministic-classification-flags.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-034-llm-provider-infrastructure.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-035-holding-company-flag.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-036-cyclicality-flag.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-037-binary-flag.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-038-classification-enrichment-sync-job.md` (rewritten)
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md` (rewritten)
+- `docs/rfc/RFC-007-llm-enrichment-provider-architecture.md` (amended: combined call architecture, simplified prompt conventions, recomputation triggers, decisions section)
+
+**Result/Status:** All 9 story specs revised; RFC-007 updated; documentation consistent
+**Baseline Impact:** NO — no additional RFC/ADR changes beyond what was already logged 2026-04-21
+**Next Action:** STORY-032 — implement share_count_growth_3y from FMP historical share data
+
+---
+
+## 2026-04-21 — STORY-032 Task Decomposition, Validation, and TASK-032-001 Execution
+
+**Epic:** EPIC-003
+**Story:** STORY-032
+**Task:** TASK-032-001 (Validate FMP endpoint — GATE)
+**Action:** Story breakdown produced (7 tasks), self-validated (3 minor issues corrected), story file updated to `ready`. TASK-032-001 executed: live FMP API investigation to confirm historical market cap endpoint accessibility and response shape.
+
+**Files Changed:**
+- `stories/tasks/EPIC-003-data-ingestion/STORY-032-share-count-growth.md` (updated: full task breakdown, BDD scenarios, test plan, status → ready)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (STORY-032 status → blocked — BC-032-001)
+
+**Tests Added/Updated:** None (TASK-032-001 is investigation only)
+
+**Result/Status:** BLOCKED — BC-032-001
+
+**BC-032-001 — FMP historical market cap endpoint insufficient:**
+- Story spec assumed `/v3/historical-market-capitalization/{ticker}?limit=1500` returns 5+ years of `{ date, marketCap, price }` entries
+- Actual: stable endpoint returns 63 entries (~3 months only), no `price` field; v3 locked (legacy users only)
+- `shares-outstanding-history` and `historical-shares-float` stable endpoints return `[]` for AAPL
+- EOD price endpoint returns 1255 entries (5 years, `close` price) but no `marketCap`
+- Fixture provenance: captured_real (live AAPL calls 2026-04-21)
+
+**Proposed resolution paths (awaiting user decision):**
+1. Revise STORY-032 to use `weightedAverageShsOutDil` from annual income statement as authoritative source for both anchors (FY0 and FY-3). Self-consistent; satisfies the original consistency constraint. Computation partially exists in STORY-029. (Recommended)
+2. Two-endpoint join (EOD price + market cap) — violates consistency principle; not recommended
+3. Defer pending higher FMP API tier
+
+**Baseline Impact:** YES — story spec references an FMP v3 endpoint that is no longer accessible under our API tier. Story must be revised before implementation can proceed. No RFC/ADR amendment required; this is a data-source availability constraint.
+
+**Next Action:** Await user decision on BC-032-001 resolution path before proceeding
+
+---
+
+## 2026-04-21 — STORY-032 TASK-032-002 through TASK-032-007 Execution (Path A adopted)
+
+**Epic:** EPIC-003
+**Story:** STORY-032
+**Task:** TASK-032-002, TASK-032-003, TASK-032-004, TASK-032-005, TASK-032-006, TASK-032-007
+**Action:** BC-032-001 resolved with Path A. All remaining STORY-032 tasks implemented and unit-verified.
+
+**BC-032-001 Resolution (Path A):** Use `weightedAverageShsOutDil` from FMP `/income-statement?symbol={ticker}&period=annual&limit=5`. Both FY0 (entries[0]) and FY-3 (entries[3]) use the same endpoint and field — self-consistent. Requires ≥4 entries.
+
+**Files Changed:**
+- `src/modules/data-ingestion/types.ts` — extended ProvenanceEntry: added `method?`, `period_start?`, made `fallback_used?` optional, added `'deterministic_heuristic'` to provider union; updated FundamentalData.share_count_growth_3y JSDoc
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` — added `fetchAnnualShareCounts(ticker)` method; removed dead share-count computation; set `share_count_growth_3y: null` in fetchFundamentals return
+- `src/modules/data-ingestion/utils/share-count-growth.ts` — created; exports `computeShareCountGrowth3y()` (CAGR = `(FY0/FY-3)^(1/3) - 1`)
+- `src/modules/data-ingestion/jobs/share-count-sync.service.ts` — created; exports `syncShareCount(fmpAdapter): Promise<ShareCountSyncResult>`; provenance: `{ provider: 'fmp', method: 'income_statement_cagr', period_start, period_end, synced_at }`
+- `src/modules/data-ingestion/jobs/fundamentals-sync.service.ts` — removed `shareCountGrowth3y` write block from buildUpdateFromFundamentals; ShareCountSyncService is now authoritative writer
+- `src/app/api/admin/sync/share-count/route.ts` — created; POST handler with validateAdminApiKey auth
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-032 status → done ✅; active story → STORY-033
+- `stories/tasks/EPIC-003-data-ingestion/STORY-032-share-count-growth.md` — status updated to done
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-032-share-count-growth.test.ts` (created) — 14 tests: FMPAdapter.fetchAnnualShareCounts (3), computeShareCountGrowth3y (6), syncShareCount service using jest.requireActual (3), POST route (2)
+- `tests/unit/data-ingestion/story-029-growth-cagrs.test.ts` (modified) — 4 assertions updated to reflect share_count_growth_3y null from fundamentals sync; added revenue_growth_3y to fixture to ensure DB write fires; all 24 tests passing
+
+**Result/Status:** DONE ✅ — unit_verified
+- story-032 tests: 14/14 passing
+- story-029 regression: 24/24 passing
+- No new TypeScript errors introduced (pre-existing 21 errors unchanged)
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — Path A uses income statement endpoint already in scope; no RFC/ADR amendment required
+
+**Next Action:** STORY-033 — Deterministic Classification Flags
+
+---
+
+## 2026-04-21 — STORY-033 Detail, Validation, and Full Execution
+
+**Epic:** EPIC-003
+**Story:** STORY-033
+**Task:** TASK-033-001 through TASK-033-004
+**Action:** Story detailed (BDD scenarios, 4 tasks, 22-test plan), self-validated (Decimal conversion risk identified and resolved in spec), all tasks implemented and unit-verified.
+
+**Self-validation findings corrected before execution:**
+1. Prisma Decimal → number: `.toNumber()` required (not `Number()`); documented in TASK-033-002 spec and reflected in service code
+2. `earningsTtm null + revenue 50M–200M` edge case → FALSE (not TRUE); explicitly specified
+3. Partial write test added (2 of 3 flags non-null)
+
+**Files Changed:**
+- `stories/tasks/EPIC-003-data-ingestion/STORY-033-deterministic-classification-flags.md` — full task breakdown, BDD scenarios, test plan, status → done
+- `src/modules/data-ingestion/jobs/deterministic-classification-sync.service.ts` (created) — `computeDeterministicFlags()` pure function + `syncDeterministicClassificationFlags()` job; INSURER_INDUSTRIES Set; Decimal.toNumber() conversion
+- `src/app/api/admin/sync/deterministic-flags/route.ts` (created) — POST handler with validateAdminApiKey auth
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-033 status → done ✅; active story updated (EPIC-003 complete)
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-033-deterministic-flags.test.ts` (created) — 23 tests: computeDeterministicFlags (17), syncDeterministicClassificationFlags using jest.requireActual (3), POST route (2), + 1 case-insensitive bonus
+- Full unit regression: 307/307 passing across 17 test suites
+
+**Result/Status:** DONE ✅ — unit_verified
+- story-033 tests: 23/23 passing
+- Full regression: 307/307 passing
+- No new TypeScript errors
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — flag rules, thresholds, and column names match RFC-001/RFC-002 exactly
+
+**Next Action:** EPIC-003 complete ✅ — proceed to EPIC-003.1 (STORY-034 — LLM Provider Interface and Prompt File Infrastructure)
+
+---
+
+## 2026-04-21 — STORY-034 Detail, Validation, and Full Execution
+
+**Epic:** EPIC-003.1
+**Story:** STORY-034
+**Task:** TASK-034-001 through TASK-034-006
+**Action:** Story detailed (BDD scenarios, 6 tasks, 7-test plan), self-validated (interpolation flow clarified between PromptLoader and ClaudeProvider per RFC-007), all tasks implemented and unit-verified.
+
+**Self-validation findings corrected before execution:**
+1. RFC-007 design tension resolved: provider (`ClaudeProvider`) does interpolation of raw template; `promptVersion = sha256(rawTemplate)` is stable across calls for same template. PromptLoader.load(path, vars?) provides optional interpolation for test/admin use cases.
+2. Test isolation: `fs` mocked via `jest.mock('fs')` + `jest.requireActual` for PromptLoader (avoids real disk access; allows controlled content for version-change test).
+
+**Files Changed:**
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-034-llm-provider-infrastructure.md` — full task breakdown, BDD scenarios, test plan, status → done
+- `src/modules/classification-enrichment/ports/llm-provider.interface.ts` (created) — LLMProviderConfig, LLMResponse<T>, LLMProvider interface
+- `src/modules/classification-enrichment/providers/claude.provider.ts` (created) — ClaudeProvider, ClaudeProvider.fromEnv(), tool-use pattern, interpolate(), sha256Hex()
+- `src/modules/classification-enrichment/utils/prompt-loader.ts` (created) — PromptLoader.load(), version hash from raw content, optional interpolation with fail-fast on missing vars
+- `src/modules/classification-enrichment/prompts/combined-enrichment.md` (created stub)
+- `src/modules/classification-enrichment/prompts/holding-company-flag.md` (created stub)
+- `src/modules/classification-enrichment/prompts/cyclicality-flag.md` (created stub)
+- `src/modules/classification-enrichment/prompts/binary-flag.md` (created stub)
+- `.env.example` — added ANTHROPIC_API_KEY, LLM_MODEL, LLM_ENRICHMENT_CONFIDENCE_THRESHOLD
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-034 status → done ✅; EPIC-003.1 status → in_progress
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-034-llm-provider-infrastructure.test.ts` (created) — 7 tests: PromptLoader (4), ClaudeProvider (3)
+- Full unit regression: 447/447 passing across 38 test suites
+
+**Result/Status:** DONE ✅ — unit_verified
+- story-034 tests: 7/7 passing
+- Full regression: 447/447 passing
+- No new TypeScript errors
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — interface matches RFC-007 exactly; env var names match RFC-007 §Configuration
+
+**Next Action:** STORY-035 — holding_company_flag via Heuristic + LLM
+
+---
+
+## 2026-04-21 — STORY-035 Detail, Validation, and Full Execution
+
+**Epic:** EPIC-003.1
+**Story:** STORY-035
+**Task:** TASK-035-001 through TASK-035-004
+**Action:** Story detailed (BDD scenarios, 4 tasks, 7-test plan), self-validated (3 risks resolved), all tasks implemented and unit-verified.
+
+**BC-035-001 confirmed:** FMP stable profile endpoint does not return `sic` field (verified live for AAPL — field absent from response). All production stocks have `sicCode: null` → all go to LLM path. SIC heuristic code remains in detector and is covered by synthetic test fixtures (SIC "6719" → TRUE, tested without live API).
+
+**Self-validation findings corrected before execution:**
+1. ProvenanceEntry lacked `model`, `confidence`, `prompt_file`, `prompt_version`, `null_decision`, `error`, `error_message` — added as optional fields. All existing usages backward-compatible.
+2. `'claude'` not in ProvenanceEntry provider union — added alongside existing values.
+3. Null-safe defaults for template variables (`?? ''`) prevent PromptLoader/provider from throwing when company_name/description are null.
+
+**Files Changed:**
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-035-holding-company-flag.md` — full task breakdown, status → done
+- `src/modules/data-ingestion/types.ts` — StockMetadata: added `description`, `sicCode`; ProvenanceEntry: added `claude` to provider union, added LLM enrichment fields
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` — fetchMetadata(): extract `description` and `sicCode` (sicCode always null per BC-035-001)
+- `src/modules/classification-enrichment/prompts/holding-company-flag.md` — replaced stub with full prompt body
+- `src/modules/classification-enrichment/detectors/holding-company.detector.ts` (created) — detectHoldingCompanyFlag(), SIC heuristic, LLM path, confidence gating, error isolation
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-035 status → done ✅
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-035-holding-company-flag.test.ts` (created) — 7 tests: all detection paths covered
+- Full unit regression: 454/454 passing across 39 test suites
+
+**Result/Status:** DONE ✅ — unit_verified
+- story-035 tests: 7/7 passing
+- Full regression: 454/454 passing
+- No new TypeScript errors
+
+**Blockers/Issues:** BC-035-001 (resolved — documented, handled in code)
+
+**Baseline Impact:** NO — BC-035-001 is a data-source availability constraint; SIC heuristic code path preserved for synthetic use; no RFC/ADR amendment required
+
+**Next Action:** STORY-036 — cyclicality_flag via Sector Rule + LLM
+
+---
+
+## 2026-04-21 — STORY-036 Detail, Validation, and Full Execution
+
+**Epic:** EPIC-003.1
+**Story:** STORY-036
+**Task:** TASK-036-001 through TASK-036-003
+**Action:** Story detailed, self-validated (null sector edge case added to LLM bucket), all tasks implemented and unit-verified.
+
+**Files Changed:**
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-036-cyclicality-flag.md` — full task breakdown, status → done
+- `src/modules/classification-enrichment/prompts/cyclicality-flag.md` — replaced stub with full prompt body
+- `src/modules/classification-enrichment/detectors/cyclicality.detector.ts` (created) — detectCyclicalityFlag(), CYCLICAL_SECTORS/DEFENSIVE_SECTORS sets, LLM path, confidence gating, error isolation
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-036 status → done ✅
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-036-cyclicality-flag.test.ts` (created) — 7/7 passing
+- Full unit regression: 461/461 passing across 40 test suites
+
+**Result/Status:** DONE ✅ — unit_verified
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-037 — binary_flag via Heuristic + LLM
+
+---
+
+## 2026-04-21 — STORY-037 Detail, Validation, and Full Execution
+
+**Epic:** EPIC-003.1
+**Story:** STORY-037
+**Task:** TASK-037-001 through TASK-037-003
+**Action:** Story detailed, self-validated (3 null edge cases resolved), all tasks implemented and unit-verified.
+
+**Self-validation findings corrected before execution:**
+1. `revenue_ttm = null` for Healthcare → Level 1 does NOT fire (requires `!== null`) → falls to LLM
+2. `market_cap = null` → Level 2 cannot apply → falls to LLM
+3. `sector = null` → Level 2 requires `sector !== null` → falls to LLM
+
+**Files Changed:**
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-037-binary-flag.md` — full task breakdown, status → done
+- `src/modules/classification-enrichment/prompts/binary-flag.md` — replaced stub with full prompt body
+- `src/modules/classification-enrichment/detectors/binary-flag.detector.ts` (created) — detectBinaryFlag(), pre-revenue biotech Level 1, large-cap exclusion Level 2, LLM Level 3
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-037 status → done ✅
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-037-binary-flag.test.ts` (created) — 8/8 passing
+- Full unit regression: 469/469 passing across 41 test suites
+
+**Result/Status:** DONE ✅ — unit_verified
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-038 — classificationEnrichmentSync combined job
+
+---
+
+## 2026-04-21 — EPIC-003.1/STORY-038: classificationEnrichmentSync Job
+
+**Epic:** EPIC-003.1 — Classification LLM Enrichment
+**Story:** STORY-038 — classificationEnrichmentSync Job
+**Task:** TASK-038-001 through TASK-038-005
+
+**Action:** Implemented combined classification enrichment sync job with deterministic pre-filters, recomputation trigger evaluation, and single combined LLM call per stock.
+
+**Pre-implementation findings:**
+- `description` field does not exist in Prisma `Stock` model (line 30 `description` is in `FrameworkVersion`). Combined sync passes `description: ''` as LLM variable fallback. V1 limitation — future metadata sync can populate this.
+- BC-035-001 confirmed: sicCode always null from FMP → `holding_company_flag` pre-filter always null → `needs_llm` always true in production until FMP exposes SIC.
+- Pre-existing Tiingo adapter TS error fixed: missing `description` and `sicCode` fields in `fetchMetadata()` return.
+
+**Files Changed:**
+- `src/modules/classification-enrichment/jobs/classification-enrichment-sync.service.ts` (created) — `runDeterministicPreFilters()`, `shouldEnrich()`, `syncClassificationEnrichment()`
+- `src/app/api/admin/sync/classification-enrichment/route.ts` (created) — POST endpoint, `?mode=incremental|full`
+- `src/modules/data-ingestion/adapters/tiingo.adapter.ts` (modified) — added `description: null`, `sicCode: null` to `fetchMetadata()` return
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-038-classification-enrichment-sync-job.md` (status updated to done)
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-038-classification-enrichment-sync.test.ts` (created) — 15 tests: 4 pre-filter, 7 shouldEnrich (5 triggers + no-trigger + full mode), 4 sync job integration
+
+**Result/Status:** DONE ✅ — unit_verified — 15/15 tests passing; 484/484 total unit tests passing; no new TypeScript errors
+
+**Blockers/Issues:**
+- Test fix: initial "all LLM" test used Healthcare sector which is in DEFENSIVE_SECTORS → cyclicality_flag = false deterministically. Fixed to use Financials sector.
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-039 — Qualitative enrichment score types
+
+---
+
+## 2026-04-21 — EPIC-003.1/STORY-039: Enrichment Score Columns Schema Migration
+
+**Epic:** EPIC-003.1 — Classification LLM Enrichment
+**Story:** STORY-039 — Enrichment Score Columns: Schema Migration + Prisma Update
+**Task:** TASK-039-001 through TASK-039-005
+
+**Action:** Added `description TEXT` and 6 E1–E6 score DECIMAL(3,2) columns to the Prisma Stock model, created migration SQL, regenerated Prisma client, updated contracts.test.ts with new column assertions, added `ClassificationEnrichmentScores` TypeScript type.
+
+**Self-validation findings:**
+- Migration sequence: 000004 → 000005 ✓
+- `description` placed after `country` in Stock model (no @map needed — field name matches DB column)
+- Score fields placed after `gaapAdjustmentFactor`, before `forwardPe` block
+- DECIMAL(3,2) supports range 1.0–5.0 in 0.5 steps (max 9.99) ✓
+- `prisma generate` completed cleanly — Prisma client includes new types ✓
+- All pre-existing TS errors are pre-STORY-039; no new errors introduced ✓
+
+**Files Changed:**
+- `prisma/schema.prisma` (modified) — added `description String? @db.Text` and 6 score fields
+- `prisma/migrations/20260421000005_add_enrichment_scores/migration.sql` (created) — 7 ALTER TABLE statements
+- `src/modules/data-ingestion/types.ts` (modified) — added `ClassificationEnrichmentScores` interface
+- `tests/integration/data-ingestion/contracts.test.ts` (modified) — added new columns to requiredColumns; added 2 new it() blocks for score numeric type and description text type
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-039-enrichment-scores-schema.md` (status updated to done)
+
+**Tests Added/Updated:**
+- `tests/integration/data-ingestion/contracts.test.ts` — 2 new @contract assertions (require live DB to execute)
+
+**Result/Status:** DONE ✅ — schema_verified; `prisma generate` clean; 484/484 unit tests passing; migration SQL ready for `prisma migrate deploy` against live DB
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-040 — E1–E6 Qualitative Enrichment Scores + Combined Enrichment Prompt
+
+---
+
+## 2026-04-21 — EPIC-003.1/STORY-040: E1–E6 Qualitative Enrichment Scores + Combined Enrichment Prompt
+
+**Epic:** EPIC-003.1 — Classification LLM Enrichment
+**Story:** STORY-040 — E1–E6 Qualitative Enrichment Scores + Combined Enrichment Prompt
+**Tasks:** TASK-040-001 through TASK-040-004
+
+**Action:** Wrote the production `combined-enrichment.md` prompt body; implemented `detectCombinedEnrichment()` in a new detector module; extended `classificationEnrichmentSync` to call the combined detector for every stock (E1–E6 always need LLM); added `description` field to DB query and input type; updated STORY-038 unit tests to match new combined response format.
+
+**Self-validation findings:**
+- `combined-enrichment.md` contains all 7 template variables; 1/3/5 anchor points for each of the 6 scores; explicit flag definitions consistent with STORY-034 schema ✓
+- `detectCombinedEnrichment` never throws — all LLM errors caught; returned in provenance with `error: true` ✓
+- Per-flag confidence gating: each flag independently gated; one failing flag doesn't suppress others ✓
+- Shared `scores_confidence` gate: single value gates all 6 scores atomically ✓
+- Half-integer rounding: `Math.round(v * 2) / 2` verified via unit test (3.7→3.5, 3.8→4.0) ✓
+- `needs_llm` guard removed from sync service — E1-E6 require LLM regardless of pre-filter results ✓
+- Provenance merge: pre-determined flag provenance from heuristics preserved; LLM provenance skipped for pre-determined flags ✓
+- All pre-existing TS errors pre-date STORY-040; no new TS errors introduced ✓
+
+**Files Changed:**
+- `src/modules/classification-enrichment/prompts/combined-enrichment.md` (replaced stub) — full production prompt with 7 variables, 6 score definitions, 3 flag definitions
+- `src/modules/classification-enrichment/detectors/enrichment-scores.detector.ts` (created) — `detectCombinedEnrichment()` with per-flag gating, shared score gating, half-integer rounding, error isolation
+- `src/modules/classification-enrichment/jobs/classification-enrichment-sync.service.ts` (modified) — added `description` to input type, added `SCORE_DB_MAP`/`FLAG_DB_MAP`, replaced inline LLM stub with `detectCombinedEnrichment()` call, always calls LLM (no `needs_llm` guard)
+- `tests/unit/classification-enrichment/story-040-combined-enrichment.test.ts` (created) — 5 unit tests for `detectCombinedEnrichment`
+- `tests/unit/classification-enrichment/story-038-classification-enrichment-sync.test.ts` (modified) — updated `makeMockProvider` to new combined format; added `description: null` to `makeDbStock`; changed `llm_calls_made` assertion from 1→2
+- `stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md` (status updated to done)
+
+**Tests Added/Updated:**
+- `tests/unit/classification-enrichment/story-040-combined-enrichment.test.ts` — 5 tests (all confidence above threshold, scores_confidence below threshold, one flag below threshold, half-integer rounding, LLM error path)
+- `tests/unit/classification-enrichment/story-038-classification-enrichment-sync.test.ts` — updated 3 locations (mock format, description field, llm_calls_made count)
+
+**Result/Status:** DONE ✅ — 489/489 unit tests passing; no new TS errors; all STORY-040 acceptance criteria met
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO
+
+**Next Action:** EPIC-003.1 complete — all 7 stories (STORY-034 through STORY-040) done
+
+---
+
+## 2026-04-21 — BUG FIX: Missing /api/cron/market-cap route (STORY-027 gap)
+
+**Epic:** EPIC-003 — Data Ingestion & Universe Management
+**Story:** STORY-027 — Market Cap, Enterprise Value & Trailing Valuation Multiples
+**Task:** TASK-027-005 (cron endpoint omitted from original delivery)
+
+**Issue:** `syncMarketCapAndMultiples()` had no Cloud Scheduler cron endpoint. All other sync services have a corresponding `/api/cron/` route; market cap was missing. Consequence: any stock ingested after the initial ad-hoc run (AAPL/MSFT) had null `marketCap`, `sharesOutstanding`, `trailingPe`, `trailingEvEbit`, `evSales`, and by extension null `forwardEvEbit` and `forwardEvSales` (forward estimates service reads market cap to compute EV multiples — must run after market cap is populated).
+
+**Root cause:** STORY-027 Task 5 created `syncMarketCapAndMultiples()` and wired the service, but the corresponding cron route was never created. The pipeline order comment in the forward estimates service ("must run AFTER syncFundamentals() and syncMarketCapAndMultiples()") was documented but not enforced.
+
+**Fix:**
+- Created `src/app/api/cron/market-cap/route.ts` — POST handler with OIDC auth, calls `syncMarketCapAndMultiples(fmp)`, same pattern as all other cron routes
+- Documented pipeline order in route comment: fundamentals → price-sync → market-cap → estimates
+- Re-ran `syncMarketCapAndMultiples` and `syncForwardEstimates` to backfill TSLA and UBER
+- Updated `data/UBER-snapshot.json` with corrected market cap and EV multiples
+
+**Files Changed:**
+- `src/app/api/cron/market-cap/route.ts` (created)
+- `data/UBER-snapshot.json` (updated with correct values)
+
+**Verification:**
+- AAPL: $3,912B mktcap, P/E 34.5×, EV/EBIT 28.0× trailing / 25.4× forward ✓
+- MSFT: $3,150B mktcap, P/E 26.1×, EV/EBIT 21.3× trailing / 22.1× forward ✓
+- TSLA: $1,450B mktcap, P/E 332.6×, EV/EBIT 259.6× trailing / 125.9× forward ✓
+- UBER: $159B mktcap, P/E 16.0×, EV/EBIT 26.3× trailing / 25.1× forward ✓
+
+**Baseline Impact:** NO
+
+**Next Action:** Cloud Scheduler config (STORY-003/EPIC-001 deployment) needs a market-cap job scheduled between price-sync and estimates jobs

@@ -351,12 +351,13 @@ curl https://aaa-web-717628686883.us-central1.run.app/api/health
 
 ### TASK-003-007: Configure Cloud Scheduler Jobs for Nightly Batch
 
-**Description:** Create 6 Cloud Scheduler jobs to orchestrate the nightly batch processing pipeline.
+**Description:** Create 7 Cloud Scheduler jobs to orchestrate the nightly batch processing pipeline.
 
 **Acceptance Criteria:**
-- 6 Cloud Scheduler jobs created:
+- 7 Cloud Scheduler jobs created:
   - `price-sync` - Daily 5pm ET (Mon-Fri)
   - `fundamentals-sync` - Daily 6pm ET (Mon-Fri)
+  - `market-cap` - Daily 6:30pm ET (Mon-Fri) — must run after fundamentals, before estimates
   - `estimates-sync` - Daily 7pm ET (Mon-Fri)
   - `classification` - Daily 8pm ET (Mon-Fri)
   - `valuation` - Daily 8:15pm ET (Mon-Fri)
@@ -369,7 +370,7 @@ curl https://aaa-web-717628686883.us-central1.run.app/api/health
 ```gherkin
 Given the nightly batch pipeline needs orchestration
 When I create Cloud Scheduler jobs
-Then 6 jobs should be created with correct schedules
+Then 7 jobs should be created with correct schedules
 And all jobs should use OIDC authentication
 And all jobs should be enabled
 ```
@@ -400,6 +401,19 @@ gcloud scheduler jobs create http fundamentals-sync \
   --oidc-service-account-email=aaa-scheduler@PROJECT_ID.iam.gserviceaccount.com \
   --oidc-token-audience="${SERVICE_URL}" \
   --description="Daily fundamentals sync (6pm ET Mon-Fri)"
+
+# Create market-cap job (6:30pm ET Mon-Fri — after fundamentals, before estimates)
+# Reads TTM values from fundamentals-sync and currentPrice from price-sync.
+# estimates-sync depends on marketCap being populated for forward EV multiples.
+gcloud scheduler jobs create http market-cap \
+  --location=us-central1 \
+  --schedule="30 18 * * 1-5" \
+  --time-zone="America/New_York" \
+  --uri="${SERVICE_URL}/api/cron/market-cap" \
+  --http-method=POST \
+  --oidc-service-account-email=aaa-scheduler@PROJECT_ID.iam.gserviceaccount.com \
+  --oidc-token-audience="${SERVICE_URL}" \
+  --description="Daily market cap + trailing multiples sync (6:30pm ET Mon-Fri)"
 
 # Create estimates-sync job (7pm ET Mon-Fri)
 gcloud scheduler jobs create http estimates-sync \

@@ -169,7 +169,7 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       industry: 'Consumer Electronics',
       country: 'US',
       marketCap: 5_000_000_000_000,    // 5 trillion USD
-      sharesOutstanding: 15_380_000_000,
+      price: 325,                       // FMP stable/profile returns price; shares derived = 5T/325 ≈ 15.38B
     };
 
     it('returns valid StockMetadata with correct fields', async () => {
@@ -189,11 +189,12 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result!.market_cap_millions).toBe(5_000_000);
     });
 
-    it('market_cap_usd = raw marketCap in USD; shares_outstanding from sharesOutstanding field', async () => {
+    it('market_cap_usd = raw marketCap in USD; shares_outstanding derived from marketCap/price', async () => {
       (global.fetch as jest.Mock).mockResolvedValue(mockResponse(200, [mockProfile]));
       const result = await adapter.fetchMetadata('AAPL');
       expect(result!.market_cap_usd).toBe(5_000_000_000_000);
-      expect(result!.shares_outstanding).toBe(15_380_000_000);
+      // 5_000_000_000_000 / 325 = 15_384_615_384 (rounded)
+      expect(result!.shares_outstanding).toBe(Math.round(5_000_000_000_000 / 325));
     });
 
     it('returns null on 404', async () => {
@@ -306,6 +307,7 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result!.roic).toBeCloseTo(96_000_000 / 130_000_000); // STORY-030: NOPAT=96M (120M*0.8), IC=130M (50+100-20)
       expect(result!.gaapEps).toBeCloseTo(4.0);                  // STORY-031: epsDiluted exposed
       expect(result!.gaapEpsFiscalYearEnd).toBe('2025-09-27');   // STORY-031: FY end date from latest.date
+      expect(result!.statementPeriodEnd).toBe('2025-09-27');     // period end = most recent annual report date
       expect(result!.debt_to_equity).toBeCloseTo(100_000_000 / 50_000_000);
       expect(result!.current_ratio).toBeCloseTo(150_000_000 / 75_000_000);
       expect(result!.trailing_pe).toBeNull();
@@ -380,12 +382,12 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
     // Synthetic fixture — field names verified against live AAPL response 2026-04-20
     // Today is 2026-04-20; NTM for AAPL = FY2026 (2026-09-27)
     const mockEstimates = [
-      // Descending order as returned by FMP
-      { symbol: 'AAPL', date: '2028-09-27', epsAvg: 10.32, ebitAvg: 177_140_012_450, numAnalystsEps: 14 },
-      { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32,  ebitAvg: 166_614_438_749, numAnalystsEps: 15 },
-      { symbol: 'AAPL', date: '2026-09-27', epsAvg: 8.49,  ebitAvg: 155_769_099_889, numAnalystsEps: 16 }, // NTM
-      { symbol: 'AAPL', date: '2025-09-27', epsAvg: 7.38,  ebitAvg: 139_130_893_090, numAnalystsEps: 18 }, // past
-      { symbol: 'AAPL', date: '2024-09-27', epsAvg: 6.71,  ebitAvg: 130_782_447_468, numAnalystsEps: 20 }, // past
+      // Descending order as returned by FMP; field names verified against live API 2026-04-21
+      { symbol: 'AAPL', date: '2028-09-27', epsAvg: 10.32, ebitAvg: 177_140_012_450, revenueAvg: 528_000_000_000, netIncomeAvg: 146_000_000_000, numAnalystsEps: 14 },
+      { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32,  ebitAvg: 166_614_438_749, revenueAvg: 497_000_000_000, netIncomeAvg: 134_000_000_000, numAnalystsEps: 15 },
+      { symbol: 'AAPL', date: '2026-09-27', epsAvg: 8.49,  ebitAvg: 155_769_099_889, revenueAvg: 465_000_000_000, netIncomeAvg: 124_000_000_000, numAnalystsEps: 16 }, // NTM
+      { symbol: 'AAPL', date: '2025-09-27', epsAvg: 7.38,  ebitAvg: 139_130_893_090, revenueAvg: 415_000_000_000, netIncomeAvg: 109_000_000_000, numAnalystsEps: 18 }, // past
+      { symbol: 'AAPL', date: '2024-09-27', epsAvg: 6.71,  ebitAvg: 130_782_447_468, revenueAvg: 390_000_000_000, netIncomeAvg:  97_000_000_000, numAnalystsEps: 20 }, // past
     ];
 
     it('selects NTM: first future fiscal year end — 2026-09-27 on 2026-04-20 → eps_ntm=8.49', async () => {
@@ -394,15 +396,21 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result).not.toBeNull();
       expect(result!.ticker).toBe('AAPL');
       expect(result!.eps_ntm).toBeCloseTo(8.49);
+      // revenue_ntm uses revenueAvg (not revenueAvg)
+      expect(result!.revenue_ntm).toBe(465_000_000_000);
       // STORY-031: most recently completed FY = 2025-09-27 entry (epsAvg=7.38)
       expect(result!.nonGaapEpsMostRecentFy).toBeCloseTo(7.38);
       expect(result!.nonGaapEpsFiscalYearEnd).toBe('2025-09-27');
+      expect(result!.nonGaapEarningsMostRecentFy).toBe(109_000_000_000);
+      expect(result!.nonGaapEarningsNtm).toBe(124_000_000_000);
+      // NTM period end = NTM fiscal year end date
+      expect(result!.ntmFiscalYearEnd).toBe('2026-09-27');
     });
 
     it('STORY-031: nonGaapEpsMostRecentFy=null when all entries are future', async () => {
       (global.fetch as jest.Mock).mockResolvedValue(mockResponse(200, [
-        { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32, ebitAvg: null, estimatedRevenueAvg: null },
-        { symbol: 'AAPL', date: '2028-09-27', epsAvg: 10.0, ebitAvg: null, estimatedRevenueAvg: null },
+        { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32, ebitAvg: null, revenueAvg: null, netIncomeAvg: null },
+        { symbol: 'AAPL', date: '2028-09-27', epsAvg: 10.0, ebitAvg: null, revenueAvg: null, netIncomeAvg: null },
       ]));
       const result = await adapter.fetchForwardEstimates('AAPL');
       expect(result).not.toBeNull();
@@ -424,7 +432,7 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
 
     it('all three fields null → returns null', async () => {
       (global.fetch as jest.Mock).mockResolvedValue(mockResponse(200, [
-        { symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, estimatedRevenueAvg: null, numAnalystsEps: 0 },
+        { symbol: 'AAPL', date: '2027-09-27', epsAvg: null, ebitAvg: null, revenueAvg: null, numAnalystsEps: 0 },
       ]));
       const result = await adapter.fetchForwardEstimates('AAPL');
       expect(result).toBeNull();
@@ -439,9 +447,9 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result!.ebit_ntm).toBe(210_000_000_000);
     });
 
-    it('STORY-028: estimatedRevenueAvg returned as revenue_ntm in absolute USD', async () => {
+    it('STORY-028: revenueAvg returned as revenue_ntm in absolute USD', async () => {
       (global.fetch as jest.Mock).mockResolvedValue(mockResponse(200, [
-        { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32, ebitAvg: null, estimatedRevenueAvg: 415_000_000_000, numAnalystsEps: 15 },
+        { symbol: 'AAPL', date: '2027-09-27', epsAvg: 9.32, ebitAvg: null, revenueAvg: 415_000_000_000, numAnalystsEps: 15 },
       ]));
       const result = await adapter.fetchForwardEstimates('AAPL');
       expect(result).not.toBeNull();

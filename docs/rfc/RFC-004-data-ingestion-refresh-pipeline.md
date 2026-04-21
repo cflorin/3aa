@@ -67,6 +67,18 @@ V1 requires continuous ingestion of stock data: universe eligibility, prices, fu
 │  │  Forward Estimates Sync          │            │
 │  │  (FMP primary, Tiingo fallback)  │            │
 │  └──────────────────────────────────┘            │
+│  ┌──────────────────────────────────┐            │
+│  │  Deterministic Classification    │            │
+│  │  Sync (EPIC-003 STORY-033)       │            │
+│  │  insurer_flag, material_dilution │            │
+│  │  pre_operating_leverage          │            │
+│  └──────────────────────────────────┘            │
+│  ┌──────────────────────────────────┐            │
+│  │  Classification Enrichment Sync  │            │
+│  │  (EPIC-003.1 STORY-038)          │            │
+│  │  LLM flags + E1-E6 scores        │            │
+│  │  Weekly cadence; see RFC-007     │            │
+│  └──────────────────────────────────┘            │
 │           ↓                                      │
 │  ┌──────────────────────────────────┐            │
 │  │  Data Validator                  │            │
@@ -355,6 +367,42 @@ async function detectChanges(ticker: string): Promise<{
 
 1. **ADR-001: Multi-Provider Data Architecture** (PRIMARY)
 2. **ADR-002: V1 Orchestration - Nightly Batch**
+
+---
+
+## Amendment — 2026-04-21: Classification Enrichment Sync Jobs
+
+### New Job: Deterministic Classification Sync (EPIC-003 STORY-033)
+
+Runs after Forward Estimates Sync. Computes and persists deterministic classification inputs:
+
+| Field | Source | Rule |
+|-------|--------|------|
+| `share_count_growth_3y` | FMP historical share data | 3-year CAGR from historical endpoint |
+| `material_dilution_flag` | Derived from share_count_growth_3y | > 0.05 threshold |
+| `insurer_flag` | FMP profile sector/industry | SIC 6311–6399 or industry contains "Insurance" |
+| `pre_operating_leverage_flag` | DB revenue_ttm | `revenue_ttm < 50_000_000 OR (revenue_ttm < 200_000_000 AND earningsTtm < 0)` |
+
+Schedule: Daily (same cadence as other sync jobs). No LLM calls.
+
+### New Job: Classification Enrichment Sync (EPIC-003.1 STORY-038)
+
+Runs weekly (Sunday 02:00 UTC). Uses abstract `LLMProvider` interface (RFC-007). Produces:
+
+| Field | Method |
+|-------|--------|
+| `holding_company_flag` | SIC 6710–6726 heuristic; else Claude `holding-company-flag.md` prompt |
+| `cyclicality_flag` | Sector rules (Materials/Energy → TRUE, Staples/Healthcare → FALSE); Claude `cyclicality-flag.md` for ambiguous sectors |
+| `binary_flag` | Pre-revenue biotech heuristic; else Claude `binary-flag.md` prompt |
+| E1–E6 scores | Single Claude `classification-scores.md` batch call returning all 6 scores |
+
+Incremental mode (default): only enriches stocks added/modified in last 30 days.
+Full mode: admin-triggered or forced on LLM_MODEL env var change.
+
+All decisions recorded in `data_provider_provenance` with model, prompt_version, confidence, method.
+
+### Related
+RFC-007 (LLM Provider Architecture), ADR-012 (LLM Enrichment Decision)
 
 ---
 

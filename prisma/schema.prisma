@@ -134,6 +134,8 @@ model Stock {
   sector      String? @db.VarChar(100)
   industry    String? @db.VarChar(100)
   country     String  @db.VarChar(2)
+  // EPIC-003.1: STORY-039 — company description for LLM enrichment prompts (populated by STORY-040 enrichment sync)
+  description String? @db.Text
 
   // Universe eligibility
   marketCap               Decimal? @db.Decimal(15, 2) @map("market_cap")
@@ -178,8 +180,21 @@ model Stock {
   epsNtm               Decimal? @db.Decimal(10, 4) @map("eps_ntm")
   ebitNtm              Decimal? @db.Decimal(20, 2) @map("ebit_ntm")
   revenueNtm           Decimal? @db.Decimal(20, 2) @map("revenue_ntm")
+  // Non-GAAP earnings: analyst consensus (FMP netIncomeAvg). NTM = forward period; FY = most recent completed year.
+  nonGaapEarningsNtm   Decimal? @db.Decimal(20, 2) @map("non_gaap_earnings_ntm")
+  nonGaapEarningsFy    Decimal? @db.Decimal(20, 2) @map("non_gaap_earnings_fy")
+  // Non-GAAP EPS for most recently completed FY (FMP epsAvg for past entries). Used in gaap_adjustment_factor.
+  nonGaapEpsFy         Decimal? @db.Decimal(10, 4) @map("non_gaap_eps_fy")
   // STORY-031: GAAP/non-GAAP adjustment factor = GAAP epsDiluted / non-GAAP analyst consensus epsAvg
   gaapAdjustmentFactor Decimal? @db.Decimal(5, 4)  @map("gaap_adjustment_factor")
+
+  // EPIC-003.1: STORY-039 — LLM qualitative enrichment scores (E1–E6); half-integer precision 1.0–5.0
+  moatStrengthScore             Decimal? @db.Decimal(3, 2) @map("moat_strength_score")
+  pricingPowerScore             Decimal? @db.Decimal(3, 2) @map("pricing_power_score")
+  revenueRecurrenceScore        Decimal? @db.Decimal(3, 2) @map("revenue_recurrence_score")
+  marginDurabilityScore         Decimal? @db.Decimal(3, 2) @map("margin_durability_score")
+  capitalIntensityScore         Decimal? @db.Decimal(3, 2) @map("capital_intensity_score")
+  qualitativeCyclicalityScore   Decimal? @db.Decimal(3, 2) @map("qualitative_cyclicality_score")
 
   forwardPe                                    Decimal? @db.Decimal(8, 2) @map("forward_pe")
   forwardPeSource                              String?  @db.VarChar(20) @map("forward_pe_source")

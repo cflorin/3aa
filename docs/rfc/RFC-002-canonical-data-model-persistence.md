@@ -154,15 +154,16 @@ CREATE TABLE stocks (
     forward_operating_earnings_ex_excess_cash_source IN ('manual_override', 'missing')
   ), -- V1: No automated source for this metric
 
-  -- Manual flags
-  holding_company_flag BOOLEAN DEFAULT FALSE,
-  insurer_flag BOOLEAN DEFAULT FALSE,
-  cyclicality_flag BOOLEAN DEFAULT FALSE,
-  optionality_flag BOOLEAN DEFAULT FALSE,
-  binary_flag BOOLEAN DEFAULT FALSE,
-  market_pessimism_flag BOOLEAN DEFAULT FALSE,
-  pre_operating_leverage_flag BOOLEAN DEFAULT FALSE,
-  material_dilution_flag BOOLEAN DEFAULT FALSE,
+  -- Classification flags (auto-detected via classification enrichment pipeline; manual override supported)
+  -- Sourcing detail in RFC-001 Amendment 2026-04-21 and ADR-012.
+  holding_company_flag BOOLEAN DEFAULT FALSE,         -- hybrid: SIC heuristic + LLM (EPIC-003.1)
+  insurer_flag BOOLEAN DEFAULT FALSE,                 -- deterministic: SIC 6311-6399 / industry (EPIC-003)
+  cyclicality_flag BOOLEAN DEFAULT FALSE,             -- hybrid: sector rules + LLM ambiguous (EPIC-003.1)
+  optionality_flag BOOLEAN DEFAULT FALSE,             -- manual only (no auto-detection planned)
+  binary_flag BOOLEAN DEFAULT FALSE,                  -- hybrid: biotech heuristic + LLM (EPIC-003.1)
+  market_pessimism_flag BOOLEAN DEFAULT FALSE,        -- manual only (no auto-detection planned)
+  pre_operating_leverage_flag BOOLEAN DEFAULT FALSE,  -- deterministic: revenue_ttm < $50M (EPIC-003)
+  material_dilution_flag BOOLEAN DEFAULT FALSE,       -- deterministic_computed: share_count_growth_3y > 0.05 (EPIC-003)
 
   -- Data freshness (V1: Multi-provider support - see ADR-001)
   fundamentals_last_updated_at TIMESTAMPTZ,
@@ -1029,6 +1030,34 @@ CREATE INDEX idx_user_monitoring_history_action_at ON user_monitoring_history(ac
 1. **ADR-007: Audit Trail Storage Strategy** (full snapshots vs deltas) - DECIDED: Full snapshots
 2. **ADR-008: Framework Configuration Storage** (DB vs YAML) - DECIDED: DB tables
 3. **ADR-009: Soft Delete Strategy for Universe Changes**
+
+---
+
+## Amendment — 2026-04-21: Classification Flag Sourcing + E1–E6 Enrichment Columns
+
+### Change 1: Flag column descriptions updated
+The `-- Manual flags` comment block has been renamed to `-- Classification flags` to reflect that these are now auto-detected by the classification enrichment pipeline (EPIC-003 and EPIC-003.1), with manual override supported. No schema changes.
+
+### Change 2: E1–E6 qualitative enrichment score columns (EPIC-003.1)
+
+The following columns will be added in STORY-039 (EPIC-003.1) via migration. They are listed here for specification completeness:
+
+```sql
+-- V1.0 (EPIC-003.1 STORY-039): Qualitative enrichment scores from LLM enrichment
+-- Half-integer precision (1.00, 1.50, 2.00 ... 5.00). NULL if LLM confidence < 0.60.
+-- Provenance tracked in data_provider_provenance JSONB (no separate confidence columns).
+moat_strength_score           DECIMAL(3,2),   -- 1=no moat, 5=very wide moat
+pricing_power_score           DECIMAL(3,2),   -- 1=price-taker, 5=strong pricing power
+revenue_recurrence_score      DECIMAL(3,2),   -- 1=transactional, 5=fully recurring
+margin_durability_score       DECIMAL(3,2),   -- 1=commodity pressure, 5=structurally protected
+capital_intensity_score       DECIMAL(3,2),   -- 1=asset-light, 5=heavy capex burden
+qualitative_cyclicality_score DECIMAL(3,2),   -- 1=counter-cyclical, 5=highly cyclical
+```
+
+Confidence for each score is stored in `data_provider_provenance` keyed by field name (consistent with provenance approach used throughout V1 — no separate `_confidence` columns).
+
+### Related
+ADR-012, RFC-007, RFC-001 Amendment 2026-04-21
 
 ---
 

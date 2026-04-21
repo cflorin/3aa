@@ -9,11 +9,11 @@
 - **Validated Stories:** STORY-001 through STORY-009 (EPIC-001)
 
 ## Status Summary
-- **Current Phase:** EPIC-003 Data Quality Extension
-- **Active Epic:** EPIC-003 — Data Ingestion & Universe Management (extended)
-- **Active Story:** STORY-032 (next story — to be identified)
-- **Overall Progress:** 2/7 epics complete (EPIC-001 ✅, EPIC-002 ✅), EPIC-003 extended with 5 new stories (025–029)
-- **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
+- **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
+- **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (next to start)
+- **Active Story:** None — EPIC-003.1 complete; EPIC-004 to be decomposed
+- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 next
+- **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -41,11 +41,11 @@
 - **Deployment Milestone:** User authentication operational ✅
 
 ### EPIC-003 — Data Ingestion & Universe Management
-- **Status:** in_progress
+- **Status:** done ✅ (2026-04-21)
 - **Dependencies:** EPIC-001 (database, Cloud Scheduler)
-- **Stories:** STORY-015 through STORY-031 (17 stories; 025–031 added post-behavioral-validation)
-- **Integration Checkpoint:** Nightly batch pipeline running, universe populated; data quality fixes in progress
-- **Deployment Milestone:** Stock data syncing nightly with correct metrics
+- **Stories:** STORY-015 through STORY-033 (19 stories) — ALL COMPLETE ✅
+- **Integration Checkpoint:** Nightly batch pipeline running; all deterministic classification fields populated; EPIC-003.1 unblocked ✅
+- **Deployment Milestone:** Stock data syncing nightly with correct metrics and deterministic flags
 
 #### STORY-015 — Provider Abstraction Layer
 - **Status:** done ✅
@@ -142,9 +142,71 @@
 - **Tasks:** Schema migration (+1 column); FundamentalData/ForwardEstimates type extensions; FMP adapter exposes gaapEps + nonGaapEpsMostRecentFy; Tiingo returns null for gaapEps; computation in syncForwardEstimates with clamp [0.10, 2.00]; 11 new tests
 - **Evidence:** 402/402 unit tests passing
 
+#### STORY-032 — Share Count Growth (3-Year CAGR)
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** STORY-027 (shares_outstanding in pipeline); STORY-029 (income-statement CAGR write path removed in TASK-032-005)
+- **Tasks:** TASK-032-001 ✅ (investigation, BC-032-001 found), TASK-032-002 ✅ (ProvenanceEntry extension), TASK-032-003 ✅ (fetchAnnualShareCounts), TASK-032-004 ✅ (computeShareCountGrowth3y), TASK-032-005 ✅ (remove from fundamentals-sync), TASK-032-006 ✅ (admin route), TASK-032-007 ✅ (14/14 unit tests passing)
+- **BC-032-001 resolved:** Path A adopted — `weightedAverageShsOutDil` from FMP annual income statement used for both FY0 and FY-3 anchors (positional indexing, requires ≥4 entries)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-032-share-count-growth.md
+
+#### STORY-033 — Deterministic Classification Flags
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** STORY-032 ✅; STORY-018 ✅; STORY-027/028 ✅
+- **Tasks:** TASK-033-001 ✅ (computeDeterministicFlags), TASK-033-002 ✅ (sync job), TASK-033-003 ✅ (admin route), TASK-033-004 ✅ (23/23 unit tests passing)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-033-deterministic-classification-flags.md
+
+### EPIC-003.1 — Classification LLM Enrichment
+- **Status:** done ✅ (2026-04-21 — all 7 stories complete, 489/489 unit tests passing)
+- **Dependencies:** EPIC-003 ✅ (complete 2026-04-21); ADR-012 (accepted); RFC-007 (accepted)
+- **Stories:** STORY-034 through STORY-040 (7 stories)
+- **Integration Checkpoint:** All 7 classification flags populated with provenance; E1–E6 scores populated; classificationEnrichmentSync job running on weekly schedule
+- **Deployment Milestone:** Classification enrichment operational; EPIC-004 unblocked
+
+#### STORY-034 — LLM Provider Interface and Prompt File Infrastructure
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** None within EPIC-003.1 (foundation story)
+- **Tasks:** TASK-034-001 ✅ (LLMProvider interface), TASK-034-002 ✅ (ClaudeProvider), TASK-034-003 ✅ (PromptLoader), TASK-034-004 ✅ (prompt stubs), TASK-034-005 ✅ (.env.example), TASK-034-006 ✅ (7/7 unit tests passing)
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-034-llm-provider-infrastructure.md
+
+#### STORY-035 — holding_company_flag via Heuristic + LLM
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** STORY-034 ✅
+- **Tasks:** TASK-035-001 ✅ (StockMetadata+ProvenanceEntry extensions, BC-035-001 confirmed), TASK-035-002 ✅ (prompt body), TASK-035-003 ✅ (HoldingCompanyDetector), TASK-035-004 ✅ (7/7 unit tests)
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-035-holding-company-flag.md
+
+#### STORY-036 — cyclicality_flag via Sector Heuristic + LLM
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** STORY-034 ✅, STORY-035 ✅
+- **Tasks:** TASK-036-001 ✅ (prompt body), TASK-036-002 ✅ (CyclicalityDetector), TASK-036-003 ✅ (7/7 unit tests)
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-036-cyclicality-flag.md
+
+#### STORY-037 — binary_flag via Heuristic + LLM
+- **Status:** done ✅ (2026-04-21)
+- **Dependencies:** STORY-034
+- **Tasks:** Write binary-flag.md prompt; BinaryFlagDetector; unit tests
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-037-binary-flag.md
+
+#### STORY-038 — classificationEnrichmentSync Job
+- **Status:** done ✅ (2026-04-21, unit_verified — 15/15 tests passing)
+- **Dependencies:** STORY-035, STORY-036, STORY-037
+- **Tasks:** syncClassificationEnrichment() service (incremental + full modes); admin route; unit tests — ALL COMPLETE
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-038-classification-enrichment-sync-job.md
+
+#### STORY-039 — Enrichment Score Columns: Schema Migration
+- **Status:** done ✅ (2026-04-21, schema_verified — prisma generate clean; migration SQL ready for deploy)
+- **Dependencies:** STORY-031 (migration numbering sequence)
+- **Tasks:** `description TEXT` + 6 score DECIMAL(3,2) columns — ALL COMPLETE
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-039-enrichment-scores-schema.md
+
+#### STORY-040 — E1–E6 Qualitative Enrichment Scores via LLM Batch Call
+- **Status:** done ✅ (2026-04-21, unit_verified — 489/489 tests passing)
+- **Dependencies:** STORY-034 (LLMProvider), STORY-038 (sync job to extend), STORY-039 (schema)
+- **Tasks:** Write combined-enrichment.md prompt ✅; detectCombinedEnrichment() detector ✅; extend classificationEnrichmentSync with description + score writes ✅; 5 unit tests ✅
+- **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
+
 ### EPIC-004 — Classification Engine & Universe Screen
 - **Status:** planned
-- **Dependencies:** EPIC-002 (auth), EPIC-003 (data pipeline)
+- **Dependencies:** EPIC-002 (auth), EPIC-003 (data pipeline), EPIC-003.1 (LLM enrichment — all flags populated)
 - **Stories:** [To be decomposed]
 - **Integration Checkpoint:** Classification engine running, Universe screen functional
 - **Deployment Milestone:** Users can view classified stocks

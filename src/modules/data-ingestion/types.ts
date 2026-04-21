@@ -49,7 +49,8 @@ export interface FundamentalData {
   eps_growth_3y: number | null;
   /** YoY gross profit growth, percentage (TTM vs prior TTM for Tiingo; FY0 vs FY-1 for FMP). STORY-029. */
   gross_profit_growth: number | null;
-  /** 3-year diluted share count CAGR, percentage (FMP only; null from Tiingo). STORY-029. */
+  /** Always null from FMP adapter after STORY-032. Authoritative source: ShareCountSyncService (STORY-032).
+   *  Was computed from weightedAverageShsOutDil in fetchFundamentals — write path removed in TASK-032-005. */
   share_count_growth_3y: number | null;
   /** Stored as percentage: 10 = 10% growth. Confirmed format per STORY-021. */
   eps_growth_fwd: number | null;
@@ -57,6 +58,9 @@ export interface FundamentalData {
   gaapEps: number | null;
   /** Fiscal year end date (ISO string) for gaapEps — e.g. "2024-09-30". Null for Tiingo. STORY-031. */
   gaapEpsFiscalYearEnd: string | null;
+  /** Date of the most recent quarterly (Tiingo) or annual (FMP) report used for TTM/point-in-time fields.
+   *  ISO date string e.g. "2025-12-27". Used to populate period_end in provenance entries. */
+  statementPeriodEnd: string | null;
   /** Trailing twelve months revenue, absolute USD */
   revenue_ttm: number | null;
   /** Trailing twelve months net income, absolute USD */
@@ -114,6 +118,13 @@ export interface ForwardEstimates {
   nonGaapEpsMostRecentFy: number | null;
   /** Fiscal year end date for nonGaapEpsMostRecentFy — ISO string. STORY-031. */
   nonGaapEpsFiscalYearEnd: string | null;
+  /** Non-GAAP consensus net income (FMP netIncomeAvg) for the most recently completed fiscal year. */
+  nonGaapEarningsMostRecentFy: number | null;
+  /** Non-GAAP consensus net income (FMP netIncomeAvg) for the NTM fiscal year. */
+  nonGaapEarningsNtm: number | null;
+  /** Fiscal year end date for the NTM (next twelve months) estimates window — ISO string.
+   *  e.g. "2026-09-27" for Apple's FY2026. Used as period_end in NTM provenance entries. */
+  ntmFiscalYearEnd: string | null;
 }
 
 /**
@@ -131,6 +142,10 @@ export interface StockMetadata {
   market_cap_usd: number | null;
   /** Diluted shares outstanding — from FMP profile; null if provider does not return it */
   shares_outstanding: number | null;
+  /** Company business description — from FMP profile; null if not returned. STORY-035. */
+  description: string | null;
+  /** SIC code string (e.g. "6719") — from FMP profile; null if stable tier does not return it (BC-035-001). STORY-035. */
+  sicCode: string | null;
 }
 
 /**
@@ -152,9 +167,42 @@ export interface FieldResult<T> {
  * both FMP and Tiingo return null and the safety guardrails are satisfied.
  */
 export interface ProvenanceEntry {
-  provider: 'tiingo' | 'fmp' | 'computed_trailing' | 'computed' | 'computed_fmp' | 'none';
+  provider: 'tiingo' | 'fmp' | 'computed_trailing' | 'computed' | 'computed_fmp' | 'none' | 'deterministic_heuristic' | 'claude';
   /** ISO 8601 string — stored as string, not Date, for JSONB round-trip safety */
   synced_at: string;
-  /** Must be boolean, never the string "true"/"false" */
-  fallback_used: boolean;
+  /** Must be boolean, never the string "true"/"false". Optional for derived/classification fields that have no fallback concept. */
+  fallback_used?: boolean;
+  /** ISO date string of the statement period the value refers to. Omitted for derived/computed fields. */
+  period_end?: string;
+  /** ISO date string of the start of the measurement window (e.g. FY-3 date for a 3-year CAGR). STORY-032. */
+  period_start?: string;
+  /** Derivation method identifier (e.g. "income_statement_cagr", "sic_code", "llm"). */
+  method?: string;
+  // ── LLM enrichment fields (EPIC-003.1 / STORY-035) ──────────────────────────
+  /** LLM model identifier (e.g. "claude-sonnet-4-6"). Set when provider = "claude". */
+  model?: string;
+  /** 0–1 confidence from LLM response. */
+  confidence?: number;
+  /** Prompt filename (e.g. "holding-company-flag.md"). */
+  prompt_file?: string;
+  /** sha256 of raw prompt content, first 8 chars. Changes when prompt is edited. */
+  prompt_version?: string;
+  /** true when LLM confidence < threshold — flag/score not written to DB. */
+  null_decision?: boolean;
+  /** true when LLM call threw an error — flag/score not written to DB. */
+  error?: boolean;
+  /** Error message from thrown LLM error. */
+  error_message?: string;
+}
+
+// EPIC-003.1: STORY-039 — E1–E6 qualitative enrichment scores (RFC-001)
+// Half-integer precision: values are multiples of 0.5 in range [1.0, 5.0].
+// All fields nullable; null means the score has not yet been computed or was below confidence threshold.
+export interface ClassificationEnrichmentScores {
+  moat_strength_score: number | null;
+  pricing_power_score: number | null;
+  revenue_recurrence_score: number | null;
+  margin_durability_score: number | null;
+  capital_intensity_score: number | null;
+  qualitative_cyclicality_score: number | null;
 }

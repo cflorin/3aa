@@ -1,0 +1,750 @@
+{
+  "ADBE": {
+    "ticker": "ADBE",
+    "companyName": "Adobe Inc.",
+    "sector": "Technology",
+    "industry": "Software - Infrastructure",
+    "country": "US",
+    "description": null,
+    "marketCap": "100759693144",
+    "inUniverse": true,
+    "universeStatusChangedAt": null,
+    "currentPrice": "248.63",
+    "revenueGrowth3y": "10.75",
+    "revenueGrowthFwd": "6.58",
+    "epsGrowth3y": "19.1",
+    "epsGrowthFwd": "36.98",
+    "grossProfitGrowth": "11.26",
+    "grossMargin": "0.9",
+    "operatingMargin": "0.38",
+    "fcfMargin": "0.29",
+    "fcfConversion": "1.4313",
+    "roic": "0.5893",
+    "netIncomePositive": true,
+    "fcfPositive": true,
+    "cashAndEquivalents": "6332000000",
+    "totalDebt": "6656000000",
+    "netDebtToEbitda": "0.04",
+    "earningsTtm": "7208000000",
+    "revenueTtm": "24453000000",
+    "ebitTtm": "9238000000",
+    "sharesOutstanding": "407636917",
+    "epsTtm": "17.18",
+    "interestCoverage": "34.99",
+    "shareCountGrowth3y": null,
+    "epsNtm": "23.5332",
+    "ebitNtm": "9266474070",
+    "revenueNtm": "26062707567",
+    "nonGaapEarningsNtm": "10052963503.5",
+    "nonGaapEarningsFy": "8728524789.5",
+    "nonGaapEpsFy": "20.8225",
+    "gaapAdjustmentFactor": "0.8251",
+    "moatStrengthScore": "4.5",
+    "pricingPowerScore": "4",
+    "revenueRecurrenceScore": "4.5",
+    "marginDurabilityScore": "4.5",
+    "capitalIntensityScore": "1.5",
+    "qualitativeCyclicalityScore": "2",
+    "forwardPe": "10.57",
+    "forwardPeSource": null,
+    "trailingPe": "14.47",
+    "forwardEvEbit": "10.91",
+    "forwardEvEbitSource": null,
+    "trailingEvEbit": "10.94",
+    "forwardEvSales": "3.88",
+    "evSales": "4.13",
+    "evSalesSource": null,
+    "forwardOperatingEarningsExExcessCash": null,
+    "forwardOperatingEarningsExExcessCashSource": null,
+    "holdingCompanyFlag": false,
+    "insurerFlag": false,
+    "cyclicalityFlag": false,
+    "optionalityFlag": false,
+    "binaryFlag": false,
+    "marketPessimismFlag": false,
+    "preOperatingLeverageFlag": false,
+    "materialDilutionFlag": false,
+    "fundamentalsLastUpdatedAt": "2026-04-21T20:35:16.988Z",
+    "priceLastUpdatedAt": "2026-04-21T20:35:16.988Z",
+    "dataLastSyncedAt": "2026-04-21T20:35:16.988Z",
+    "dataProviderProvenance": {
+      "roic": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "eps_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "eps_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "ebit_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "ebit_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "ev_sales": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "fcf_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "forward_pe": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "market_cap": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "total_debt": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "binary_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.99,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "revenue_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "revenue_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "trailing_pe": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "earnings_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "fcf_positive": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "gross_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "insurer_flag": {
+        "method": "rule_based",
+        "provider": "deterministic_heuristic",
+        "synced_at": "2026-04-21T20:35:22.245Z"
+      },
+      "current_price": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "eps_growth_3y": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "eps_growth_fwd": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "fcf_conversion": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "forward_ev_ebit": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "non_gaap_eps_fy": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "cyclicality_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.85,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "forward_ev_sales": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "operating_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "trailing_ev_ebit": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "interest_coverage": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "revenue_growth_3y": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "net_debt_to_ebitda": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "revenue_growth_fwd": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "shares_outstanding": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "gross_profit_growth": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "moat_strength_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "net_income_positive": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "pricing_power_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "cash_and_equivalents": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-02-27",
+        "fallback_used": false
+      },
+      "holding_company_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.99,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "non_gaap_earnings_fy": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "non_gaap_earnings_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-11-28",
+        "fallback_used": false
+      },
+      "gaap_adjustment_factor": {
+        "provider": "computed_fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "capital_intensity_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "margin_durability_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "revenue_recurrence_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "pre_operating_leverage_flag": {
+        "method": "rule_based",
+        "provider": "deterministic_heuristic",
+        "synced_at": "2026-04-21T20:35:22.245Z"
+      },
+      "qualitative_cyclicality_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.274Z",
+        "confidence": 0.92,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      }
+    },
+    "dataFreshnessStatus": "fresh",
+    "dataQualityIssues": [],
+    "createdAt": "2026-04-21T20:35:17.733Z",
+    "updatedAt": "2026-04-21T20:35:29.229Z"
+  },
+  "UNH": {
+    "ticker": "UNH",
+    "companyName": "UnitedHealth Group Incorporated",
+    "sector": "Healthcare",
+    "industry": "Medical - Healthcare Plans",
+    "country": "US",
+    "description": null,
+    "marketCap": "314064917052",
+    "inUniverse": true,
+    "universeStatusChangedAt": null,
+    "currentPrice": "323.48",
+    "revenueGrowth3y": "11.35",
+    "revenueGrowthFwd": "-1.58",
+    "epsGrowth3y": "-14.85",
+    "epsGrowthFwd": "34.68",
+    "grossProfitGrowth": "-7.25",
+    "grossMargin": "0.16",
+    "operatingMargin": "0.04",
+    "fcfMargin": "0.03",
+    "fcfConversion": "1.3334",
+    "roic": "0.0909",
+    "netIncomePositive": true,
+    "fcfPositive": true,
+    "cashAndEquivalents": "24365000000",
+    "totalDebt": "78389000000",
+    "netDebtToEbitda": "3.01",
+    "earningsTtm": "12056000000",
+    "revenueTtm": "447567000000",
+    "ebitTtm": "17948000000",
+    "sharesOutstanding": "907675839",
+    "epsTtm": "13.26",
+    "interestCoverage": "4.48",
+    "shareCountGrowth3y": null,
+    "epsNtm": "17.858",
+    "ebitNtm": "31700835602",
+    "revenueNtm": "440513659171",
+    "nonGaapEarningsNtm": "15210282970",
+    "nonGaapEarningsFy": "14920046066",
+    "nonGaapEpsFy": "16.3206",
+    "gaapAdjustmentFactor": "0.8125",
+    "moatStrengthScore": "4",
+    "pricingPowerScore": "3.5",
+    "revenueRecurrenceScore": "4.5",
+    "marginDurabilityScore": "3.5",
+    "capitalIntensityScore": "1.5",
+    "qualitativeCyclicalityScore": "1.5",
+    "forwardPe": "18.11",
+    "forwardPeSource": null,
+    "trailingPe": "24.4",
+    "forwardEvEbit": "11.61",
+    "forwardEvEbitSource": null,
+    "trailingEvEbit": "20.51",
+    "forwardEvSales": "0.84",
+    "evSales": "0.82",
+    "evSalesSource": null,
+    "forwardOperatingEarningsExExcessCash": null,
+    "forwardOperatingEarningsExExcessCashSource": null,
+    "holdingCompanyFlag": false,
+    "insurerFlag": false,
+    "cyclicalityFlag": false,
+    "optionalityFlag": false,
+    "binaryFlag": false,
+    "marketPessimismFlag": false,
+    "preOperatingLeverageFlag": false,
+    "materialDilutionFlag": false,
+    "fundamentalsLastUpdatedAt": "2026-04-21T20:35:16.988Z",
+    "priceLastUpdatedAt": "2026-04-21T20:35:16.988Z",
+    "dataLastSyncedAt": "2026-04-21T20:35:16.988Z",
+    "dataProviderProvenance": {
+      "roic": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "eps_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "eps_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "ebit_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "ebit_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "ev_sales": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "fcf_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "forward_pe": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "market_cap": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "total_debt": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "binary_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "revenue_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "revenue_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "trailing_pe": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "earnings_ttm": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "fcf_positive": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "gross_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "insurer_flag": {
+        "method": "rule_based",
+        "provider": "deterministic_heuristic",
+        "synced_at": "2026-04-21T20:35:22.239Z"
+      },
+      "current_price": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "eps_growth_3y": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "eps_growth_fwd": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "fcf_conversion": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "forward_ev_ebit": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "non_gaap_eps_fy": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "cyclicality_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.95,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "forward_ev_sales": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "operating_margin": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "trailing_ev_ebit": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "interest_coverage": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "revenue_growth_3y": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "net_debt_to_ebitda": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "revenue_growth_fwd": {
+        "provider": "computed",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "shares_outstanding": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "gross_profit_growth": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "moat_strength_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "net_income_positive": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "pricing_power_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "cash_and_equivalents": {
+        "provider": "tiingo",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2025-12-31",
+        "fallback_used": false
+      },
+      "holding_company_flag": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.97,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "non_gaap_earnings_fy": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "non_gaap_earnings_ntm": {
+        "provider": "fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "period_end": "2026-12-31",
+        "fallback_used": false
+      },
+      "gaap_adjustment_factor": {
+        "provider": "computed_fmp",
+        "synced_at": "2026-04-21T20:35:16.988Z",
+        "fallback_used": false
+      },
+      "capital_intensity_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "margin_durability_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "revenue_recurrence_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      },
+      "pre_operating_leverage_flag": {
+        "method": "rule_based",
+        "provider": "deterministic_heuristic",
+        "synced_at": "2026-04-21T20:35:22.239Z"
+      },
+      "qualitative_cyclicality_score": {
+        "model": "claude-sonnet-4-6",
+        "method": "llm",
+        "provider": "claude",
+        "synced_at": "2026-04-21T20:35:22.282Z",
+        "confidence": 0.82,
+        "prompt_file": "combined-enrichment.md",
+        "prompt_version": "278a1117"
+      }
+    },
+    "dataFreshnessStatus": "fresh",
+    "dataQualityIssues": [],
+    "createdAt": "2026-04-21T20:35:17.733Z",
+    "updatedAt": "2026-04-21T20:35:45.194Z"
+  }
+}

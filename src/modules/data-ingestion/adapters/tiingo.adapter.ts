@@ -184,7 +184,10 @@ export class TiingoAdapter implements VendorAdapter {
     if (raw === null) return null;
     if (!Array.isArray(raw) || raw.length === 0) return null;
 
-    const quarters = raw as QuarterlyReport[];
+    // Filter out annual summary rows (quarter === 0); keep only quarterly entries (quarter 1–4).
+    // Tiingo interleaves annual summaries (quarter=0) with quarterly rows — summing them
+    // would double-count a full fiscal year into the TTM window.
+    const quarters = (raw as QuarterlyReport[]).filter(q => q.quarter !== 0);
 
     // Newest first: TTM = first 4, prior year = next 4
     const ttmQ = quarters.slice(0, 4);
@@ -309,6 +312,7 @@ export class TiingoAdapter implements VendorAdapter {
       eps_growth_fwd: null,
       gaapEps: null,                  // STORY-031: GAAP/non-GAAP reconciliation uses FMP annual only
       gaapEpsFiscalYearEnd: null,
+      statementPeriodEnd: quarters.length > 0 ? quarters[0].date : null,
       revenue_ttm:  ttmRevenue  !== 0 ? ttmRevenue  : null,
       earnings_ttm: ttmEarnings !== 0 ? ttmEarnings : null,
       gross_margin:      latestOverview.grossMargin   ?? null,
@@ -354,6 +358,8 @@ export class TiingoAdapter implements VendorAdapter {
       market_cap_millions: null,   // not available from Tiingo /daily/{ticker}
       market_cap_usd: null,        // not available from Tiingo /daily/{ticker}
       shares_outstanding: null,    // not available from Tiingo /daily/{ticker}
+      description: null,           // not available from Tiingo /daily/{ticker}
+      sicCode: null,               // not available from Tiingo /daily/{ticker}
     };
   }
 }

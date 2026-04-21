@@ -229,6 +229,10 @@ describe('EPIC-003/STORY-024/TASK-024-002: DB schema contract tests @contract', 
       'fundamentals_last_updated_at', 'data_last_synced_at',
       'forward_pe', 'forward_ev_ebit', 'trailing_pe', 'cyclicality_flag',
       'data_provider_provenance',
+      // EPIC-003.1/STORY-039: description + E1–E6 enrichment score columns
+      'description',
+      'moat_strength_score', 'pricing_power_score', 'revenue_recurrence_score',
+      'margin_durability_score', 'capital_intensity_score', 'qualitative_cyclicality_score',
     ];
 
     for (const col of requiredColumns) {
@@ -304,6 +308,41 @@ describe('EPIC-003/STORY-024/TASK-024-002: DB schema contract tests @contract', 
     expect(rows[0].column_default).not.toBeNull();
     // Actual DB default is 'fresh' (CHECK constraint not implemented in V1)
     expect(rows[0].column_default).toContain('fresh');
+  });
+
+  // EPIC-003.1/STORY-039: E1–E6 enrichment score columns
+  it('EPIC-003.1: E1–E6 score columns are NUMERIC type and nullable', async () => {
+    const scoreColumns = [
+      'moat_strength_score', 'pricing_power_score', 'revenue_recurrence_score',
+      'margin_durability_score', 'capital_intensity_score', 'qualitative_cyclicality_score',
+    ];
+    const rows = await prisma.$queryRaw<ColumnRow[]>`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'stocks'
+        AND table_schema = 'public'
+        AND column_name = ANY(${scoreColumns})
+    `;
+
+    expect(rows).toHaveLength(scoreColumns.length);
+    for (const row of rows) {
+      expect(['numeric', 'decimal']).toContain(row.data_type.toLowerCase());
+      expect(row.is_nullable).toBe('YES');
+    }
+  });
+
+  it('EPIC-003.1: description column is TEXT type and nullable', async () => {
+    const rows = await prisma.$queryRaw<ColumnRow[]>`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'stocks'
+        AND table_schema = 'public'
+        AND column_name = 'description'
+    `;
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].data_type.toLowerCase()).toBe('text');
+    expect(rows[0].is_nullable).toBe('YES');
   });
 });
 

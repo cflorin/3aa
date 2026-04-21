@@ -144,6 +144,8 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
       value: {
         ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: 155769099889, revenue_ntm: 415000000000,
         nonGaapEpsMostRecentFy: 7.20, nonGaapEpsFiscalYearEnd: '2023-09-30',
+        nonGaapEarningsMostRecentFy: 100000000000, nonGaapEarningsNtm: 115000000000,
+        ntmFiscalYearEnd: '2024-09-30',
       },
       source_provider: 'fmp',
       synced_at: FIXED_NOW,
@@ -169,6 +171,8 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
       value: {
         ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: null, revenue_ntm: null,
         nonGaapEpsMostRecentFy: null, nonGaapEpsFiscalYearEnd: null,
+        nonGaapEarningsMostRecentFy: null, nonGaapEarningsNtm: null,
+        ntmFiscalYearEnd: '2024-09-30',
       },
       source_provider: 'fmp',
       synced_at: FIXED_NOW,

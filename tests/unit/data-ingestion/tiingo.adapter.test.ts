@@ -360,6 +360,24 @@ describe('EPIC-003/STORY-016/TASK-016-005: TiingoAdapter unit tests', () => {
       expect(result!.ticker).toBe('AAPL');
       expect(result!.revenue_ttm).toBe(460000);
       expect(result!.earnings_ttm).toBe(92000);
+      // period_end = date of most recent quarterly report (after filtering annual entries)
+      expect(result!.statementPeriodEnd).toBe('2024-03-31');
+    });
+
+    it('filters out annual summary entries (quarter=0) so TTM sums only cover 4 quarters', async () => {
+      // Inject an annual row (quarter=0) between Q0 and Q1 — must not be summed into TTM
+      const withAnnual = [
+        mockStatementsResponse[0], // Q0: revenue=130000
+        { date: '2024-03-31', year: 2024, quarter: 0, statementData: { // annual summary — must be skipped
+          incomeStatement: [{ dataCode: 'revenue', value: 9999999 }, { dataCode: 'netinc', value: 9999999 }],
+          balanceSheet: [], overview: [],
+        }},
+        ...mockStatementsResponse.slice(1),
+      ];
+      global.fetch = makeFetchMock(200, withAnnual);
+      const result = await adapter.fetchFundamentals('AAPL');
+      // TTM revenue must still be 460000, not inflated by the annual row
+      expect(result!.revenue_ttm).toBe(460000);
     });
 
     it('returns correct overview-based metrics (grossMargin, roe, roa, debtEquity, currentRatio)', async () => {

@@ -55,6 +55,8 @@ async function runSync(epsTtm: number | null, nonGaapEps: number | null) {
     value: {
       ticker: 'AAPL', eps_ntm: 8.0, ebit_ntm: null, revenue_ntm: null,
       nonGaapEpsMostRecentFy: nonGaapEps, nonGaapEpsFiscalYearEnd: nonGaapEps != null ? '2023-09-30' : null,
+        nonGaapEarningsMostRecentFy: nonGaapEps != null ? 95000000000 : null,
+        nonGaapEarningsNtm: 110000000000, ntmFiscalYearEnd: '2024-09-30',
     },
     source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
   });
@@ -123,7 +125,9 @@ describe('EPIC-003/STORY-031/TASK-031-006: gaapAdjustmentFactor computation', ()
     MockOrchestrator.mockImplementation(() => mockOrchestrator as unknown as ProviderOrchestrator);
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: { ticker: 'AAPL', eps_ntm: 8.0, ebit_ntm: null, revenue_ntm: null,
-               nonGaapEpsMostRecentFy: 5.0, nonGaapEpsFiscalYearEnd: '2023-09-30' },
+               nonGaapEpsMostRecentFy: 5.0, nonGaapEpsFiscalYearEnd: '2023-09-30',
+               nonGaapEarningsMostRecentFy: 95000000000, nonGaapEarningsNtm: 110000000000,
+               ntmFiscalYearEnd: '2024-09-30' },
       source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
     });
 

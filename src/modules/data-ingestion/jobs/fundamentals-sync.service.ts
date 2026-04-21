@@ -55,11 +55,7 @@ function buildUpdateFromFundamentals(
     provenanceUpdates['gross_profit_growth'] = provenance;
     fieldCount++;
   }
-  if (fundamentals.share_count_growth_3y != null) {
-    data.shareCountGrowth3y = fundamentals.share_count_growth_3y;
-    provenanceUpdates['share_count_growth_3y'] = provenance;
-    fieldCount++;
-  }
+  // share_count_growth_3y: removed — ShareCountSyncService is the authoritative writer (STORY-032)
   if (fundamentals.eps_growth_fwd != null) {
     data.epsGrowthFwd = fundamentals.eps_growth_fwd;
     provenanceUpdates['eps_growth_fwd'] = provenance;
@@ -199,14 +195,16 @@ export async function syncFundamentals(
         continue;
       }
 
+      const fundamentals = result.value as FundamentalData;
       const provenanceEntry: ProvenanceEntry = {
         provider: result.source_provider as ProvenanceEntry['provider'],
         synced_at: now.toISOString(),
         fallback_used: result.fallback_used,
+        ...(fundamentals.statementPeriodEnd != null && { period_end: fundamentals.statementPeriodEnd }),
       };
 
       const { data: fieldUpdates, provenance: provenanceUpdates, fieldCount } =
-        buildUpdateFromFundamentals(result.value as FundamentalData, provenanceEntry);
+        buildUpdateFromFundamentals(fundamentals, provenanceEntry);
 
       if (fieldCount === 0) {
         // Provider returned all-null fields — nothing to write; don't update last_updated_at
