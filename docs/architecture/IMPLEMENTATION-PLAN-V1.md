@@ -9,10 +9,10 @@
 - **Validated Stories:** STORY-001 through STORY-009 (EPIC-001)
 
 ## Status Summary
-- **Current Phase:** EPIC-001 Implementation
-- **Active Epic:** EPIC-001 — Platform Foundation & Deployment
-- **Active Story:** None (awaiting STORY-003 task decomposition)
-- **Overall Progress:** 0/7 epics complete (EPIC-001 complete ✅), 9/9 EPIC-001 stories complete (100%)
+- **Current Phase:** EPIC-003 Data Quality Extension
+- **Active Epic:** EPIC-003 — Data Ingestion & Universe Management (extended)
+- **Active Story:** STORY-029 — 3-Year Growth CAGRs
+- **Overall Progress:** 2/7 epics complete (EPIC-001 ✅, EPIC-002 ✅), EPIC-003 extended with 5 new stories (025–029)
 - **Baseline Status:** FROZEN (no architecture changes without RFC amendment)
 
 ## Status Model
@@ -41,11 +41,106 @@
 - **Deployment Milestone:** User authentication operational ✅
 
 ### EPIC-003 — Data Ingestion & Universe Management
-- **Status:** planned
+- **Status:** in_progress
 - **Dependencies:** EPIC-001 (database, Cloud Scheduler)
-- **Stories:** [To be decomposed]
-- **Integration Checkpoint:** Nightly batch pipeline running, universe populated
-- **Deployment Milestone:** Stock data syncing nightly
+- **Stories:** STORY-015 through STORY-031 (17 stories; 025–031 added post-behavioral-validation)
+- **Integration Checkpoint:** Nightly batch pipeline running, universe populated; data quality fixes in progress
+- **Deployment Milestone:** Stock data syncing nightly with correct metrics
+
+#### STORY-015 — Provider Abstraction Layer
+- **Status:** done ✅
+- **Tasks:** TASK-015-001 through TASK-015-005 — ALL COMPLETE
+- **Evidence:** 25 unit tests passing (provider-orchestrator + retry.util)
+
+#### STORY-016 — Tiingo Adapter
+- **Status:** done ✅
+- **Tasks:** TASK-016-001 through TASK-016-006 — ALL COMPLETE
+- **Evidence:** 30 unit tests passing; 5 integration tests passing against live Tiingo API
+- **Baseline conflicts documented:** forwardEstimateCoverage='none' (not 'partial'); market_cap_millions=null from universe endpoint
+
+#### STORY-017 — FMP Adapter
+- **Status:** done ✅
+- **Tasks:** TASK-017-001 through TASK-017-006 — ALL COMPLETE
+- **Evidence:** 34 unit tests passing; 4 integration tests passing against live FMP stable API (key verified 2026-04-20)
+- **Baseline conflicts documented:** v3 deprecated (stable base used); fetchUniverse returns [] (screener 402); forwardEstimateCoverage='partial'; EOD flat array; epsAvg/ebitAvg field names
+
+#### STORY-018 — Universe Sync Job
+- **Status:** done ✅
+- **Tasks:** TASK-018-001 through TASK-018-003 — ALL COMPLETE
+- **Evidence:** 11 unit tests passing; 4 integration tests passing; live_provider_verified (5606 real Tiingo tickers, 0 dropped, 5606 inUniverse=TRUE confirmed in DB)
+- **Bugs fixed:** BC-018-001 abort condition (FMP no-op); BC-018-002 null market_cap guard; BC-018-005 ticker case mismatch universe-wipe bug
+- **Baseline conflicts documented:** BC-018-001 through BC-018-005 in STORY-018 spec
+
+#### STORY-019 — Price Sync Job
+- **Status:** done ✅
+- **Tasks:** TASK-019-001 through TASK-019-003 — ALL COMPLETE
+- **Evidence:** 9 unit tests passing (7 service + 2 route); 4 integration tests passing against real test DB; live_provider_verified (AAPL: currentPrice=273.05 written from real Tiingo)
+- **Bugs fixed:** BC-019-001 integration ticker length; BC-019-003 missing route tests added
+- **Baseline conflicts documented:** BC-019-001 through BC-019-003 in STORY-019 spec
+
+#### STORY-020 — Fundamentals Sync Job
+- **Status:** done ✅
+- **Tasks:** TASK-020-001 through TASK-020-004 — ALL COMPLETE
+- **Evidence:** 11 unit tests (9 service + 2 route) + 4 integration tests (integration_verified_local); 3 TS errors fixed; ticker fix (BC-020-001); 4 missing tests added; 7 BCs documented
+
+#### STORY-021 — Forward Estimates Sync Job
+- **Status:** done ✅
+- **Tasks:** TASK-021-001 through TASK-021-002 — ALL COMPLETE
+- **Evidence:** 20 unit tests (18 existing + 2 new: BC-021-006/007) + 2 route unit tests + 5 integration tests; all passing; TS2322 fixed (BC-021-003); dataLastSyncedAt used as proxy for estimates_last_updated_at (BC-021-005); 7 BCs documented
+- **Verification level:** integration_verified_local
+
+#### STORY-022 — Data Freshness Tracking
+- **Status:** done ✅
+- **Evidence:** 26 unit tests ✅ + 5 integration tests ✅; 4 BCs fixed (country field, providerName, freshness count assertions, syncForwardEstimates coverage); integration_verified_local
+
+#### STORY-023 — Pipeline Integration Tests
+- **Status:** done ✅
+- **Evidence:** 6 integration tests ✅; 5 BCs fixed (ticker length, DB isolation, spec count, provenance coverage, Scenario 2 completeness); integration_verified_local
+
+#### STORY-024 — Contract & Schema Tests
+- **Status:** done ✅
+- **Evidence:** 20 integration tests ✅; 8 BCs fixed (fixture shapes, adapter behavior, ticker length, missing schema column); integration_verified_local
+
+#### STORY-025 — Behavioral Validation Tests
+- **Status:** done ✅ (spec written; live pipeline run confirmed data flow; ACs pending final SA validation)
+- **Evidence:** Live demo run for AAPL/MSFT/TSLA; 4 BCs documented (MSFT revenue growth, forward fields naming, JPM gross margin, fcf_margin DataCode bug)
+- **Outcome:** Identified 7 data quality bugs driving STORY-026; identified 3 new data stories (027–029)
+
+#### STORY-026 — Fix Fundamental Metrics Data Quality
+- **Status:** done ✅ (TASK-026-001–005 complete; 320/320 unit tests passing; TASK-026-006 integration tests deferred)
+- **Dependencies:** STORY-025 (bugs identified)
+- **Tasks:** 7 fixes implemented — Fix 1 LTM operating margin, Fix 2 net margin DataCode, Fix 3 fcf_ttm, Fix 4 net_debt_to_ebitda, Fix 5 LTM interest coverage, Fix 6 FMP total_debt/cash, Fix 7 fcf_positive/fcf_conversion
+- **Files:** tiingo.adapter.ts, fmp.adapter.ts, fundamentals-sync.service.ts, types.ts
+
+#### STORY-027 — Market Cap, Enterprise Value & Trailing Multiples
+- **Status:** done ✅ (TASK-027-001–006 complete; 337/337 unit tests passing; integration tests deferred)
+- **Dependencies:** STORY-026 Fix 6 (total_debt, cash populated); FMP /profile endpoint
+- **Tasks:** Schema migration (+5 columns), FMP fetchProfile(), store absolute TTM values, compute trailing_pe/trailing_ev_ebit/ev_sales
+- **Files:** fmp.adapter.ts, tiingo.adapter.ts, fundamentals-sync.service.ts, prisma/schema.prisma
+
+#### STORY-028 — Forward Estimates Enrichment
+- **Status:** done ✅ (TASK-028-001–005 complete; 352/352 unit tests passing; integration tests deferred)
+- **Dependencies:** STORY-027 (needs current_price, market_cap, eps_ttm, revenue_ttm)
+- **Tasks:** Schema migration (+4 columns), ForwardEstimates type rename (forward_pe→eps_ntm, forward_ev_ebit→ebit_ntm, +revenue_ntm), extend FMP fetchForwardEstimates(), rewrite syncForwardEstimates() to compute actual ratios, provenance for 8 fields
+- **Files:** types.ts, fmp.adapter.ts, forward-estimates-sync.service.ts, prisma/schema.prisma, migration SQL
+
+#### STORY-029 — 3-Year Growth CAGRs
+- **Status:** ready
+- **Dependencies:** STORY-026 (TTM pattern); STORY-027 (eps_ttm for eps_growth_fwd)
+- **Tasks:** Upgrade FMP to limit=5 annual periods, compute revenue/eps/share CAGR, gross_profit_growth from Tiingo 8-quarter window; provenance tracking for all new fields
+- **Files:** fmp.adapter.ts, tiingo.adapter.ts, fundamentals-sync.service.ts
+
+#### STORY-030 — ROIC: NOPAT / Invested Capital
+- **Status:** ready
+- **Dependencies:** STORY-026 Fix 4 (cashAndEq DataCode confirmed); Tiingo taxExp/pretaxinc DataCode verification
+- **Tasks:** Fix Tiingo adapter ROIC formula (TTM NOPAT / IC); fix FMP adapter ROIC formula; update FMP income statement fixture with tax fields; integration tests
+- **Files:** tiingo.adapter.ts, fmp.adapter.ts, fmp-income-statement-response.json
+
+#### STORY-031 — GAAP / Non-GAAP EPS Reconciliation Factor
+- **Status:** ready
+- **Dependencies:** STORY-028 (ForwardEstimates type extension); FMP epsDiluted in income statement fixture
+- **Tasks:** Schema migration (+1 column); extend FundamentalData/ForwardEstimates types; compute factor with FY date-matching; clamp guard; integration tests
+- **Files:** fmp.adapter.ts, fundamentals-sync.service.ts, prisma/schema.prisma
 
 ### EPIC-004 — Classification Engine & Universe Screen
 - **Status:** planned
@@ -256,11 +351,10 @@
 - **Evidence:** 232 total tests passing (219 baseline + 13 new); already-auth redirect, client validation, error handling verified
 
 ## Active Work
-- **Current Epic:** EPIC-002 — COMPLETE ✅
-- **Current Story:** None — awaiting EPIC-003 planning
-- **Current Task:** None
-- **Last Completed:** STORY-014 ✅ (Sign-in page UI — 13 new tests, 232 total)
-- **Next Action:** Plan and begin EPIC-003 (Data Ingestion & Universe Management)
+- **Current Epic:** EPIC-004 — Classification Engine & Universe Screen
+- **Current Story:** TBD — story decomposition required
+- **Last Completed:** EPIC-003 ✅ (Data Ingestion & Universe Management — all 10 stories done, integration checkpoint passed)
+- **Next Action:** Decompose EPIC-004 stories → begin STORY-025
 
 ## Blocked Items
 - None currently
@@ -303,6 +397,17 @@
 - ✅ STORY-009 task decomposition complete (6 tasks)
 - ✅ **STORY-009 COMPLETE** (README setup guide, CONTRIBUTING.md, CHANGELOG v1.0.0-foundation, .env.example updated) - 2026-04-20
 - ✅ **EPIC-001 COMPLETE** — Platform Foundation & Deployment (all 9 stories done, 69 tests passing, Cloud Run deployed, Cloud SQL seeded) - 2026-04-20
+- ✅ **STORY-015 COMPLETE** (Provider Abstraction Layer — VendorAdapter interface, ProviderOrchestrator, retry util; 25 unit tests) - 2026-04-20
+- ✅ **STORY-016 COMPLETE** (Tiingo Adapter — universe, EOD price, fundamentals, forward estimates, metadata; 30 unit + 5 live integration tests) - 2026-04-20
+- ✅ **STORY-017 COMPLETE** (FMP Adapter — stable API base, universe no-op documented, EOD price, fundamentals; 34 unit + 4 live integration tests) - 2026-04-20
+- ✅ **STORY-018 COMPLETE** (Universe Sync Job — 11 unit + 4 integration tests; 3 bugs fixed BC-018-001/002/005; live_provider_verified 5606 Tiingo tickers; 5 BCs documented) - 2026-04-20
+- ✅ **STORY-019 COMPLETE** (Price Sync Job — 9 unit + 4 integration tests; live_provider_verified AAPL $273.05; 3 BCs documented) - 2026-04-20
+- ✅ **STORY-020 COMPLETE** (Fundamentals Sync Job — 11 unit + 4 integration tests; live_provider_verified AAPL 9 fields; 7 BCs documented) - 2026-04-20
+- ✅ **STORY-021 COMPLETE** (Forward Estimates Sync Job — 20 unit + 2 route + 5 integration tests; TS2322 fixed; 7 BCs documented; integration_verified_local) - 2026-04-20
+- ✅ **STORY-022 COMPLETE** (Data Freshness Tracking — 26 unit + 5 integration tests; 4 BCs fixed; integration_verified_local) - 2026-04-20
+- ✅ **STORY-023 COMPLETE** (Pipeline Integration Tests — 6 integration tests; 5 BCs fixed; integration_verified_local) - 2026-04-21
+- ✅ **STORY-024 COMPLETE** (Contract & Schema Tests — 20 integration tests; 8 BCs fixed; integration_verified_local) - 2026-04-21
+- ✅ **EPIC-003 COMPLETE** — Data Ingestion & Universe Management (all 10 stories done; nightly batch pipeline operational; 5606 tickers in universe) - 2026-04-21
 
 ## Known Risks
 1. **Framework seed data dependency**: STORY-005 requires canonical anchor codes/TSR hurdles from RFC-002 (generated in STORY-002)

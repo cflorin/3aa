@@ -163,10 +163,22 @@ model Stock {
   cashAndEquivalents Decimal? @db.Decimal(15, 2) @map("cash_and_equivalents")
   totalDebt          Decimal? @db.Decimal(15, 2) @map("total_debt")
   netDebtToEbitda    Decimal? @db.Decimal(6, 2) @map("net_debt_to_ebitda")
+
+  // TTM absolute values (STORY-027) — stored in USD; populated by fundamentals sync
+  earningsTtm       Decimal? @db.Decimal(20, 2) @map("earnings_ttm")
+  revenueTtm        Decimal? @db.Decimal(20, 2) @map("revenue_ttm")
+  ebitTtm           Decimal? @db.Decimal(20, 2) @map("ebit_ttm")
+  sharesOutstanding Decimal? @db.Decimal(20, 0) @map("shares_outstanding")
+  epsTtm            Decimal? @db.Decimal(10, 4) @map("eps_ttm")
   interestCoverage   Decimal? @db.Decimal(8, 2) @map("interest_coverage")
   shareCountGrowth3y Decimal? @db.Decimal(5, 2) @map("share_count_growth_3y")
 
   // Valuation metrics with provenance
+  // NTM raw inputs (STORY-028) — absolute USD; used to compute forward ratios in syncForwardEstimates()
+  epsNtm         Decimal? @db.Decimal(10, 4) @map("eps_ntm")
+  ebitNtm        Decimal? @db.Decimal(20, 2) @map("ebit_ntm")
+  revenueNtm     Decimal? @db.Decimal(20, 2) @map("revenue_ntm")
+
   forwardPe                                    Decimal? @db.Decimal(8, 2) @map("forward_pe")
   forwardPeSource                              String?  @db.VarChar(20) @map("forward_pe_source")
   trailingPe                                   Decimal? @db.Decimal(8, 2) @map("trailing_pe")
@@ -175,6 +187,7 @@ model Stock {
   forwardEvEbitSource                          String?  @db.VarChar(20) @map("forward_ev_ebit_source")
   trailingEvEbit                               Decimal? @db.Decimal(8, 2) @map("trailing_ev_ebit")
 
+  forwardEvSales                               Decimal? @db.Decimal(8, 2) @map("forward_ev_sales")
   evSales                                      Decimal? @db.Decimal(8, 2) @map("ev_sales")
   evSalesSource                                String?  @db.VarChar(20) @map("ev_sales_source")
 
