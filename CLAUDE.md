@@ -4,11 +4,50 @@
 This is the 3AA Monitoring Product V1 implementation. This document provides mandatory operating rules for Claude during implementation.
 
 ## Frozen Baseline (DO NOT MODIFY WITHOUT APPROVAL)
-- **Version:** V1.0 (frozen 2026-04-19)
+- **Version:** V1.0 (frozen 2026-04-19; amendments below)
 - **PRD:** `/docs/prd/PRD.md`
-- **RFCs:** RFC-001 through RFC-006 (accepted)
-- **ADRs:** ADR-001 through ADR-011 (accepted)
-- **Validated Epics:** EPIC-001 (Platform Foundation & Deployment)
+- **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
+- **ADRs:** ADR-001 through ADR-012 (accepted; ADR-012 added 2026-04-21)
+- **Validated Epics:** EPIC-001 through EPIC-003.1
+
+## Current State (as of 2026-04-22) — READ THIS FIRST
+
+**Quick orientation for a new Claude session:**
+
+| Item | Value |
+|------|-------|
+| Overall progress | 4/8 epics complete |
+| Last completed | EPIC-003.1 ✅ Classification LLM Enrichment (2026-04-21) |
+| Next epic | EPIC-004 — Classification Engine & Universe Screen |
+| Active story | **None** — EPIC-004 needs story decomposition before any coding |
+| Unit tests | 489/489 passing |
+| Git branch | `main` (backup: `backup/epic-003.1-complete-2026-04-21`) |
+| GitHub | https://github.com/cflorin/3aa — fully pushed 2026-04-22 |
+
+**Completed epics:**
+- EPIC-001 ✅ Platform Foundation & Deployment (STORY-001–009)
+- EPIC-002 ✅ Authentication & User Management (STORY-010–014)
+- EPIC-003 ✅ Data Ingestion & Universe Management (STORY-015–033)
+- EPIC-003.1 ✅ Classification LLM Enrichment (STORY-034–040)
+
+**What was just built (EPIC-003.1):**
+- LLM provider interface + Claude adapter (`src/modules/classification-enrichment/`)
+- 3 flag detectors: holding_company, cyclicality, binary_risk
+- Combined enrichment detector: 6 qualitative scores E1–E6 (moat, pricing power, revenue recurrence, margin durability, capital intensity, qualitative cyclicality)
+- `classificationEnrichmentSync` job + admin route
+- **Bug fixed:** missing `/api/cron/market-cap` route (STORY-027 gap — caused null marketCap/EV for new stocks)
+- **Cloud Scheduler:** STORY-003 updated to include 7th job (`market-cap` at 6:30pm ET)
+
+**Next action required:**
+1. Decompose EPIC-004 (Classification Engine & Universe Screen) into stories + tasks
+2. Validate stories against baseline (PRD §4, RFC-001, RFC-003)
+3. Begin STORY-XXX (first EPIC-004 story) once decomposed and validated
+
+**Key files for orientation:**
+- Implementation plan: `/docs/architecture/IMPLEMENTATION-PLAN-V1.md`
+- Implementation log: `/docs/architecture/IMPLEMENTATION-LOG.md`
+- Stories index: `/stories/README.md`
+- Live stock data snapshot: `/data/universe-snapshot-5.md`
 
 ## Implementation Tracking Requirements (MANDATORY)
 
@@ -196,4 +235,4 @@ export const cloudRunConfig = {
 
 **This document is authoritative. When in doubt, consult this document and the implementation plan.**
 
-**Last Updated:** 2026-04-19 14:30 UTC
+**Last Updated:** 2026-04-22 00:00 UTC

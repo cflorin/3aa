@@ -414,9 +414,9 @@
 
 ## Active Work
 - **Current Epic:** EPIC-004 — Classification Engine & Universe Screen
-- **Current Story:** TBD — story decomposition required
-- **Last Completed:** EPIC-003 ✅ (Data Ingestion & Universe Management — all 10 stories done, integration checkpoint passed)
-- **Next Action:** Decompose EPIC-004 stories → begin STORY-025
+- **Current Story:** None — story decomposition required before any coding
+- **Last Completed:** EPIC-003.1 ✅ (Classification LLM Enrichment — all 7 stories done, 489/489 unit tests passing, committed + pushed 2026-04-22)
+- **Next Action:** Decompose EPIC-004 into stories + tasks → validate against PRD §4 / RFC-001 / RFC-003 → begin first story
 
 ## Blocked Items
 - None currently
@@ -507,5 +507,5 @@ If implementation reveals needed architecture changes:
 
 ---
 
-**Last Updated:** 2026-04-20 04:50 UTC
-**Updated By:** Claude (STORY-003 Complete)
+**Last Updated:** 2026-04-22 00:00 UTC
+**Updated By:** Claude (EPIC-003.1 complete; session handoff)

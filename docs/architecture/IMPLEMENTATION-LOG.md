@@ -2187,3 +2187,66 @@ Key implementation decisions:
 **Baseline Impact:** NO
 
 **Next Action:** Cloud Scheduler config (STORY-003/EPIC-001 deployment) needs a market-cap job scheduled between price-sync and estimates jobs
+
+---
+
+## 2026-04-21 — EPIC-001/STORY-003: Cloud Scheduler market-cap job added
+
+**Epic:** EPIC-001 — Platform Foundation & Deployment
+**Story:** STORY-003 — Provision Core GCP Infrastructure
+**Task:** TASK-003-007 (Cloud Scheduler jobs — updated from 6 to 7)
+
+**Action:** Updated STORY-003 spec to add the missing `market-cap` Cloud Scheduler job (6:30pm ET Mon–Fri) that must run between `price-sync` and `estimates` in the nightly pipeline. Also updated acceptance criteria count (6→7 jobs) and added `gcloud scheduler jobs create http market-cap` command block.
+
+**Files Changed:**
+- `stories/tasks/EPIC-001-platform-foundation/STORY-003-provision-gcp-infrastructure.md` (modified) — added market-cap job, updated job count, added gcloud command
+
+**Tests Added/Updated:** None (infrastructure spec change)
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — additive fix; market-cap cron endpoint now exists to back it
+
+**Next Action:** Deploy the new Cloud Scheduler job against production GCP when ready (manual `gcloud scheduler jobs create` command documented in STORY-003 spec)
+
+---
+
+## 2026-04-22 00:00 UTC — Session Handoff: EPIC-003.1 complete, all work committed and pushed
+
+**Epic:** N/A
+**Story:** N/A
+**Task:** N/A
+**Action:** Session handoff checkpoint. Full state captured for next Claude session.
+
+**Work completed this session:**
+- EPIC-003.1/STORY-040: E1–E6 qualitative enrichment scores — all 489/489 unit tests passing
+- Bug fix: created missing `/api/cron/market-cap/route.ts` (root cause of null marketCap for TSLA/UBER)
+- Live data: ingested + enriched all 5 stocks (MSFT, TSLA, UBER, ADBE, UNH) — full dataset in `/data/`
+- Universe snapshot: `/data/universe-snapshot-5.md` (human-readable 5-stock table) and `/data/universe-snapshot-5.json`
+- Methodology document: `/docs/methodology/AI-DRIVEN-DEVELOPMENT-METHODOLOGY.md` + `.pdf`
+- All changes committed and pushed to `github.com/cflorin/3aa` on `main`
+- Backup branch created: `backup/epic-003.1-complete-2026-04-21` (local + remote)
+
+**Current state:**
+- 489/489 unit tests passing
+- 4/8 epics complete: EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
+- EPIC-004 (Classification Engine & Universe Screen) is next — needs story decomposition first
+- CLAUDE.md updated with Current State section for fast orientation
+
+**Files Changed:**
+- `CLAUDE.md` (updated — added Current State section, updated baseline refs to RFC-007/ADR-012)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (updated — Active Work, Last Updated)
+- `docs/architecture/IMPLEMENTATION-LOG.md` (this entry)
+- `stories/README.md` (created — stories index)
+
+**Tests Added/Updated:** None
+
+**Result/Status:** Session closed cleanly — all work committed, pushed, documented
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO
+
+**Next Action:** Start new session → read CLAUDE.md Current State section → decompose EPIC-004 stories → validate → implement
