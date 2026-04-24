@@ -94,26 +94,34 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        // Stage 1: validate
+        // Stage 1: validate — look up ticker with FMP to confirm it exists
         emit({ stage: 'validate', label: 'Validating ticker…', step: 1, total: TOTAL_STAGES });
-        // Ticker format already validated; nothing further to do here.
+        const metadata = await fmp.fetchMetadata(ticker);
+        if (!metadata) {
+          emit({ stage: 'error', failedStage: 'validate', message: `Ticker ${ticker} not found. Check the symbol and try again.` });
+          return;
+        }
 
         // Stage 2: create_record (or re-activate)
         currentStage = 'create_record';
         emit({ stage: 'create_record', label: 'Creating stock record…', step: 2, total: TOTAL_STAGES });
 
         if (existing) {
-          // Re-add: stock exists with inUniverse=false
+          // Re-add: stock exists with inUniverse=false — update name/country from fresh metadata
           await prisma.stock.update({
             where: { ticker },
-            data: { inUniverse: true, universeStatusChangedAt: new Date() },
+            data: {
+              inUniverse: true,
+              universeStatusChangedAt: new Date(),
+              companyName: metadata.company_name,
+            },
           });
         } else {
           await prisma.stock.create({
             data: {
               ticker,
-              companyName: ticker,   // placeholder — overwritten by fundamentals sync (Stage 3)
-              country: 'US',         // placeholder — overwritten by fundamentals sync
+              companyName: metadata.company_name,
+              country: 'US',
               inUniverse: true,
               universeStatusChangedAt: new Date(),
             },
