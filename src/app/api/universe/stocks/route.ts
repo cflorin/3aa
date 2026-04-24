@@ -110,7 +110,13 @@ export async function POST(req: NextRequest) {
           });
         } else {
           await prisma.stock.create({
-            data: { ticker, inUniverse: true, universeStatusChangedAt: new Date() },
+            data: {
+              ticker,
+              companyName: ticker,   // placeholder — overwritten by fundamentals sync (Stage 3)
+              country: 'US',         // placeholder — overwritten by fundamentals sync
+              inUniverse: true,
+              universeStatusChangedAt: new Date(),
+            },
           });
         }
 
