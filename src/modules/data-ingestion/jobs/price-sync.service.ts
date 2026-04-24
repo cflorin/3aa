@@ -108,7 +108,7 @@ export async function syncPrices(
         data: {
           currentPrice: result.value.close,
           priceLastUpdatedAt: now,
-          dataProviderProvenance: { ...currentProv, current_price: provenance },
+          dataProviderProvenance: { ...currentProv, current_price: provenance } as unknown as import('@prisma/client').Prisma.InputJsonValue,
           dataFreshnessStatus: freshnessResult.overall,
         },
       });
