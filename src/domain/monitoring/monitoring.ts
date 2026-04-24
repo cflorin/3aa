@@ -110,8 +110,10 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     sector: row.sector ?? null,
     market_cap: row.marketCap !== null ? Number(row.marketCap) : null,
     current_price: row.currentPrice !== null ? Number(row.currentPrice) : null,
-    revenue_growth_fwd: row.revenueGrowthFwd !== null ? Number(row.revenueGrowthFwd) : null,
-    eps_growth_fwd: row.epsGrowthFwd !== null ? Number(row.epsGrowthFwd) : null,
+    // Growth fields stored as percentages in DB (7.24 = 7.24%); divide by 100 for decimal fraction
+    // so fmtPct(val * 100) renders correctly, consistent with the detail API contract.
+    revenue_growth_fwd: row.revenueGrowthFwd !== null ? Number(row.revenueGrowthFwd) / 100 : null,
+    eps_growth_fwd: row.epsGrowthFwd !== null ? Number(row.epsGrowthFwd) / 100 : null,
     operating_margin: row.operatingMargin !== null ? Number(row.operatingMargin) : null,
     fcf_conversion: row.fcfConversion !== null ? Number(row.fcfConversion) : null,
     net_debt_to_ebitda: row.netDebtToEbitda !== null ? Number(row.netDebtToEbitda) : null,

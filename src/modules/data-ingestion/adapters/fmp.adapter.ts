@@ -341,8 +341,14 @@ export class FMPAdapter implements VendorAdapter {
       return new Date(String(a.date)).getTime() - new Date(String(b.date)).getTime();
     });
 
-    // NTM = first entry with fiscal year end after today; fallback to most recent past entry
+    // NTM = first fiscal year end > 3 months out; skip nearly-complete fiscal years.
+    // A fiscal year ending within 3 months is already mostly elapsed and its estimates
+    // reflect a nearly-complete period, making it a poor proxy for "next twelve months".
+    // Fallback 1: first entry after today (< 3 months away); Fallback 2: most recent past entry.
+    const threeMonthsOut = new Date(today);
+    threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
     const ntmEntry =
+      sorted.find((entry) => new Date(String(entry.date)) > threeMonthsOut) ??
       sorted.find((entry) => new Date(String(entry.date)) > today) ??
       sorted[sorted.length - 1];
 

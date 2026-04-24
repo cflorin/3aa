@@ -104,9 +104,10 @@ function fmtRatio(val: number | null): string {
 
 function fmtMcap(val: number | null): string {
   if (val === null || val === undefined) return '—';
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}T`;
-  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}B`;
-  return `$${val.toFixed(0)}M`;
+  if (val >= 1_000_000_000_000) return `$${(val / 1_000_000_000_000).toFixed(2)}T`;
+  if (val >= 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(1)}B`;
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(0)}M`;
+  return `$${val.toFixed(0)}`;
 }
 
 function fmtDate(iso: string | null): string {
