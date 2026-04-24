@@ -12,6 +12,9 @@ export type {
   ConfidenceStep,
   TieBreakRecord,
   ClassificationResult,
+  ClassificationScoresPayload,
+  ClassificationState,
+  ClassificationHistoryRow,
 } from './types';
 
 export {
@@ -51,3 +54,4 @@ export { BucketScorer } from './bucket-scorer';
 export { EarningsQualityScorer } from './eq-scorer';
 export { BalanceSheetQualityScorer } from './bs-scorer';
 export { classifyStock } from './classifier';
+export { persistClassification, getClassificationState, getClassificationHistory } from './persistence';

@@ -5,6 +5,36 @@ This log tracks all implementation actions taken during V1 build. It is append-o
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-044: Classification State Persistence complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-044 — Classification State Persistence and History
+**Tasks:** TASK-044-001 through TASK-044-005
+
+**Action:** Implemented the persistence layer for classification results. Refactored both classification DB tables to match the STORY-044 spec (removed stale RFC-002 v1 columns, added `input_snapshot` and `classified_at`). Implemented `persistClassification` (transactional upsert + conditional history insert), `getClassificationState`, and `getClassificationHistory`.
+
+**Files Changed:**
+- `prisma/schema.prisma` (modified) — ClassificationState and ClassificationHistory models refactored
+- `prisma/migrations/20260424000001_refactor_classification_schema/migration.sql` (created) — ALTER classification_state (drop 7 stale columns, add input_snapshot + classified_at); DROP + CREATE classification_history (BIGSERIAL→UUID id)
+- `src/domain/classification/types.ts` (modified) — added ClassificationScoresPayload, ClassificationState, ClassificationHistoryRow interfaces
+- `src/domain/classification/persistence.ts` (created) — persistClassification, getClassificationState, getClassificationHistory
+- `src/domain/classification/index.ts` (modified) — barrel exports for new types and persistence functions
+- `tests/integration/classification/persistence.test.ts` (created) — 13 integration tests (state transitions, JSONB round-trip, ordering, output contract)
+
+**Tests Added/Updated:**
+- Integration: 13 new tests in persistence.test.ts (all passing)
+- Total: 656/656 unit tests + 31/31 integration tests passing
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — schema refactor aligns with RFC-001 §Data Model; no existing data lost (tables were empty)
+
+**Next Action:** STORY-045 — User Classification Override API
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-043: Classification Result Assembly complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

@@ -11,7 +11,7 @@
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
 - **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
-- **Active Story:** STORY-044 — Classification State Persistence and History (next)
+- **Active Story:** STORY-045 — User Classification Override API (next)
 - **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
@@ -205,7 +205,7 @@
 - **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
 
 ### EPIC-004 — Classification Engine & Universe Screen
-- **Status:** in_progress (STORY-041 ✅ done, STORY-042 ✅ done, STORY-043 ✅ done, STORY-044 next)
+- **Status:** in_progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅, STORY-044 ✅, STORY-045 next)
 - **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 - **Stories:** STORY-041 through STORY-053 (13 stories — decomposed 2026-04-23/24)
 - **Integration Checkpoint:** Classification engine running, Universe screen functional, Stock Detail screen functional
@@ -248,8 +248,15 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-043-classification-result-assembly.md`
 
 #### STORY-044 — Classification State Persistence and History
-- **Status:** planned
+- **Status:** done ✅ (2026-04-24)
 - **Dependencies:** STORY-043 (ClassificationResult type)
+- **Tasks:**
+  - TASK-044-001 ✅: Prisma schema — refactored ClassificationState + ClassificationHistory models
+  - TASK-044-002 ✅: Migration 20260424000001_refactor_classification_schema applied
+  - TASK-044-003 ✅: ClassificationState/ClassificationHistoryRow/ClassificationScoresPayload types in types.ts
+  - TASK-044-004 ✅: persistence.ts — persistClassification, getClassificationState, getClassificationHistory
+  - TASK-044-005 ✅: 13 integration tests in persistence.test.ts; tracking + commit
+- **Evidence:** 656/656 unit tests + 31 integration tests passing
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-044-classification-state-persistence.md`
 
 #### STORY-045 — User Classification Override API

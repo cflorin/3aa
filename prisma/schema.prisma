@@ -256,47 +256,37 @@ model Stock {
 // CLASSIFICATION — system-computed shared state (RFC-002 §classification_state)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// EPIC-004/STORY-044: Refactored for STORY-044 — RFC-001 §Classification State; ADR-007
 model ClassificationState {
-  ticker                     String    @id @db.VarChar(10)
-  suggestedBucket            Int?      @map("suggested_bucket")
-  suggestedEarningsQuality   String?   @db.Char(1) @map("suggested_earnings_quality")
-  suggestedBalanceSheetQuality String? @db.Char(1) @map("suggested_balance_sheet_quality")
-  suggestedCode              String?   @db.VarChar(5) @map("suggested_code")
-  confidenceLevel            String    @db.VarChar(10) @map("confidence_level")
-  reasonCodes                Json      @default("[]") @map("reason_codes")
-  scores                     Json      @map("scores")
-  classificationLastUpdatedAt DateTime @default(now()) @db.Timestamptz(6) @map("classification_last_updated_at")
-  classificationSource       String    @db.VarChar(20) @map("classification_source")
-  version                    Int       @default(1)
-  createdAt                  DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
-  updatedAt                  DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  ticker          String    @id @db.VarChar(10)
+  suggestedCode   String?   @db.VarChar(5) @map("suggested_code")
+  confidenceLevel String    @db.VarChar(10) @map("confidence_level")
+  reasonCodes     Json      @default("[]") @map("reason_codes")
+  scores          Json      @map("scores")
+  inputSnapshot   Json      @map("input_snapshot")
+  classifiedAt    DateTime  @db.Timestamptz(6) @map("classified_at")
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
 
   stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
 
   @@index([confidenceLevel], name: "idx_classification_confidence")
-  @@index([suggestedBucket], name: "idx_classification_suggested_bucket")
   @@map("classification_state")
 }
 
+// EPIC-004/STORY-044: Append-only audit log — RFC-001 §Classification History; ADR-007
 model ClassificationHistory {
-  id                  BigInt    @id @default(autoincrement())
-  ticker              String    @db.VarChar(10)
-  oldSuggestedCode    String?   @db.VarChar(5) @map("old_suggested_code")
-  oldFinalCode        String?   @db.VarChar(5) @map("old_final_code")
-  oldConfidenceLevel  String?   @db.VarChar(10) @map("old_confidence_level")
-  newSuggestedCode    String?   @db.VarChar(5) @map("new_suggested_code")
-  newFinalCode        String?   @db.VarChar(5) @map("new_final_code")
-  newConfidenceLevel  String?   @db.VarChar(10) @map("new_confidence_level")
-  changeReason        String    @db.VarChar(50) @map("change_reason")
-  changedAt           DateTime  @default(now()) @db.Timestamptz(6) @map("changed_at")
-  contextSnapshot     Json      @map("context_snapshot")
-  createdAt           DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  ticker           String    @db.VarChar(10)
+  oldSuggestedCode String?   @db.VarChar(5) @map("old_suggested_code")
+  newSuggestedCode String?   @db.VarChar(5) @map("new_suggested_code")
+  contextSnapshot  Json      @map("context_snapshot")
+  classifiedAt     DateTime  @db.Timestamptz(6) @map("classified_at")
 
   stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
 
   @@index([ticker], name: "idx_classification_history_ticker")
-  @@index([changedAt(sort: Desc)], name: "idx_classification_history_changed_at")
-  @@index([ticker, changedAt(sort: Desc)], name: "idx_classification_history_ticker_changed")
+  @@index([classifiedAt(sort: Desc)], name: "idx_classification_history_classified_at")
+  @@index([ticker, classifiedAt(sort: Desc)], name: "idx_classification_history_ticker_classified")
   @@map("classification_history")
 }
 

@@ -2,7 +2,8 @@
 // STORY-041: Bucket Scoring Algorithm
 // TASK-041-001: ClassificationInput interface and BucketScorerOutput interface
 // STORY-043: TASK-043-001: ClassificationResult, ConfidenceStep, TieBreakRecord interfaces
-// RFC-001 §ClassificationResult; ADR-013 (scoring weights); ADR-014 (confidence thresholds)
+// STORY-044: TASK-044-003: ClassificationState, ClassificationHistoryRow interfaces
+// RFC-001 §ClassificationResult, §Classification State, §Classification History; ADR-013; ADR-014
 
 // All numeric fields stored as decimal fractions (0.10 = 10%). Mirrors Prisma @map() names.
 export interface ClassificationInput {
@@ -83,7 +84,7 @@ export interface TieBreakRecord {
   marginAtTrigger: number;               // BucketScorer margin when this rule fired
 }
 
-// Final output of classifyStock — consumed by STORY-044 persistence
+// Full output of classifyStock — consumed by STORY-044 persistence and STORY-045+ query functions
 // RFC-001 §ClassificationResult; ADR-014 §Confidence Computation
 export interface ClassificationResult {
   suggested_code: string | null;                // "4AA", "8", or null when data too sparse
@@ -100,4 +101,42 @@ export interface ClassificationResult {
   missing_field_count: number;
   confidenceBreakdown: { steps: ConfidenceStep[] }; // always ≥ 1 step
   tieBreaksFired: TieBreakRecord[];               // empty array (never null) when no tie-breaks
+}
+
+// ── STORY-044: Persistence types ─────────────────────────────────────────────
+// RFC-001 §Classification State; ADR-007 (hybrid shared/per-user state)
+
+// Shape of the `scores` JSONB column in classification_state — combines scorer outputs + audit trail
+export interface ClassificationScoresPayload {
+  bucket: Record<BucketNumber, number>;
+  eq: Record<GradeLevel, number>;
+  bs: Record<GradeLevel, number>;
+  confidenceBreakdown: { steps: ConfidenceStep[] };
+  tieBreaksFired: TieBreakRecord[];
+}
+
+// Hydrated row from classification_state (one per ticker, system-wide)
+export interface ClassificationState {
+  ticker: string;
+  suggested_code: string | null;
+  confidence_level: 'high' | 'medium' | 'low';
+  reason_codes: string[];
+  scores: ClassificationScoresPayload;
+  input_snapshot: ClassificationInput;
+  classified_at: Date;
+  updated_at: Date;
+}
+
+// Hydrated row from classification_history (append-only audit log)
+export interface ClassificationHistoryRow {
+  id: string;
+  ticker: string;
+  old_suggested_code: string | null;
+  new_suggested_code: string | null;
+  context_snapshot: {
+    input_snapshot: ClassificationInput;
+    scores: ClassificationResult['scores'];
+    reason_codes: string[];
+  };
+  classified_at: Date;
 }
