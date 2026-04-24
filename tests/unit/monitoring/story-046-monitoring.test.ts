@@ -117,14 +117,17 @@ describe('EPIC-004/STORY-046/TASK-046-005: getUniverseStocks', () => {
     expect(stocks[0].active_code).toBeNull();
   });
 
-  it('pagination skip/take passed correctly to Prisma', async () => {
+  it('pagination is in-memory: findMany called without skip/take; total matches returned count', async () => {
+    // Pagination is done in-memory after fetching all DB-filtered rows
+    // (code filter is computed and cannot be applied in Prisma WHERE)
     mockFindMany.mockResolvedValue([]);
-    mockCount.mockResolvedValue(100);
 
-    await getUniverseStocks(USER_ID, { page: 3, limit: 10 });
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20, take: 10 }),
-    );
+    const { stocks, total } = await getUniverseStocks(USER_ID, { page: 3, limit: 10 });
+    expect(mockFindMany).toHaveBeenCalled();
+    // No skip/take in the Prisma call
+    expect(mockFindMany).not.toHaveBeenCalledWith(expect.objectContaining({ skip: expect.anything() }));
+    expect(stocks).toHaveLength(0);
+    expect(total).toBe(0);
   });
 
   it('output contract: required fields present', async () => {

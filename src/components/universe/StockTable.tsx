@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-048: Universe Screen — Stock Table
 // TASK-048-002: StockTable — 13-column table with metric color-coding and row navigation
+// STORY-049: Added optional sort/dir/onSort props for column sorting
 // PRD §Screen 2 columns; RFC-003 §Universe Screen
 
 'use client';
@@ -74,14 +75,58 @@ const TD: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+// ── Sort helpers ──────────────────────────────────────────────────────────────
+
+type SortDir = 'asc' | 'desc';
+
+interface SortableColumn {
+  key: string;
+  label: string;
+  align?: 'left' | 'right';
+}
+
+const SORTABLE: SortableColumn[] = [
+  { key: 'ticker', label: 'Ticker' },
+  { key: 'market_cap', label: 'Market Cap', align: 'right' },
+  { key: 'revenue_growth_fwd', label: 'Rev Growth Fwd', align: 'right' },
+  { key: 'eps_growth_fwd', label: 'EPS Growth Fwd', align: 'right' },
+  { key: 'fcf_conversion', label: 'FCF Conv', align: 'right' },
+  { key: 'net_debt_to_ebitda', label: 'Net Debt/EBITDA', align: 'right' },
+  { key: 'operating_margin', label: 'Op Margin', align: 'right' },
+];
+
+const SORTABLE_KEYS = new Set(SORTABLE.map(c => c.key));
+
+function sortIcon(colKey: string, sort: string, dir: SortDir): string {
+  if (colKey !== sort) return ' ↕';
+  return dir === 'asc' ? ' ↑' : ' ↓';
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface StockTableProps {
   stocks: UniverseStockSummary[];
+  sort?: string;
+  dir?: SortDir;
+  onSort?: (colKey: string, dir: SortDir) => void;
 }
 
-export default function StockTable({ stocks }: StockTableProps) {
+export default function StockTable({
+  stocks,
+  sort = 'market_cap',
+  dir = 'desc',
+  onSort,
+}: StockTableProps) {
   const router = useRouter();
+
+  function handleHeaderClick(colKey: string) {
+    if (!onSort || !SORTABLE_KEYS.has(colKey)) return;
+    if (colKey === sort) {
+      onSort(colKey, dir === 'asc' ? 'desc' : 'asc');
+    } else {
+      onSort(colKey, 'desc');
+    }
+  }
 
   if (stocks.length === 0) {
     return (
@@ -99,19 +144,68 @@ export default function StockTable({ stocks }: StockTableProps) {
       >
         <thead>
           <tr>
-            <th scope="col" style={TH}>Ticker</th>
+            <th
+              scope="col"
+              style={{ ...TH, cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('ticker')}
+              aria-sort={sort === 'ticker' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Ticker{onSort ? sortIcon('ticker', sort, dir) : ''}
+            </th>
             <th scope="col" style={TH}>Company</th>
             <th scope="col" style={TH}>Sector</th>
             <th scope="col" style={TH}>3AA Code</th>
             <th scope="col" style={TH}>Confidence</th>
             <th scope="col" style={TH}>Zone</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>Market Cap</th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('market_cap')}
+              aria-sort={sort === 'market_cap' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Market Cap{onSort ? sortIcon('market_cap', sort, dir) : ''}
+            </th>
             <th scope="col" style={TH}>Monitoring</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>Rev Growth Fwd</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>EPS Growth Fwd</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>FCF Conv</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>Net Debt/EBITDA</th>
-            <th scope="col" style={{ ...TH, textAlign: 'right' }}>Op Margin</th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('revenue_growth_fwd')}
+              aria-sort={sort === 'revenue_growth_fwd' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Rev Growth Fwd{onSort ? sortIcon('revenue_growth_fwd', sort, dir) : ''}
+            </th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('eps_growth_fwd')}
+              aria-sort={sort === 'eps_growth_fwd' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              EPS Growth Fwd{onSort ? sortIcon('eps_growth_fwd', sort, dir) : ''}
+            </th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('fcf_conversion')}
+              aria-sort={sort === 'fcf_conversion' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              FCF Conv{onSort ? sortIcon('fcf_conversion', sort, dir) : ''}
+            </th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('net_debt_to_ebitda')}
+              aria-sort={sort === 'net_debt_to_ebitda' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Net Debt/EBITDA{onSort ? sortIcon('net_debt_to_ebitda', sort, dir) : ''}
+            </th>
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default' }}
+              onClick={() => handleHeaderClick('operating_margin')}
+              aria-sort={sort === 'operating_margin' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
+            </th>
           </tr>
         </thead>
         <tbody>

@@ -117,13 +117,13 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-046 | User Monitoring Preferences API (all-default-monitored, per-user deactivation) | ✅ done |
 | STORY-047 | Classification Recompute Batch Job | ✅ done |
 | STORY-048 | Universe Screen: Stock Table (all in-universe stocks, paginated) | ✅ done |
-| STORY-049 | Universe Screen: Filters and Sort | planned |
+| STORY-049 | Universe Screen: Filters and Sort | ✅ done |
 | STORY-050 | Monitoring: Deactivate/Reactivate UI | planned |
 | STORY-051 | Classification Override Modal (with history section) | planned |
 | STORY-052 | EPIC-004 End-to-End Tests | planned |
 | STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | planned |
 
-**Evidence:** 656/656 unit tests passing + 31 integration tests passing (2026-04-24)
+**Evidence:** 724/724 unit tests passing + 37 new integration tests passing (2026-04-24)
 
 ---
 

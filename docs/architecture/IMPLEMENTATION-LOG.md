@@ -8,6 +8,48 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-049: Universe Screen: Filters and Sort complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-049 — Universe Screen: Filters and Sort
+**Tasks:** TASK-049-001 through TASK-049-008
+
+**Action:** Extended the universe screen with server-side filtering and column sorting. Extended `getUniverseStocks` domain function with `UniverseQueryOpts` (search, sector, code, confidence, monitoring, sort, dir). All DB-level filters use Prisma AND conditions; `code` filter is in-memory (active_code is computed COALESCE field). Pagination is in-memory post-code-filter. Added `getSectors()` domain function. Extended `GET /api/universe` route to accept all filter/sort params. Created `GET /api/universe/sectors` endpoint. Added `FilterBar` component with search, sector multi-select, code prefix, confidence checkboxes, and monitoring toggle. Extended `StockTable` with optional `sort`, `dir`, `onSort` props (backward compatible — all 8 existing tests still pass). Rewired `UniversePageClient` to manage filter/sort state, URL round-trip, debounced search, and "clear filters". Updated STORY-046 unit test to reflect in-memory pagination.
+
+**Files Changed:**
+- `src/domain/monitoring/monitoring.ts` (modified) — UniverseQueryOpts interface, makeStockSelect, mapRow, buildOrderBy, getSectors, extended getUniverseStocks
+- `src/domain/monitoring/index.ts` (modified) — export getSectors, UniverseQueryOpts
+- `src/app/api/universe/route.ts` (modified) — parse filter/sort params, pass to getUniverseStocks
+- `src/app/api/universe/sectors/route.ts` (created) — GET /api/universe/sectors
+- `src/components/universe/FilterBar.tsx` (created) — filter bar component
+- `src/components/universe/StockTable.tsx` (modified) — optional sort/dir/onSort props, sortable headers with aria-sort
+- `src/components/universe/UniversePageClient.tsx` (modified) — filter/sort state, URL params, debounced search, sectors fetch
+- `tests/unit/monitoring/story-049-filters.test.ts` (created) — 11 unit tests
+- `tests/integration/api/universe/universe-filters.test.ts` (created) — 37 integration tests
+- `tests/unit/monitoring/story-046-monitoring.test.ts` (modified) — updated pagination test to reflect in-memory pagination
+- `stories/README.md` (modified) — STORY-049 status updated
+
+**Tests Added/Updated:**
+- Unit: 11 tests (code filter logic, monitoring filter, confidence null handling) — all 11 pass
+- Integration: 37 tests (sectors endpoint, search, sector, code, confidence, monitoring, sort, combined, pagination) — all 37 pass against live test DB
+- Regression: 8 existing StockTable tests still pass; 724/724 total unit tests pass
+- Fixture provenance: synthetic (TFILTER01, TNOCLASS01, TNULLGROW1 created/deleted within tests)
+
+**Result/Status:** DONE ✅
+
+**Verification levels:** integration_verified_real (API routes) | unit_verified (filter logic, StockTable backward-compat)
+
+**Blockers/Issues:**
+- Pre-existing integration test failures in STORY-045 and STORY-046 suites (not introduced by STORY-049; confirmed via git stash)
+- Confidence filter required `{ classificationState: { is: { confidenceLevel: { in: ... } } } }` syntax (not `{ confidenceLevel: ... }` directly) — Prisma 1-1 optional relation WHERE syntax
+- Pagination moved to in-memory (code filter requires post-fetch filtering; updated STORY-046 unit test)
+
+**Baseline Impact:** NO — additive extension to GET /api/universe; new endpoint /api/universe/sectors; RFC-003 §Filtering and Sort implemented as specified
+
+**Next Action:** STORY-050 — Monitoring: Deactivate/Reactivate UI
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-048: Universe Screen Stock Table complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen
