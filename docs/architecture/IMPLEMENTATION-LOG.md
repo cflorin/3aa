@@ -8,6 +8,38 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-046: User Monitoring Preferences API complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-046 — User Monitoring Preferences API
+**Tasks:** TASK-046-001 through TASK-046-006
+
+**Action:** Implemented all-default-monitored per-user deactivation model. Created `user_deactivated_stocks` table (no row = active; row = deactivated). Built `getMonitoringStatus` and `getUniverseStocks` domain functions. PUT `/api/stocks/[ticker]/monitoring` toggles deactivation (upsert/deleteMany for idempotency). GET `/api/universe` returns all in-universe stocks with per-user `is_active` and `active_code` (COALESCE of override + system code), paginated.
+
+**Files Changed:**
+- `prisma/schema.prisma` (modified) — added UserDeactivatedStock model; added `deactivatedStocks` relation on User and `userDeactivatedStocks` on Stock
+- `prisma/migrations/20260424000003_add_user_deactivated_stocks/migration.sql` (created) — CREATE TABLE + 2 indexes
+- `src/domain/monitoring/monitoring.ts` (created) — UniverseStockSummary type, getMonitoringStatus, getUniverseStocks
+- `src/domain/monitoring/index.ts` (created) — barrel exports
+- `src/app/api/stocks/[ticker]/monitoring/route.ts` (created) — PUT handler with upsert/deleteMany idempotency
+- `src/app/api/universe/route.ts` (created) — GET handler with page/limit query params (max 200)
+- `tests/unit/monitoring/story-046-monitoring.test.ts` (created) — 9 unit tests (mocked Prisma)
+- `tests/integration/api/monitoring/monitoring.test.ts` (created) — 15 integration tests (10 test groups)
+
+**Tests Added/Updated:**
+- Unit: 9 new tests (all passing)
+- Integration: 15 new tests (all passing)
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — new table aligns with RFC-003 all-default-monitored model decision (2026-04-23)
+
+**Next Action:** STORY-047 — Classification Recompute Batch Job
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-045: User Classification Override API complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

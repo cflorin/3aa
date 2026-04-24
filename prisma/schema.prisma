@@ -94,6 +94,7 @@ model User {
   // Relations
   sessions                  UserSession[]
   monitoredStocks           UserMonitoredStock[]
+  deactivatedStocks         UserDeactivatedStock[]
   classificationOverrides   UserClassificationOverride[]
   valuationOverrides        UserValuationOverride[]
   alertPreferences          UserAlertPreferences?
@@ -238,6 +239,7 @@ model Stock {
   valuationState              ValuationState?
   valuationHistory            ValuationHistory[]
   userMonitoredStocks         UserMonitoredStock[]
+  userDeactivatedStocks       UserDeactivatedStock[]
   userClassificationOverrides UserClassificationOverride[]
   userValuationOverrides      UserValuationOverride[]
   userOverrideHistory         UserOverrideHistory[]
@@ -375,6 +377,21 @@ model UserMonitoredStock {
   @@index([userId], name: "idx_user_monitored_stocks_user_id")
   @@index([ticker], name: "idx_user_monitored_stocks_ticker")
   @@map("user_monitored_stocks")
+}
+
+// EPIC-004/STORY-046: All-default-monitored, per-user deactivation — RFC-003; ADR-007
+model UserDeactivatedStock {
+  userId        String   @db.Uuid @map("user_id")
+  ticker        String   @db.VarChar(10)
+  deactivatedAt DateTime @default(now()) @db.Timestamptz(6) @map("deactivated_at")
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@id([userId, ticker])
+  @@index([userId], name: "idx_user_deactivated_stocks_user_id")
+  @@index([ticker], name: "idx_user_deactivated_stocks_ticker")
+  @@map("user_deactivated_stocks")
 }
 
 // EPIC-004/STORY-045: Refactored for STORY-045 — RFC-001 §User Override API; ADR-007
