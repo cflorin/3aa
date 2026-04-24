@@ -120,6 +120,48 @@ function growthColor(val: number | null): string {
   return '#ef4444';
 }
 
+function grossMarginColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val >= 0.60) return '#16a34a';
+  if (val >= 0.30) return '#eab308';
+  return '#ef4444';
+}
+
+function opMarginColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val >= 0.20) return '#16a34a';
+  if (val >= 0.05) return '#eab308';
+  return '#ef4444';
+}
+
+function fcfMarginColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val >= 0.20) return '#16a34a';
+  if (val >= 0.08) return '#eab308';
+  return '#ef4444';
+}
+
+function roicColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val >= 0.15) return '#16a34a';
+  if (val >= 0.08) return '#eab308';
+  return '#ef4444';
+}
+
+function coverageColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val >= 12) return '#16a34a';
+  if (val >= 5) return '#eab308';
+  return '#ef4444';
+}
+
+function shareCountColor(val: number | null): string {
+  if (val === null) return T.textDim;
+  if (val <= -0.01) return '#16a34a';
+  if (val <= 0.02) return '#eab308';
+  return '#ef4444';
+}
+
 function netDebtColor(val: number | null): string {
   if (val === null) return T.textDim;
   if (val <= 1.0) return '#16a34a';
@@ -331,13 +373,52 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
           )}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 9, color: T.textDim, marginBottom: 3 }}>Active Code</div>
-            <ClassificationBadge code={activeCode} />
+            <span
+              onClick={() => setShowOverrideModal(true)}
+              title="Click to override classification"
+              style={{
+                fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 16, fontWeight: 800,
+                color: detail.final_code ? '#f97316' : T.accent,
+                cursor: 'pointer',
+                borderBottom: `1px dashed ${detail.final_code ? '#f9731660' : T.accent + '60'}`,
+                paddingBottom: 1,
+              }}
+            >
+              {activeCode ?? '—'}
+            </span>
+            {detail.final_code && (
+              <span style={{ fontSize: 9, color: '#f97316', display: 'block', marginTop: 1 }}>override ↗</span>
+            )}
           </div>
           {detail.confidence_level && (
             <ConfidenceBadge confidence={detail.confidence_level} />
           )}
         </div>
       </div>
+
+      {/* Flags strip — active classification flags shown below header */}
+      {(() => {
+        const activeFlags = ([
+          ['holding_company_flag', 'holding company'],
+          ['insurer_flag', 'insurer'],
+          ['binary_flag', 'binary / lottery'],
+          ['cyclicality_flag', 'cyclicality'],
+          ['pre_operating_leverage_flag', 'pre-operating leverage'],
+          ['optionality_flag', 'optionality dominant'],
+          ['material_dilution_flag', 'material dilution'],
+        ] as [keyof typeof detail, string][]).filter(([key]) => (detail as Record<string, unknown>)[key] === true);
+        if (activeFlags.length === 0) return null;
+        return (
+          <div style={{ padding: '6px 16px', borderBottom: `1px solid ${T.borderFaint}`, display: 'flex', gap: 6, alignItems: 'center', background: T.sidebarBg, flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: T.textDim, marginRight: 4 }}>Flags:</span>
+            {activeFlags.map(([, label]) => (
+              <span key={label} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#f9731618', color: '#f97316', border: '1px solid #f9731630', fontWeight: 500 }}>
+                {label}
+              </span>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
       <div style={{
@@ -674,22 +755,22 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <MetricRow label="Gross Profit Growth" value={fmtPct(detail.gross_profit_growth)} color={growthColor(detail.gross_profit_growth)} />
 
               <div style={SECTION_HEADER}>Margins</div>
-              <MetricRow label="Gross Margin" value={fmtPct(detail.gross_margin)} color={growthColor(detail.gross_margin)} />
-              <MetricRow label="Operating Margin" value={fmtPct(detail.operating_margin)} color={growthColor(detail.operating_margin)} />
-              <MetricRow label="FCF Margin" value={fmtPct(detail.fcf_margin)} color={growthColor(detail.fcf_margin)} />
+              <MetricRow label="Gross Margin" value={fmtPct(detail.gross_margin)} color={grossMarginColor(detail.gross_margin)} />
+              <MetricRow label="Operating Margin" value={fmtPct(detail.operating_margin)} color={opMarginColor(detail.operating_margin)} />
+              <MetricRow label="FCF Margin" value={fmtPct(detail.fcf_margin)} color={fcfMarginColor(detail.fcf_margin)} />
             </div>
 
             <div style={{ borderRight: `1px solid ${T.border}` }}>
               <div style={SECTION_HEADER}>Returns & Quality</div>
               <MetricRow label="FCF Conversion" value={fmtPct(detail.fcf_conversion)} color={fcfConvColor(detail.fcf_conversion)} />
-              <MetricRow label="ROIC" value={fmtPct(detail.roic)} color={growthColor(detail.roic)} />
+              <MetricRow label="ROIC" value={fmtPct(detail.roic)} color={roicColor(detail.roic)} />
               <MetricRow label="Net Income Positive" value={detail.net_income_positive === null ? '—' : detail.net_income_positive ? 'Yes' : 'No'} />
               <MetricRow label="FCF Positive" value={detail.fcf_positive === null ? '—' : detail.fcf_positive ? 'Yes' : 'No'} />
 
               <div style={SECTION_HEADER}>Balance Sheet</div>
-              <MetricRow label="Net Debt / EBITDA" value={fmtRatio(detail.net_debt_to_ebitda)} color={netDebtColor(detail.net_debt_to_ebitda)} />
-              <MetricRow label="Interest Coverage" value={detail.interest_coverage !== null ? `${detail.interest_coverage.toFixed(1)}×` : '—'} />
-              <MetricRow label="Share Count Growth 3Y" value={fmtPct(detail.share_count_growth_3y)} />
+              <MetricRow label="Net Debt / EBITDA" value={detail.net_debt_to_ebitda !== null && detail.net_debt_to_ebitda < 0 ? 'net cash' : fmtRatio(detail.net_debt_to_ebitda)} color={netDebtColor(detail.net_debt_to_ebitda)} />
+              <MetricRow label="Interest Coverage" value={detail.interest_coverage !== null ? `${detail.interest_coverage.toFixed(1)}×` : '—'} color={coverageColor(detail.interest_coverage)} />
+              <MetricRow label="Share Count Growth 3Y" value={fmtPct(detail.share_count_growth_3y)} color={shareCountColor(detail.share_count_growth_3y)} />
 
               <div style={SECTION_HEADER}>Market Context</div>
               <MetricRow label="Market Cap" value={fmtMcap(detail.market_cap)} />

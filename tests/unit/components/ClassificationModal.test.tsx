@@ -119,7 +119,9 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
   it('shows "Set my classification" form when user has no override', async () => {
     renderModal();
     await waitFor(() => {
-      expect(screen.getByTestId('override-code-input')).toBeInTheDocument();
+      expect(screen.getByTestId('override-bucket-select')).toBeInTheDocument();
+      expect(screen.getByTestId('override-eq-select')).toBeInTheDocument();
+      expect(screen.getByTestId('override-bs-select')).toBeInTheDocument();
       expect(screen.getByTestId('override-reason-input')).toBeInTheDocument();
       expect(screen.getByTestId('save-override-btn')).toBeInTheDocument();
     });
@@ -159,39 +161,29 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
   it('Save button disabled when reason is empty', async () => {
     renderModal();
     await waitFor(() => screen.getByTestId('save-override-btn'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '4AA' } });
-    // reason is empty
+    // code is pre-selected via 3 selects (default 4AA), reason is empty
     expect(screen.getByTestId('save-override-btn')).toBeDisabled();
   });
 
   it('Save button disabled when reason is 9 chars (below minimum)', async () => {
     renderModal();
     await waitFor(() => screen.getByTestId('save-override-btn'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '4AA' } });
     fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'Too short' } }); // 9 chars
     expect(screen.getByTestId('save-override-btn')).toBeDisabled();
   });
 
-  it('Save button enabled when code is valid and reason is 14 chars', async () => {
+  it('Save button enabled when reason is 14 chars', async () => {
     renderModal();
     await waitFor(() => screen.getByTestId('save-override-btn'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '4AA' } });
     fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'My full thesis' } }); // 14 chars
     expect(screen.getByTestId('save-override-btn')).not.toBeDisabled();
   });
 
-  it('shows inline reason validation error when Save clicked with short reason', async () => {
+  it('Save button disabled — no fetch called when reason too short', async () => {
     renderModal();
     await waitFor(() => screen.getByTestId('save-override-btn'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '4AA' } });
     fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'Too short' } });
-    // Force click via direct handler simulation (button is disabled, use form field check)
-    // Instead test that validation message appears after attempting to submit with invalid code
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: 'INVALID' } });
-    await act(async () => {
-      // Button disabled so simulate direct call via keyboard; instead verify disabled state
-    });
-    // The save button should remain disabled — the form shows no fetch call
+    // Button is disabled, no POST should fire
     expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/classification-override'), expect.anything());
   });
 
@@ -207,8 +199,11 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(BASE_CLASS_RESPONSE) });
     });
     renderModal({ onOverrideChange });
-    await waitFor(() => screen.getByTestId('override-code-input'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '3AA' } });
+    await waitFor(() => screen.getByTestId('override-bucket-select'));
+    // Select bucket=3, EQ=A, BS=A → composedCode = "3AA"
+    fireEvent.change(screen.getByTestId('override-bucket-select'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('override-eq-select'), { target: { value: 'A' } });
+    fireEvent.change(screen.getByTestId('override-bs-select'), { target: { value: 'A' } });
     fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'My full reasoning here' } });
     await act(async () => {
       fireEvent.click(screen.getByTestId('save-override-btn'));
@@ -249,8 +244,8 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(BASE_CLASS_RESPONSE) });
     });
     renderModal();
-    await waitFor(() => screen.getByTestId('override-code-input'));
-    fireEvent.change(screen.getByTestId('override-code-input'), { target: { value: '3AA' } });
+    await waitFor(() => screen.getByTestId('override-bucket-select'));
+    fireEvent.change(screen.getByTestId('override-bucket-select'), { target: { value: '3' } });
     fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'My full reasoning here' } });
     await act(async () => {
       fireEvent.click(screen.getByTestId('save-override-btn'));

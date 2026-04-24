@@ -7,8 +7,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { T } from '@/lib/theme';
 
 const NAV = [
-  { key: 'universe', label: 'Universe', path: '/universe' },
-  // Alerts and Settings are planned (EPIC-005+)
+  { key: 'universe', label: 'Universe', icon: '⬡', path: '/universe' },
+  // Alerts and Settings planned (EPIC-005+)
 ];
 
 export default function Sidebar({ userEmail }: { userEmail?: string }) {
@@ -18,6 +18,8 @@ export default function Sidebar({ userEmail }: { userEmail?: string }) {
   const activeKey = pathname.startsWith('/stocks') ? 'universe'
     : pathname.startsWith('/universe') ? 'universe'
     : '';
+
+
 
   return (
     <div style={{
@@ -30,21 +32,22 @@ export default function Sidebar({ userEmail }: { userEmail?: string }) {
       height: '100%',
     }}>
       {/* Logo */}
-      <div style={{ padding: '16px 16px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: '16px 16px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{
           width: 24, height: 24, borderRadius: 4, background: T.accent,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 800, color: '#0b0d11',
+          fontSize: 11, fontWeight: 800, color: '#fff',
           fontFamily: 'var(--font-dm-mono, monospace)',
+          flexShrink: 0,
         }}>
           3A
         </div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>3AA</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.text, letterSpacing: '-0.01em' }}>3AA Monitor</span>
       </div>
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '8px 0' }}>
-        {NAV.map(({ key, label, path }) => {
+        {NAV.map(({ key, label, icon, path }) => {
           const active = activeKey === key;
           return (
             <button
@@ -68,6 +71,7 @@ export default function Sidebar({ userEmail }: { userEmail?: string }) {
                 fontFamily: 'inherit',
               }}
             >
+              <span style={{ fontSize: 13 }}>{icon}</span>
               {label}
             </button>
           );

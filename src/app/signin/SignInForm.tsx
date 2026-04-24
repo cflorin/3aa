@@ -95,7 +95,7 @@ export default function SignInForm() {
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text, letterSpacing: '-0.02em' }}>
               3AA Monitor
             </div>
-            <div style={{ fontSize: 11, color: T.textDim }}>Investment framework</div>
+            <div style={{ fontSize: 11, color: T.textDim }}>Stock monitoring platform</div>
           </div>
         </div>
 

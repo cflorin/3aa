@@ -91,12 +91,15 @@ export default function ClassificationModal({
   const [data, setData] = useState<ClassificationData | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
 
-  const [codeInput, setCodeInput] = useState('');
+  const [bucketSel, setBucketSel] = useState('4');
+  const [eqSel, setEqSel] = useState('A');
+  const [bsSel, setBsSel] = useState('A');
   const [reasonInput, setReasonInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [codeError, setCodeError] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
+
+  const composedCode = `${bucketSel}${eqSel}${bsSel}`;
 
   const triggerRef = useRef<Element | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -135,7 +138,10 @@ export default function ClassificationModal({
           setHistory(histData.history ?? []);
           setLoadState('ready');
           if (classData.user_override_code) {
-            setCodeInput(classData.user_override_code);
+            const oc = classData.user_override_code;
+            setBucketSel(oc[0] ?? '4');
+            setEqSel(oc[1] ?? 'A');
+            setBsSel(oc[2] ?? 'A');
             setReasonInput(classData.user_override_reason ?? '');
           }
         }
@@ -148,38 +154,29 @@ export default function ClassificationModal({
   }, [ticker]);
 
   async function handleSave() {
-    let valid = true;
-    if (!CODE_REGEX.test(codeInput)) {
-      setCodeError('Invalid code — use format 1–8 or 1AA–8CC (e.g. 4AA)');
-      valid = false;
-    } else {
-      setCodeError(null);
-    }
     if (reasonInput.length < REASON_MIN_LENGTH) {
       setReasonError(`Reason must be at least ${REASON_MIN_LENGTH} characters`);
-      valid = false;
-    } else {
-      setReasonError(null);
+      return;
     }
-    if (!valid) return;
+    setReasonError(null);
 
     setSaving(true);
     setSaveError(null);
     const prevCode = data?.active_code ?? null;
-    onOverrideChange(ticker, codeInput);
+    onOverrideChange(ticker, composedCode);
 
     try {
       const res = await fetch('/api/classification-override', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ticker, final_code: codeInput, override_reason: reasonInput }),
+        body: JSON.stringify({ ticker, final_code: composedCode, override_reason: reasonInput }),
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const result = await res.json();
       onOverrideChange(ticker, result.active_code);
       setData(prev => prev ? {
         ...prev,
-        user_override_code: codeInput,
+        user_override_code: composedCode,
         user_override_reason: reasonInput,
         active_code: result.active_code,
       } : prev);
@@ -203,7 +200,9 @@ export default function ClassificationModal({
       setData(prev => prev ? {
         ...prev, user_override_code: null, user_override_reason: null, active_code: systemCode,
       } : prev);
-      setCodeInput('');
+      setBucketSel('4');
+      setEqSel('A');
+      setBsSel('A');
       setReasonInput('');
     } catch {
       onOverrideChange(ticker, prevCode);
@@ -213,9 +212,8 @@ export default function ClassificationModal({
     }
   }
 
-  const codeValid = CODE_REGEX.test(codeInput);
   const reasonValid = reasonInput.length >= REASON_MIN_LENGTH;
-  const saveEnabled = codeValid && reasonValid && !saving;
+  const saveEnabled = reasonValid && !saving;
 
   return (
     <div
@@ -300,69 +298,30 @@ export default function ClassificationModal({
               </div>
             </div>
 
-            {/* Bucket scores */}
+            {/* Score breakdown — 3-column bar chart grid per spec */}
             {data.scores && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Bucket Scores</div>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }} data-testid="bucket-scores">
-                  {(['1','2','3','4','5','6','7','8']).map((b) => {
-                    const score = data.scores!.bucket[b] ?? 0;
-                    const winner = winningBucket(data.scores!.bucket);
-                    const isWinner = winner === b;
-                    return (
-                      <div
-                        key={b}
-                        data-testid={`bucket-score-${b}`}
-                        style={{
-                          flex: '1 1 50px', textAlign: 'center',
-                          padding: '6px 4px', borderRadius: 3,
-                          background: isWinner ? T.accent + '20' : T.sidebarBg,
-                          color: isWinner ? T.accent : T.textDim,
-                          fontWeight: isWinner ? 800 : 400,
-                          fontSize: 11,
-                          border: `1px solid ${isWinner ? T.accent + '44' : T.borderFaint}`,
-                          fontFamily: 'var(--font-dm-mono, monospace)',
-                        }}
-                      >
-                        <div style={{ fontSize: 9, opacity: 0.7 }}>B{b}</div>
-                        <div>{score.toFixed(0)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* EQ / BS scores */}
-            {data.scores && (
-              <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {(['eq', 'bs'] as const).map((key) => {
-                  const scores = data.scores![key];
-                  const winner = winningGrade(scores);
-                  const label = key === 'eq' ? 'Earnings Quality' : 'Balance Sheet';
-                  return (
-                    <div key={key} style={{ background: T.sidebarBg, border: `1px solid ${T.borderFaint}`, borderRadius: 4, padding: '10px' }}>
-                      <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{label}</div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {(['A','B','C'] as const).map((grade) => {
-                          const isWinner = winner === grade;
-                          return (
-                            <div key={grade} data-testid={`${key}-grade-${grade}`} style={{
-                              flex: 1, textAlign: 'center', padding: '5px 4px', borderRadius: 3,
-                              background: isWinner ? T.accent + '20' : T.borderFaint,
-                              fontWeight: isWinner ? 700 : 400,
-                              fontSize: 11, color: isWinner ? T.accent : T.textDim,
-                              fontFamily: 'var(--font-dm-mono, monospace)',
-                            }}>
-                              <div>{grade}</div>
-                              <div style={{ fontSize: 9 }}>{(scores[grade] ?? 0).toFixed(0)}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {([
+                  { label: 'Bucket Scores', entries: (['1','2','3','4','5','6','7','8']).map(b => ({ key: b, score: data.scores!.bucket[b] ?? 0 })), topKey: winningBucket(data.scores.bucket) },
+                  { label: 'Earnings Quality', entries: (['A','B','C']).map(g => ({ key: g, score: data.scores!.eq[g] ?? 0 })), topKey: winningGrade(data.scores.eq) },
+                  { label: 'Balance Sheet', entries: (['A','B','C']).map(g => ({ key: g, score: data.scores!.bs[g] ?? 0 })), topKey: winningGrade(data.scores.bs) },
+                ]).map(({ label, entries, topKey }) => (
+                  <div key={label} style={{ background: T.sidebarBg, border: `1px solid ${T.borderFaint}`, borderRadius: 4, padding: '10px' }}>
+                    <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{label}</div>
+                    {entries.map(({ key, score }) => {
+                      const isTop = key === topKey;
+                      return (
+                        <div key={key} data-testid={label === 'Bucket Scores' ? `bucket-score-${key}` : undefined} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0' }}>
+                          <span style={{ fontSize: 9, fontFamily: 'var(--font-dm-mono, monospace)', width: 14, color: isTop ? T.accent : T.textDim, fontWeight: isTop ? 700 : 400 }}>{key}</span>
+                          <div style={{ flex: 1, height: 7, background: T.borderFaint, borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', borderRadius: 2, width: `${score}%`, background: isTop ? T.accent + 'bb' : T.textDim + '44' }} />
+                          </div>
+                          <span style={{ fontSize: 9, color: isTop ? T.text : T.textDim, width: 22, textAlign: 'right' }}>{score}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -448,25 +407,27 @@ export default function ClassificationModal({
                 </div>
               ) : (
                 <div>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ display: 'block', fontSize: 10, color: T.textDim, marginBottom: 4 }}>
-                      Code <span style={{ color: T.textDim }}>(e.g. 4AA)</span>
-                    </label>
-                    <input
-                      data-testid="override-code-input"
-                      type="text"
-                      value={codeInput}
-                      onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-                      placeholder="4AA"
-                      maxLength={3}
-                      style={{
-                        width: 100, padding: '6px 10px', borderRadius: 4,
-                        border: `1px solid ${codeError ? '#ef4444' : T.border}`,
-                        background: T.inputBg, color: T.text,
-                        fontSize: 13, fontFamily: 'var(--font-dm-mono, monospace)', outline: 'none',
-                      }}
-                    />
-                    {codeError && <div data-testid="code-error" style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{codeError}</div>}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 12 }}>
+                    {([
+                      { label: 'Bucket', opts: ['1','2','3','4','5','6','7','8'], val: bucketSel, set: setBucketSel, testId: 'override-bucket-select' },
+                      { label: 'Earnings Quality', opts: ['A','B','C'], val: eqSel, set: setEqSel, testId: 'override-eq-select' },
+                      { label: 'Balance Sheet', opts: ['A','B','C'], val: bsSel, set: setBsSel, testId: 'override-bs-select' },
+                    ] as { label: string; opts: string[]; val: string; set: (v: string) => void; testId: string }[]).map(({ label, opts, val, set, testId }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>{label}</div>
+                        <select
+                          data-testid={testId}
+                          value={val}
+                          onChange={e => set(e.target.value)}
+                          style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 12, padding: '5px 8px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit', width: 58 }}
+                        >
+                          {opts.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    <div style={{ paddingBottom: 2 }}>
+                      <span data-testid="override-code-preview" style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: T.accent }}>{composedCode}</span>
+                    </div>
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 10, color: T.textDim, marginBottom: 4 }}>

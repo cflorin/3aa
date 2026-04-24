@@ -12,11 +12,12 @@ import { T } from '@/lib/theme';
 interface PaginationControlsProps {
   page: number;
   totalPages: number;
+  totalStocks: number;
   onPrev: () => void;
   onNext: () => void;
 }
 
-export default function PaginationControls({ page, totalPages, onPrev, onNext }: PaginationControlsProps) {
+export default function PaginationControls({ page, totalPages, totalStocks, onPrev, onNext }: PaginationControlsProps) {
   const isFirst = page <= 1;
   const isLast = page >= totalPages;
 
@@ -45,7 +46,7 @@ export default function PaginationControls({ page, totalPages, onPrev, onNext }:
       aria-label="Pagination"
     >
       <span style={{ fontSize: 11, color: T.textDim }}>
-        Page {page} of {totalPages}
+        Page {page} of {totalPages} · {totalStocks} stocks
       </span>
       <div style={{ display: 'flex', gap: 4 }}>
         <button

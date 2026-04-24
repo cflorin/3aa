@@ -180,6 +180,7 @@ export default function UniversePageClient() {
       <PaginationControls
         page={page}
         totalPages={totalPages}
+        totalStocks={data?.total ?? 0}
         onPrev={() => setPage(p => Math.max(1, p - 1))}
         onNext={() => setPage(p => Math.min(totalPages, p + 1))}
       />

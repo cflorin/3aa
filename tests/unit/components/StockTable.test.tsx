@@ -61,21 +61,21 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     expect(screen.getByText(/no stocks in universe/i)).toBeInTheDocument();
   });
 
-  it('renders all 13 column headers', () => {
+  it('renders all 12 column headers per spec', () => {
     render(<StockTable stocks={[makeStock()]} />);
     expect(screen.getByText('Ticker')).toBeInTheDocument();
     expect(screen.getByText('Company')).toBeInTheDocument();
     expect(screen.getByText('Sector')).toBeInTheDocument();
     expect(screen.getByText('3AA Code')).toBeInTheDocument();
-    expect(screen.getByText('Confidence')).toBeInTheDocument();
-    expect(screen.getByText('Zone')).toBeInTheDocument();
-    expect(screen.getByText('Market Cap')).toBeInTheDocument();
-    expect(screen.getByText('Monitoring')).toBeInTheDocument();
-    expect(screen.getByText('Rev Growth Fwd')).toBeInTheDocument();
-    expect(screen.getByText('EPS Growth Fwd')).toBeInTheDocument();
+    expect(screen.getByText('Conf.')).toBeInTheDocument();
+    expect(screen.getByText('Monitor')).toBeInTheDocument();
+    expect(screen.getByText('Rev Fwd')).toBeInTheDocument();
+    expect(screen.getByText('EPS Fwd')).toBeInTheDocument();
     expect(screen.getByText('FCF Conv')).toBeInTheDocument();
-    expect(screen.getByText('Net Debt/EBITDA')).toBeInTheDocument();
+    expect(screen.getByText('ND/EBITDA')).toBeInTheDocument();
     expect(screen.getByText('Op Margin')).toBeInTheDocument();
+    expect(screen.getByText('Zone')).toBeInTheDocument();
+    expect(screen.queryByText('Market Cap')).not.toBeInTheDocument();
   });
 
   it('Inactive badge shown for is_active=false stock', () => {

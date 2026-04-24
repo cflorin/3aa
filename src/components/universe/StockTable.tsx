@@ -46,13 +46,6 @@ function fmtPct(val: number | null): string {
   return `${(val * 100).toFixed(1)}%`;
 }
 
-function fmtMcap(val: number | null): string {
-  if (val === null || val === undefined) return '—';
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}T`;
-  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}B`;
-  return `$${val.toFixed(0)}M`;
-}
-
 function fmtRatio(val: number | null): string {
   if (val === null || val === undefined) return '—';
   return val.toFixed(1) + '×';
@@ -86,7 +79,7 @@ const TD: React.CSSProperties = {
 type SortDir = 'asc' | 'desc';
 
 const SORTABLE_KEYS = new Set([
-  'ticker', 'market_cap', 'revenue_growth_fwd', 'eps_growth_fwd',
+  'ticker', 'revenue_growth_fwd', 'eps_growth_fwd',
   'fcf_conversion', 'net_debt_to_ebitda', 'operating_margin',
 ]);
 
@@ -171,24 +164,15 @@ export default function StockTable({
           <th scope="col" style={TH}>Company</th>
           <th scope="col" style={TH}>Sector</th>
           <th scope="col" style={TH}>3AA Code</th>
-          <th scope="col" style={TH}>Confidence</th>
-          <th scope="col" style={TH}>Zone</th>
-          <th
-            scope="col"
-            style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'market_cap' ? T.accent : T.textMuted }}
-            onClick={() => handleHeaderClick('market_cap')}
-            aria-sort={sort === 'market_cap' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-          >
-            Market Cap{onSort ? sortIcon('market_cap', sort, dir) : ''}
-          </th>
-          <th scope="col" style={TH}>Monitoring</th>
+          <th scope="col" style={TH}>Conf.</th>
+          <th scope="col" style={TH}>Monitor</th>
           <th
             scope="col"
             style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'revenue_growth_fwd' ? T.accent : T.textMuted }}
             onClick={() => handleHeaderClick('revenue_growth_fwd')}
             aria-sort={sort === 'revenue_growth_fwd' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
           >
-            Rev Growth Fwd{onSort ? sortIcon('revenue_growth_fwd', sort, dir) : ''}
+            Rev Fwd{onSort ? sortIcon('revenue_growth_fwd', sort, dir) : ''}
           </th>
           <th
             scope="col"
@@ -196,7 +180,7 @@ export default function StockTable({
             onClick={() => handleHeaderClick('eps_growth_fwd')}
             aria-sort={sort === 'eps_growth_fwd' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
           >
-            EPS Growth Fwd{onSort ? sortIcon('eps_growth_fwd', sort, dir) : ''}
+            EPS Fwd{onSort ? sortIcon('eps_growth_fwd', sort, dir) : ''}
           </th>
           <th
             scope="col"
@@ -212,7 +196,7 @@ export default function StockTable({
             onClick={() => handleHeaderClick('net_debt_to_ebitda')}
             aria-sort={sort === 'net_debt_to_ebitda' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
           >
-            Net Debt/EBITDA{onSort ? sortIcon('net_debt_to_ebitda', sort, dir) : ''}
+            ND/EBITDA{onSort ? sortIcon('net_debt_to_ebitda', sort, dir) : ''}
           </th>
           <th
             scope="col"
@@ -222,6 +206,7 @@ export default function StockTable({
           >
             Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
           </th>
+          <th scope="col" style={TH}>Zone</th>
         </tr>
       </thead>
       <tbody>
@@ -243,10 +228,10 @@ export default function StockTable({
                 (e.currentTarget as HTMLTableRowElement).style.backgroundColor = '';
               }}
             >
-              <td style={{ ...TD, fontWeight: 700, fontFamily: 'var(--font-dm-mono, monospace)', color: T.accent }}>
+              <td style={{ ...TD, fontWeight: 700, fontFamily: 'var(--font-dm-mono, monospace)', color: isActive ? T.accent : T.textDim }}>
                 {s.ticker}
               </td>
-              <td style={{ ...TD, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <td style={{ ...TD, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', color: isActive ? T.text : T.textDim }}>
                 {s.company_name}
               </td>
               <td style={{ ...TD, color: T.textMuted, fontSize: 10 }}>
@@ -263,10 +248,6 @@ export default function StockTable({
               </td>
               <td style={TD}>
                 <ConfidenceBadge confidence={s.confidence_level} />
-              </td>
-              <td style={{ ...TD, color: T.textDim }}>—</td>
-              <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtMcap(s.market_cap)}
               </td>
               <td style={TD}>
                 <MonitoringToggle
@@ -285,11 +266,12 @@ export default function StockTable({
                 {fmtPct(s.fcf_conversion)}
               </td>
               <td style={{ ...TD, textAlign: 'right', color: netDebtColor(s.net_debt_to_ebitda), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtRatio(s.net_debt_to_ebitda)}
+                {s.net_debt_to_ebitda !== null && s.net_debt_to_ebitda < 0 ? 'net cash' : fmtRatio(s.net_debt_to_ebitda)}
               </td>
               <td style={{ ...TD, textAlign: 'right', color: growthColor(s.operating_margin), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtPct(s.operating_margin)}
               </td>
+              <td style={{ ...TD, color: T.textDim }}>—</td>
             </tr>
           );
         })}
