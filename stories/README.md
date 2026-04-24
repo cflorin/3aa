@@ -2,7 +2,7 @@
 
 Complete index of all epics and stories for the 3AA Monitoring Product V1.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-04-23 (EPIC-004 revised after UI analysis: STORY-053 added; STORY-041–052 updated)
 
 ---
 
@@ -14,7 +14,7 @@ Complete index of all epics and stories for the 3AA Monitoring Product V1.
 | EPIC-002 | Authentication & User Management | ✅ done | STORY-010–014 (5 stories) |
 | EPIC-003 | Data Ingestion & Universe Management | ✅ done | STORY-015–033 (19 stories) |
 | EPIC-003.1 | Classification LLM Enrichment | ✅ done | STORY-034–040 (7 stories) |
-| EPIC-004 | Classification Engine & Universe Screen | planned | TBD — decomposition required |
+| EPIC-004 | Classification Engine & Universe Screen | 🔄 in_progress | STORY-041–053 (13 stories) |
 | EPIC-005 | Valuation Threshold Engine & Enhanced Universe | planned | TBD |
 | EPIC-006 | Monitoring & Alerts Engine with Alerts UI | planned | TBD |
 | EPIC-007 | User Preferences & Settings | planned | TBD |
@@ -101,11 +101,29 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** planned — stories not yet decomposed
+**Status:** 🔄 in_progress — STORY-041 done
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
-**To start:** Decompose into stories, validate against PRD §4 / RFC-001 / RFC-003, then begin.
+Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
+
+| Story | Title | Status |
+|-------|-------|--------|
+| STORY-041 | Bucket Scoring Algorithm | ✅ done |
+| STORY-042 | Earnings Quality and Balance Sheet Quality Scoring | ready |
+| STORY-043 | Classification Result Assembly (Tie-Break, Confidence, Special Cases) | planned |
+| STORY-044 | Classification State Persistence and History | planned |
+| STORY-045 | User Classification Override API | planned |
+| STORY-046 | User Monitoring Preferences API (all-default-monitored, per-user deactivation) | planned |
+| STORY-047 | Classification Recompute Batch Job | planned |
+| STORY-048 | Universe Screen: Stock Table (all in-universe stocks, paginated) | planned |
+| STORY-049 | Universe Screen: Filters and Sort | planned |
+| STORY-050 | Monitoring: Deactivate/Reactivate UI | planned |
+| STORY-051 | Classification Override Modal (with history section) | planned |
+| STORY-052 | EPIC-004 End-to-End Tests | planned |
+| STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | planned |
+
+**Evidence:** 550/550 unit tests passing + 7 integration tests passing (2026-04-24)
 
 ---
 
@@ -140,6 +158,7 @@ Stories are numbered sequentially across epics (not reset per epic):
 - EPIC-002: STORY-010–014
 - EPIC-003: STORY-015–033
 - EPIC-003.1: STORY-034–040
-- EPIC-004: STORY-041+ (TBD)
+- EPIC-004: STORY-041–053
+- EPIC-005: STORY-054+ (TBD)
 
 Tasks follow `TASK-{story}-{seq}` format, e.g. `TASK-034-001`.

@@ -19,6 +19,137 @@ Each entry includes:
 
 ---
 
+## 2026-04-24 UTC - EPIC-004 Story Decomposition Complete; STORY-041 Task Decomposition Ready
+
+**Epic:** EPIC-004
+**Story:** STORY-041 through STORY-053
+**Task:** N/A (planning)
+**Action:** Completed EPIC-004 story decomposition (13 stories: STORY-041–053). Created ADR-013 (classification scoring weights) and ADR-014 (confidence thresholds) to fill baseline gaps referenced in RFC-001. Conducted adversarial review, fixed 4 issues (shouldRecompute state gap, schema alignment, stale epic doc, DELETE ambiguity). Analysed UI prototypes (`docs/ui/project/3aa/`); added STORY-053 (Stock Detail Page), updated STORY-043/044/048/049/052 based on prototype findings. Decomposed STORY-041 into 5 tasks; marked ready for implementation.
+
+**Files Changed:**
+- `docs/adr/ADR-013-classification-scoring-algorithm-weights.md` (created)
+- `docs/adr/ADR-014-classification-confidence-threshold-boundaries.md` (created)
+- `docs/stories/epics/EPIC-004-classification-engine-universe-screen.md` (rewritten — monitoring model, API routes, data model, revision notes)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-041-bucket-scoring-algorithm.md` (created + updated)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-042-earnings-and-balance-sheet-quality-scoring.md` (created)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-043-classification-result-assembly.md` (created + updated with confidenceBreakdown/tieBreaksFired)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-044-classification-state-persistence.md` (created + updated with input_snapshot, schema alignment)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-045-user-classification-override-api.md` (created + routes fixed)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-046-user-monitoring-preferences-api.md` (created — all-default-monitored model)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-047-classification-batch-job.md` (created — OIDC auth corrected)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-048-universe-screen-stock-table.md` (created + Zone/MarketCap columns, row navigation, color-coding)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-049-universe-screen-filters-and-sort.md` (created + text search, MarketCap default sort)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-050-monitoring-deactivate-reactivate-ui.md` (created — deactivate/reactivate model)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-051-classification-override-modal.md` (created + history section)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-052-epic-004-e2e-tests.md` (created + 7th workflow)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-053-stock-detail-page.md` (created — new story from UI analysis)
+- `stories/README.md` (updated — STORY-041–053; EPIC-005 renumbered to STORY-054+)
+- `CLAUDE.md` (updated — ADRs through ADR-014)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (updated — EPIC-004 active, STORY-041 ready, all 13 stories listed)
+
+**Tests Added/Updated:** None (planning only)
+
+**Result/Status:** Success — EPIC-004 fully decomposed; STORY-041 task-decomposed and ready
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** YES — ADR-013 and ADR-014 created to fill gap referenced in RFC-001 (scoring weights and confidence thresholds were referenced but lacked documents). No change to PRD or existing RFCs. CLAUDE.md updated to reflect ADR-013/014 accepted.
+
+**Next Action:** Implement TASK-041-001 (ClassificationInput interface + scoring-weights.ts constants)
+
+---
+
+## 2026-04-24 UTC - STORY-041 Task Breakdown Self-Validated and Revised; Story Marked Ready
+
+**Epic:** EPIC-004
+**Story:** STORY-041
+**Task:** N/A (planning)
+**Action:** Self-validated the STORY-041 task breakdown. Found and corrected 2 critical issues, 2 high issues:
+- C1: `CRITICAL_FIELDS` was misplaced in `types.ts` — moved to `confidence-thresholds.ts` per ADR-014 §Implementation Notes; corrected count from 11 to 10; all 10 fields enumerated explicitly
+- C2: Three rule thresholds were undefined in TASK-041-002 — FCF_CONVERSION threshold set to `≥ 0.50`; `revenue_growth_3y`/`gross_profit_growth` confirmed to use same ranges as `revenue_growth_fwd` (REV_SECONDARY); `operating_margin` threshold set to `≥ 15%` (implementer-documented, golden-set locked)
+- H1: STORY-043 Preconditions updated to note `confidence-thresholds.ts` stub already exists from STORY-041 (extend, do not recreate)
+- H2: TASK-041-004 extended with CRITICAL_FIELDS membership test (exactly 10 fields per ADR-014)
+
+**Files Changed:**
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-041-bucket-scoring-algorithm.md` (tasks section appended with all 5 revised task specs)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-043-classification-result-assembly.md` (Preconditions + DoD updated re: confidence-thresholds.ts stub)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (TASK-041 descriptions updated with revisions)
+
+**Tests Added/Updated:** None (planning only)
+
+**Result/Status:** Success — STORY-041 task breakdown validated and revised; story status confirmed `ready`
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — revisions clarify task specs against existing ADR-013/ADR-014; no baseline changes needed
+
+**Next Action:** Implement TASK-041-001 (ClassificationInput interface, scoring-weights.ts, confidence-thresholds.ts stub)
+
+---
+
+## 2026-04-24 UTC - STORY-041 Complete — BucketScorer Implemented with Full Tests and Golden-Set
+
+**Epic:** EPIC-004
+**Story:** STORY-041 — Bucket Scoring Algorithm
+**Task:** TASK-041-001 through TASK-041-005 (all complete)
+**Action:** Implemented `BucketScorer` function with all additive scoring rules, enrichment bonuses, and full test suite. Fixed ADR-014 field name typo (`net_debt_ebitda` → `net_debt_to_ebitda`).
+
+**TASK-041-001:** Created 4 domain files:
+- `src/domain/classification/types.ts` — ClassificationInput (26 fields), BucketScorerOutput, GradeScorerOutput
+- `src/domain/classification/scoring-weights.ts` — all ADR-013 constants (8 bucket + 7 EQ + 8 BS weights)
+- `src/domain/classification/confidence-thresholds.ts` — CRITICAL_FIELDS stub (exactly 10 fields, `as const satisfies`), NULL_SUGGESTION_THRESHOLD=5
+- `src/domain/classification/index.ts` — barrel exports
+
+**TASK-041-002 + TASK-041-003:** Created `src/domain/classification/bucket-scorer.ts`:
+- additive scoring for Buckets 1–7 (B8 invariant: never modified)
+- REV_PRIMARY (3), REV_SECONDARY (2), EPS_PRIMARY (2), EPS_SECONDARY (1) with exact ADR-013 boundary handling
+- Overlapping ranges B4+B5 ([10%, 15%]) and B5+B6 ([15%, 20%]) checked independently
+- PROFITABILITY (1) rules: fcf_positive, net_income_positive, operating_margin ≥ 0.15
+- FCF_CONVERSION_WEIGHT (1): fcf_conversion ≥ 0.50
+- FLAG_PRIMARY (2): pre_operating_leverage_flag → B5
+- ENRICHMENT_BONUS (1): moat_strength_score ≥ 4.0 → B3+B4; qualitative_cyclicality_score ≥ 4.0 → B5+B6; capital_intensity_score ≥ 4.0 → B5
+- All field reads null-guarded; returns winner + margin + missing_field_count
+
+**Key finding (baseline_ambiguity resolved):** Growth fields stored as percentages in DB (7.24 = 7.24%), not decimal fractions. Ratios stored as fractions (0.49 = 49%). ClassificationInput expects decimal fractions throughout. Integration layer must divide growth fields by 100. This is confirmed by production data and critical for STORY-043/044 integration.
+
+**TASK-041-004:** 61 unit tests in `tests/unit/classification/story-041-bucket-scorer.test.ts`:
+- (a) Per-rule (14 tests), (b) Winner (5), (c) Boundary (12), (d) Missing-field (4), (e) Invariant (5), (f) CRITICAL_FIELDS (5), (g) Enrichment (6), (h) Determinism (1), (i) Golden-set regression (6)
+
+**TASK-041-005:** 7 integration tests in `tests/integration/classification/bucket-scorer.test.ts` against test DB.
+Golden-set fixture captured in `tests/unit/classification/fixtures/bucket-scorer-golden.ts`:
+- MSFT: B3=8, B4=7 (winner=B3, margin=1)
+- ADBE: B4=9, B3=8 (winner=B4, margin=1)
+- TSLA: B4=6, B3=5 (winner=B4, margin=1)
+- UBER: B5=7, B4=6 (winner=B5, margin=1)
+- UNH: B1=6, B4=6 (winner=B1, margin=0 — tied due to negative metrics in 2026-04-24 snapshot)
+
+**Files Changed (created):**
+- `src/domain/classification/types.ts`
+- `src/domain/classification/scoring-weights.ts`
+- `src/domain/classification/confidence-thresholds.ts`
+- `src/domain/classification/index.ts`
+- `src/domain/classification/bucket-scorer.ts`
+- `tests/unit/classification/story-041-bucket-scorer.test.ts`
+- `tests/unit/classification/fixtures/bucket-scorer-golden.ts`
+- `tests/integration/classification/bucket-scorer.test.ts`
+
+**Files Changed (modified):**
+- `docs/adr/ADR-014-classification-confidence-threshold-boundaries.md` — field name fixed: `net_debt_ebitda` → `net_debt_to_ebitda`
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-041 done, STORY-042 ready
+- `stories/README.md` — STORY-041 done, EPIC-004 in_progress
+
+**Tests Added/Updated:** 61 unit tests + 7 integration tests = 68 new tests
+
+**Result/Status:** Success — 550/550 unit tests passing (up from 489); 7/7 integration tests passing; no new TypeScript errors
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** YES (minor) — ADR-014 field name typo fixed (`net_debt_ebitda` → `net_debt_to_ebitda`). PRD and Prisma schema both use `net_debt_to_ebitda`; ADR-014 had a typo. No behavioral change.
+
+**Next Action:** Detail and execute STORY-042 (EarningsQualityScorer + BalanceSheetQualityScorer)
+
+---
+
 ## 2026-04-19 14:30 UTC - Implementation Tracking System Initialization
 
 **Epic:** N/A

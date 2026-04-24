@@ -10,10 +10,10 @@
 
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
-- **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (next to start)
-- **Active Story:** None — EPIC-003.1 complete; EPIC-004 to be decomposed
-- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 next
-- **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21
+- **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
+- **Active Story:** STORY-042 — Earnings Quality and Balance Sheet Quality Scoring (ready)
+- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041 ✅)
+- **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -205,11 +205,84 @@
 - **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
 
 ### EPIC-004 — Classification Engine & Universe Screen
+- **Status:** in_progress (STORY-041 ✅ done, STORY-042 active)
+- **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
+- **Stories:** STORY-041 through STORY-053 (13 stories — decomposed 2026-04-23/24)
+- **Integration Checkpoint:** Classification engine running, Universe screen functional, Stock Detail screen functional
+- **Deployment Milestone:** Users can view and manage classified stocks
+
+#### STORY-041 — Bucket Scoring Algorithm
+- **Status:** ✅ done (2026-04-24)
+- **Dependencies:** EPIC-003 ✅ (stocks table populated), EPIC-003.1 ✅ (E1–E6 enrichment scores)
+- **Tasks:** TASK-041-001 through TASK-041-005 — all complete
+  - TASK-041-001 ✅: types.ts, scoring-weights.ts (all ADR-013 constants), confidence-thresholds.ts stub, index.ts
+  - TASK-041-002 ✅: BucketScorer — primary fundamental scoring rules; FCF_CONVERSION ≥ 0.50; operating_margin ≥ 0.15
+  - TASK-041-003 ✅: BucketScorer — enrichment bonus rules (E1/E5/E6, threshold ≥ 4.0)
+  - TASK-041-004 ✅: 61 unit tests (per-rule, contract, determinism, boundary, CRITICAL_FIELDS, enrichment, golden-set)
+  - TASK-041-005 ✅: 7 integration tests; golden-set fixtures captured; tracking updated
+- **Key findings:** Growth fields stored as percentages in DB (7.24 = 7.24%); ratios stored as fractions (0.49 = 49%). ClassificationInput uses decimal fractions throughout — integration layer must divide growth fields by 100.
+- **Evidence:** 550/550 unit tests + 7 integration tests passing
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-041-bucket-scoring-algorithm.md`
+
+#### STORY-042 — Earnings Quality and Balance Sheet Quality Scoring
+- **Status:** ready
+- **Dependencies:** STORY-041 (ClassificationInput interface, scoring-weights.ts)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-042-earnings-and-balance-sheet-quality-scoring.md`
+
+#### STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases)
 - **Status:** planned
-- **Dependencies:** EPIC-002 (auth), EPIC-003 (data pipeline), EPIC-003.1 (LLM enrichment — all flags populated)
-- **Stories:** [To be decomposed]
-- **Integration Checkpoint:** Classification engine running, Universe screen functional
-- **Deployment Milestone:** Users can view classified stocks
+- **Dependencies:** STORY-041, STORY-042 (scorers)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-043-classification-result-assembly.md`
+
+#### STORY-044 — Classification State Persistence and History
+- **Status:** planned
+- **Dependencies:** STORY-043 (ClassificationResult type)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-044-classification-state-persistence.md`
+
+#### STORY-045 — User Classification Override API
+- **Status:** planned
+- **Dependencies:** STORY-044 (classification_state table)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-045-user-classification-override-api.md`
+
+#### STORY-046 — User Monitoring Preferences API
+- **Status:** planned
+- **Dependencies:** STORY-004 (user_deactivated_stocks migration)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-046-user-monitoring-preferences-api.md`
+
+#### STORY-047 — Classification Recompute Batch Job
+- **Status:** planned
+- **Dependencies:** STORY-043, STORY-044
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-047-classification-batch-job.md`
+
+#### STORY-048 — Universe Screen: Stock Table
+- **Status:** planned
+- **Dependencies:** STORY-046 (GET /api/universe), STORY-012 (auth middleware)
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-048-universe-screen-stock-table.md`
+
+#### STORY-049 — Universe Screen: Filters and Sort
+- **Status:** planned
+- **Dependencies:** STORY-048
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-049-universe-screen-filters-and-sort.md`
+
+#### STORY-050 — Monitoring: Deactivate/Reactivate UI
+- **Status:** planned
+- **Dependencies:** STORY-048, STORY-046
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-050-monitoring-deactivate-reactivate-ui.md`
+
+#### STORY-051 — Classification Override Modal (with history section)
+- **Status:** planned
+- **Dependencies:** STORY-045, STORY-044 (history), STORY-048
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-051-classification-override-modal.md`
+
+#### STORY-052 — EPIC-004 End-to-End Tests
+- **Status:** planned
+- **Dependencies:** STORY-041–051 and STORY-053 all complete
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-052-epic-004-e2e-tests.md`
+
+#### STORY-053 — Stock Detail Page
+- **Status:** planned
+- **Dependencies:** STORY-043, STORY-044, STORY-045, STORY-048, STORY-051
+- **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-053-stock-detail-page.md`
 
 ### EPIC-005 — Valuation Threshold Engine & Enhanced Universe
 - **Status:** planned
@@ -414,9 +487,9 @@
 
 ## Active Work
 - **Current Epic:** EPIC-004 — Classification Engine & Universe Screen
-- **Current Story:** None — story decomposition required before any coding
-- **Last Completed:** EPIC-003.1 ✅ (Classification LLM Enrichment — all 7 stories done, 489/489 unit tests passing, committed + pushed 2026-04-22)
-- **Next Action:** Decompose EPIC-004 into stories + tasks → validate against PRD §4 / RFC-001 / RFC-003 → begin first story
+- **Current Story:** STORY-042 — Earnings Quality and Balance Sheet Quality Scoring (ready to begin)
+- **Last Completed:** STORY-041 ✅ (BucketScorer — 61 unit tests + 7 integration tests, golden-set locked, 2026-04-24)
+- **Next Action:** Detail and execute STORY-042 (EarningsQualityScorer + BalanceSheetQualityScorer)
 
 ## Blocked Items
 - None currently
@@ -507,5 +580,5 @@ If implementation reveals needed architecture changes:
 
 ---
 
-**Last Updated:** 2026-04-22 00:00 UTC
-**Updated By:** Claude (EPIC-003.1 complete; session handoff)
+**Last Updated:** 2026-04-24 UTC
+**Updated By:** Claude (EPIC-004 decomposed: STORY-041–053; ADR-013/014 added; STORY-041 task-decomposed and marked ready)
