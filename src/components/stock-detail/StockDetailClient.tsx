@@ -53,6 +53,12 @@ interface DetailResponse {
   e4_margin_durability: number | null;
   e5_capital_intensity: number | null;
   e6_qualitative_cyclicality: number | null;
+  // EPS reconciliation
+  eps_ttm_gaap: number | null;
+  eps_ntm_non_gaap: number | null;
+  non_gaap_eps_fy: number | null;
+  gaap_adjustment_factor: number | null;
+  eps_ntm_gaap_equiv: number | null;
   // Fundamentals
   revenue_growth_fwd: number | null;
   revenue_growth_3y: number | null;
@@ -441,7 +447,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
           ['pre_operating_leverage_flag', 'pre-operating leverage'],
           ['optionality_flag', 'optionality dominant'],
           ['material_dilution_flag', 'material dilution'],
-        ] as [keyof typeof detail, string][]).filter(([key]) => (detail as Record<string, unknown>)[key] === true);
+        ] as [keyof typeof detail, string][]).filter(([key]) => (detail as unknown as Record<string, unknown>)[key] === true);
         if (activeFlags.length === 0) return null;
         return (
           <div style={{ padding: '6px 16px', borderBottom: `1px solid ${T.borderFaint}`, display: 'flex', gap: 6, alignItems: 'center', background: T.sidebarBg, flexShrink: 0 }}>
@@ -785,9 +791,39 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <div style={SECTION_HEADER}>Growth</div>
               <MetricRow label="Rev Growth (Fwd)" value={fmtPct(detail.revenue_growth_fwd)} color={growthColor(detail.revenue_growth_fwd)} />
               <MetricRow label="Rev Growth 3Y CAGR" value={fmtPct(detail.revenue_growth_3y)} color={growthColor(detail.revenue_growth_3y)} />
-              <MetricRow label="EPS Growth (Fwd)" value={fmtPct(detail.eps_growth_fwd)} color={growthColor(detail.eps_growth_fwd)} />
+              <MetricRow label="EPS Growth (Fwd, GAAP-adj)" value={fmtPct(detail.eps_growth_fwd)} color={growthColor(detail.eps_growth_fwd)} />
               <MetricRow label="EPS Growth 3Y CAGR" value={fmtPct(detail.eps_growth_3y)} color={growthColor(detail.eps_growth_3y)} />
               <MetricRow label="Gross Profit Growth" value={fmtPct(detail.gross_profit_growth)} color={growthColor(detail.gross_profit_growth)} />
+
+              <div style={SECTION_HEADER}>EPS Reconciliation (GAAP / Non-GAAP)</div>
+              <MetricRow
+                label="EPS TTM (GAAP)"
+                value={detail.eps_ttm_gaap !== null ? `$${detail.eps_ttm_gaap.toFixed(2)}` : '—'}
+              />
+              <MetricRow
+                label="EPS last FY (Non-GAAP)"
+                value={detail.non_gaap_eps_fy !== null ? `$${detail.non_gaap_eps_fy.toFixed(2)}` : '—'}
+                color={T.textDim}
+              />
+              <MetricRow
+                label="GAAP Adj Factor"
+                value={detail.gaap_adjustment_factor !== null ? detail.gaap_adjustment_factor.toFixed(4) : '—'}
+                color={
+                  detail.gaap_adjustment_factor === null ? T.textDim
+                    : detail.gaap_adjustment_factor < 0.85 ? '#ef4444'
+                    : detail.gaap_adjustment_factor > 1.05 ? '#eab308'
+                    : '#16a34a'
+                }
+              />
+              <MetricRow
+                label="EPS NTM (Non-GAAP, raw)"
+                value={detail.eps_ntm_non_gaap !== null ? `$${detail.eps_ntm_non_gaap.toFixed(2)}` : '—'}
+                color={T.textDim}
+              />
+              <MetricRow
+                label="EPS NTM (GAAP-equiv)"
+                value={detail.eps_ntm_gaap_equiv !== null ? `$${detail.eps_ntm_gaap_equiv.toFixed(2)}` : '—'}
+              />
 
               <div style={SECTION_HEADER}>Margins</div>
               <MetricRow label="Gross Margin" value={fmtPct(detail.gross_margin)} color={grossMarginColor(detail.gross_margin)} />

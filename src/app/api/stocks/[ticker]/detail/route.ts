@@ -43,6 +43,11 @@ export async function GET(
       forwardPe: true,
       trailingPe: true,
       forwardEvEbit: true,
+      // EPS reconciliation fields
+      epsTtm: true,
+      epsNtm: true,
+      nonGaapEpsFy: true,
+      gaapAdjustmentFactor: true,
       // Growth — stored as percentages in DB; divide by 100 for decimal fraction
       revenueGrowthFwd: true,
       revenueGrowth3y: true,
@@ -132,6 +137,17 @@ export async function GET(
     e4_margin_durability: num(stock.marginDurabilityScore),
     e5_capital_intensity: num(stock.capitalIntensityScore),
     e6_qualitative_cyclicality: num(stock.qualitativeCyclicalityScore),
+
+    // ── EPS reconciliation (GAAP / Non-GAAP chain for eps_growth_fwd) ─────────
+    eps_ttm_gaap: num(stock.epsTtm),
+    eps_ntm_non_gaap: num(stock.epsNtm),
+    non_gaap_eps_fy: num(stock.nonGaapEpsFy),
+    gaap_adjustment_factor: num(stock.gaapAdjustmentFactor),
+    // GAAP-equivalent NTM EPS = epsNtm × factor (what the growth denominator sees)
+    eps_ntm_gaap_equiv:
+      stock.epsNtm !== null && stock.gaapAdjustmentFactor !== null
+        ? num(stock.epsNtm)! * num(stock.gaapAdjustmentFactor)!
+        : null,
 
     // ── Fundamental metrics (decimal fractions; growth fields divided by 100) ──
     revenue_growth_fwd: pct(stock.revenueGrowthFwd),
