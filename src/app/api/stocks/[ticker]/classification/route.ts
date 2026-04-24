@@ -40,5 +40,6 @@ export async function GET(
     reason_codes: state?.reason_codes ?? [],
     scores: state?.scores ?? null,
     override_scope: 'display_only',
+    classified_at: state?.classified_at ?? null,
   });
 }

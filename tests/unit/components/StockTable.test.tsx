@@ -125,4 +125,20 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     // Should not have opacity: 0.6 — either no opacity set or opacity: 1
     expect(dataRow).not.toHaveStyle('opacity: 0.6');
   });
+
+  // ── STORY-051: Classification badge click ────────────────────────────────────
+
+  it('badge click does not trigger row navigation (stopPropagation)', () => {
+    render(<StockTable stocks={[makeStock({ ticker: 'MSFT', active_code: '4AA' })]} />);
+    const badgeBtn = screen.getByRole('button', { name: /open classification detail for MSFT/i });
+    fireEvent.click(badgeBtn);
+    // Row navigation (mockPush) must NOT have been called
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('classification badge button is present even when active_code is null', () => {
+    render(<StockTable stocks={[makeStock({ ticker: 'MSFT', active_code: null })]} />);
+    const badgeBtn = screen.getByRole('button', { name: /open classification detail for MSFT/i });
+    expect(badgeBtn).toBeInTheDocument();
+  });
 });

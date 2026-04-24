@@ -81,6 +81,51 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-051: Classification Override Modal complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-051 — Classification Override Modal
+**Tasks:** TASK-051-001 through TASK-051-004
+
+**Action:** Implemented full classification override modal. Created `GET /api/stocks/[ticker]/classification/history` endpoint (history route, limit 10, maps old/new → previous/suggested). Added `classified_at` field to `GET /api/stocks/[ticker]/classification` response (additive, non-breaking). Created `ClassificationModal` component: 8 sections (header, active code, system suggestion + classified_at, bucket scores with winning bucket highlighted, EQ/BS quality scores, reason codes, classification history timeline, override form with validation). Self-fetching on mount via parallel fetch of classification + history APIs. Optimistic save/clear with revert on error. ESC close, focus return on close, `role="dialog"`, `aria-modal="true"`. Override scope disclaimer always visible. Updated `StockTable` to import and render `ClassificationModal`, wire badge click via button wrapper (stopPropagation), maintain `rowCodeOverlay` state for in-session code changes, re-sync overlay on stocks prop change.
+
+**Files Changed:**
+- `src/app/api/stocks/[ticker]/classification/history/route.ts` (created) — GET history endpoint
+- `src/app/api/stocks/[ticker]/classification/route.ts` (modified) — added classified_at field to response
+- `src/components/universe/ClassificationModal.tsx` (created) — full modal component
+- `src/components/universe/StockTable.tsx` (modified) — badge click trigger, rowCodeOverlay, host modal
+- `tests/unit/components/ClassificationModal.test.tsx` (created) — 20 unit tests
+- `tests/unit/components/StockTable.test.tsx` (modified) — 2 new badge-click tests
+- `tests/integration/api/stocks/classification-history.test.ts` (created) — 6 integration tests (written, not yet integration_verified_real — test DB missing MSFT seed stock; pre-existing FK failure)
+
+**Tests Added/Updated:**
+- Unit: 20 ClassificationModal tests — all 20 pass
+- Unit: 2 new StockTable tests (badge click stopPropagation, null active_code badge) — 12/12 pass
+- Regression: 758/758 total unit tests pass (0 regressions)
+- Integration: 6 history endpoint tests written — NOT run against live DB (pre-existing FK constraint failure: MSFT not seeded in test DB — same failure affects STORY-044/045/046 integration suites; confirmed pre-existing via git stash)
+- Fixture provenance: synthetic (all unit test fixtures manually constructed)
+
+**Result/Status:** DONE ✅
+
+**Verification levels:**
+- TASK-051-001: `implemented` (history route created; additive classified_at field added; no integration test run due to pre-existing DB issue)
+- TASK-051-002: `unit_verified` (20/20 component tests pass)
+- TASK-051-003: `unit_verified` (12/12 StockTable tests pass including 2 new badge-click tests)
+- TASK-051-004: `unit_verified` (758/758 unit tests pass; integration tests written but not verified against live DB)
+- **Story overall: `unit_verified`**
+
+**Known limitations:**
+- Focus trap (tab-cycle) not implemented — focus-on-open + ESC close implemented; full tab cycle is V1 known limitation
+- Integration tests require MSFT stock seed in test DB — pre-existing infrastructure issue, not introduced by STORY-051
+
+**Blockers/Issues:** Pre-existing FK constraint failure in test DB (MSFT not seeded) — not introduced by STORY-051
+
+**Baseline Impact:** NO — additive API field (classified_at); new endpoint; no schema changes; RFC-003, RFC-001, ADR-007 all honored
+
+**Next Action:** STORY-052 — EPIC-004 End-to-End Tests
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-048: Universe Screen Stock Table complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

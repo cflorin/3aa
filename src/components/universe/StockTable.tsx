@@ -3,6 +3,7 @@
 // TASK-048-002: StockTable — 13-column table with metric color-coding and row navigation
 // STORY-049: Added optional sort/dir/onSort props for column sorting
 // STORY-050: Replaced MonitoringBadge with MonitoringToggle; added inactive row muting
+// STORY-051: Badge click opens ClassificationModal; rowCodeOverlay tracks in-session overrides
 // PRD §Screen 2 columns; RFC-003 §Universe Screen
 
 'use client';
@@ -12,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import ClassificationBadge from './ClassificationBadge';
 import ConfidenceBadge from './ConfidenceBadge';
 import MonitoringToggle from './MonitoringToggle';
+import ClassificationModal from './ClassificationModal';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 
 // ── Metric color helpers ────────────────────────────────────────────────────
@@ -121,6 +123,20 @@ export default function StockTable({
     setRowActiveState(prev => ({ ...prev, [ticker]: newIsActive }));
   }
 
+  // Classification code overlay — tracks in-session override changes per ticker
+  // Uses undefined-as-absent pattern: only tickers modified this session have an entry
+  const [rowCodeOverlay, setRowCodeOverlay] = useState<Record<string, string | null>>({});
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+
+  // Clear code overlay when stocks list refreshes (page/filter change)
+  useEffect(() => {
+    setRowCodeOverlay({});
+  }, [stocks]);
+
+  function handleCodeChange(ticker: string, newCode: string | null) {
+    setRowCodeOverlay(prev => ({ ...prev, [ticker]: newCode }));
+  }
+
   function handleHeaderClick(colKey: string) {
     if (!onSort || !SORTABLE_KEYS.has(colKey)) return;
     if (colKey === sort) {
@@ -139,6 +155,7 @@ export default function StockTable({
   }
 
   return (
+    <>
     <div style={{ overflowX: 'auto', width: '100%' }}>
       <table
         style={{ borderCollapse: 'collapse', width: '100%', minWidth: '1100px' }}
@@ -213,6 +230,7 @@ export default function StockTable({
         <tbody>
           {stocks.map((s) => {
             const isActive = rowActiveState[s.ticker] ?? s.is_active;
+            const activeCode = rowCodeOverlay[s.ticker] !== undefined ? rowCodeOverlay[s.ticker] : s.active_code;
             return (
               <tr
                 key={s.ticker}
@@ -238,7 +256,13 @@ export default function StockTable({
                   {s.sector ?? '—'}
                 </td>
                 <td style={TD}>
-                  <ClassificationBadge code={s.active_code} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedTicker(s.ticker); }}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                    aria-label={`Open classification detail for ${s.ticker}`}
+                  >
+                    <ClassificationBadge code={activeCode} />
+                  </button>
                 </td>
                 <td style={TD}>
                   <ConfidenceBadge confidence={s.confidence_level} />
@@ -275,5 +299,20 @@ export default function StockTable({
         </tbody>
       </table>
     </div>
+
+    {selectedTicker !== null && (() => {
+      const stock = stocks.find(s => s.ticker === selectedTicker);
+      if (!stock) return null;
+      return (
+        <ClassificationModal
+          ticker={selectedTicker}
+          companyName={stock.company_name}
+          sector={stock.sector ?? null}
+          onClose={() => setSelectedTicker(null)}
+          onOverrideChange={handleCodeChange}
+        />
+      );
+    })()}
+    </>
   );
 }
