@@ -1,0 +1,51 @@
+/* EPIC-004/STORY-054/TASK-054-001: Global CSS — dark theme base + font variables */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0b0d11;
+  color: #d4d8e0;
+  font-family: var(--font-dm-sans, 'DM Sans', system-ui, sans-serif);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0d11;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2230;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3045;
+}
+
+/* Reset button defaults */
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Reset input/select/textarea defaults */
+input, select, textarea {
+  font-family: var(--font-dm-sans, 'DM Sans', system-ui, sans-serif);
+  font-size: 12px;
+}
+
+/* Loading skeleton animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

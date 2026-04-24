@@ -2,6 +2,7 @@
 // STORY-048: Universe Screen — Stock Table
 // TASK-048-002: UniversePageClient — client component with fetch, pagination, state management
 // STORY-049: Added FilterBar, column sort, URL state round-trip
+// EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort
 
 'use client';
@@ -12,6 +13,7 @@ import StockTable from './StockTable';
 import PaginationControls from './PaginationControls';
 import FilterBar, { EMPTY_FILTERS, type FilterState } from './FilterBar';
 import type { UniverseStockSummary } from '@/domain/monitoring';
+import { T } from '@/lib/theme';
 
 const LIMIT = 50;
 
@@ -128,61 +130,59 @@ export default function UniversePageClient() {
   }, []);
 
   return (
-    <main style={{ padding: '1.5rem', fontFamily: 'system-ui, sans-serif', maxWidth: '100%' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem' }}>
-        Universe
-      </h1>
-
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <FilterBar
         filters={filters}
         sectors={sectors}
+        total={data?.total ?? 0}
         onChange={handleFiltersChange}
         onClear={handleClear}
       />
 
-      {loading && (
-        <div aria-busy="true" aria-label="Loading stocks" style={{ padding: '2rem', color: '#6b7280' }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                height: '40px',
-                backgroundColor: '#f3f4f6',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                animation: 'pulse 1.5s ease-in-out infinite',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+        {loading && (
+          <div aria-busy="true" aria-label="Loading stocks" style={{ padding: '16px 14px' }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  height: '36px',
+                  backgroundColor: T.cardBg,
+                  borderRadius: 3,
+                  marginBottom: 6,
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              />
+            ))}
+          </div>
+        )}
 
-      {!loading && error && (
-        <p role="alert" style={{ color: '#dc2626', padding: '1rem' }}>
-          {error}
-        </p>
-      )}
+        {!loading && error && (
+          <p role="alert" style={{ color: '#ef4444', padding: '14px' }}>
+            {error}
+          </p>
+        )}
 
-      {!loading && !error && data && (
-        <>
-          {data.stocks.length === 0 ? (
+        {!loading && !error && data && (
+          data.stocks.length === 0 ? (
             <p
               data-testid="no-results-message"
-              style={{ color: '#6b7280', textAlign: 'center', padding: '2rem' }}
+              style={{ color: T.textDim, textAlign: 'center', padding: '2rem' }}
             >
               No stocks match your current filters.
             </p>
           ) : (
             <StockTable stocks={data.stocks} sort={sort} dir={dir} onSort={handleSort} />
-          )}
-          <PaginationControls
-            page={page}
-            totalPages={totalPages}
-            onPrev={() => setPage(p => Math.max(1, p - 1))}
-            onNext={() => setPage(p => Math.min(totalPages, p + 1))}
-          />
-        </>
-      )}
-    </main>
+          )
+        )}
+      </div>
+
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        onPrev={() => setPage(p => Math.max(1, p - 1))}
+        onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+      />
+    </div>
   );
 }

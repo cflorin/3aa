@@ -18,25 +18,26 @@ describe('EPIC-004/STORY-048/TASK-048-003: ConfidenceBadge', () => {
     expect(screen.queryByTestId('confidence-badge')).not.toBeInTheDocument();
   });
 
+  // Dark theme: CONFIDENCE_META uses semantic green/yellow/red (ADR-014)
   it('"high" → renders green badge with text "High"', () => {
     render(<ConfidenceBadge confidence="high" />);
     const badge = screen.getByTestId('confidence-badge');
     expect(badge).toHaveTextContent('High');
-    expect(badge.style.color).toBe('rgb(21, 128, 61)'); // #15803d green
+    expect(badge.style.color).toBe('rgb(22, 163, 74)'); // #16a34a green
   });
 
-  it('"medium" → renders yellow badge with text "Medium"', () => {
+  it('"medium" → renders yellow badge with text "Med"', () => {
     render(<ConfidenceBadge confidence="medium" />);
     const badge = screen.getByTestId('confidence-badge');
-    expect(badge).toHaveTextContent('Medium');
-    expect(badge.style.color).toBe('rgb(133, 77, 14)'); // #854d0e yellow
+    expect(badge).toHaveTextContent('Med');
+    expect(badge.style.color).toBe('rgb(234, 179, 8)'); // #eab308 yellow
   });
 
-  it('"low" → renders orange badge with text "Low"', () => {
+  it('"low" → renders red badge with text "Low"', () => {
     render(<ConfidenceBadge confidence="low" />);
     const badge = screen.getByTestId('confidence-badge');
     expect(badge).toHaveTextContent('Low');
-    expect(badge.style.color).toBe('rgb(154, 52, 18)'); // #9a3412 orange
+    expect(badge.style.color).toBe('rgb(239, 68, 68)'); // #ef4444 red
   });
 
   it('unknown string → renders "—"', () => {

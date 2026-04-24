@@ -1,27 +1,13 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-048: Universe Screen — Stock Table
-// TASK-048-002: ClassificationBadge — 3AA code colored by bucket number
+// TASK-048-002: ClassificationBadge — 3AA code colored badge
+// EPIC-004/STORY-054/TASK-054-006: Applied dark terminal theme (screen-universe.jsx spec)
 // PRD §Screen 2; RFC-003 §Universe Screen
 
 'use client';
 
 import React from 'react';
-
-const BUCKET_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: '#14532d', text: '#ffffff' },
-  2: { bg: '#166534', text: '#ffffff' },
-  3: { bg: '#15803d', text: '#ffffff' },
-  4: { bg: '#16a34a', text: '#ffffff' },
-  5: { bg: '#ca8a04', text: '#ffffff' },
-  6: { bg: '#d97706', text: '#ffffff' },
-  7: { bg: '#dc2626', text: '#ffffff' },
-  8: { bg: '#991b1b', text: '#ffffff' },
-};
-
-function bucketFromCode(code: string): number | null {
-  const match = code.match(/^([1-8])/);
-  return match ? parseInt(match[1], 10) : null;
-}
+import { T } from '@/lib/theme';
 
 interface ClassificationBadgeProps {
   code: string | null;
@@ -29,25 +15,22 @@ interface ClassificationBadgeProps {
 
 export default function ClassificationBadge({ code }: ClassificationBadgeProps) {
   if (!code) {
-    return <span style={{ color: '#6b7280' }}>—</span>;
+    return <span style={{ color: T.textDim }}>—</span>;
   }
-
-  const bucket = bucketFromCode(code);
-  const colors = bucket ? BUCKET_COLORS[bucket] : { bg: '#6b7280', text: '#ffffff' };
 
   return (
     <span
       data-testid="classification-badge"
       style={{
         display: 'inline-block',
-        padding: '2px 8px',
-        borderRadius: '4px',
-        backgroundColor: colors.bg,
-        color: colors.text,
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        fontFamily: 'monospace',
-        letterSpacing: '0.05em',
+        fontFamily: 'var(--font-dm-mono, monospace)',
+        fontSize: 12,
+        fontWeight: 700,
+        padding: '1px 6px',
+        borderRadius: 3,
+        background: T.accent + '15',
+        color: T.accent,
+        border: `1px solid ${T.accent}30`,
       }}
     >
       {code}

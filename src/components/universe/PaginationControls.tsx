@@ -1,11 +1,13 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-048: Universe Screen — Stock Table
 // TASK-048-002: PaginationControls — prev/next with page indicator
+// EPIC-004/STORY-054/TASK-054-005: Applied dark terminal theme (screen-universe.jsx spec)
 // PRD §Screen 2; RFC-003 §Universe Screen
 
 'use client';
 
 import React from 'react';
+import { T } from '@/lib/theme';
 
 interface PaginationControlsProps {
   page: number;
@@ -14,45 +16,55 @@ interface PaginationControlsProps {
   onNext: () => void;
 }
 
-const btnStyle = (disabled: boolean): React.CSSProperties => ({
-  padding: '6px 16px',
-  border: '1px solid #d1d5db',
-  borderRadius: '4px',
-  backgroundColor: disabled ? '#f9fafb' : '#ffffff',
-  color: disabled ? '#9ca3af' : '#111827',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  fontSize: '0.875rem',
-  fontWeight: 500,
-});
-
 export default function PaginationControls({ page, totalPages, onPrev, onNext }: PaginationControlsProps) {
   const isFirst = page <= 1;
   const isLast = page >= totalPages;
 
+  const btnStyle = (disabled: boolean): React.CSSProperties => ({
+    padding: '3px 10px',
+    fontSize: 11,
+    borderRadius: 3,
+    border: `1px solid ${T.border}`,
+    background: 'transparent',
+    color: disabled ? T.textDim : T.text,
+    cursor: disabled ? 'default' : 'pointer',
+    fontFamily: 'inherit',
+  });
+
   return (
     <div
-      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}
+      style={{
+        padding: '6px 14px',
+        borderTop: `1px solid ${T.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: T.headerBg,
+        flexShrink: 0,
+      }}
       aria-label="Pagination"
     >
-      <button
-        onClick={onPrev}
-        disabled={isFirst}
-        style={btnStyle(isFirst)}
-        aria-label="Previous page"
-      >
-        ← Previous
-      </button>
-      <span style={{ fontSize: '0.875rem', color: '#374151' }} aria-live="polite">
+      <span style={{ fontSize: 11, color: T.textDim }}>
         Page {page} of {totalPages}
       </span>
-      <button
-        onClick={onNext}
-        disabled={isLast}
-        style={btnStyle(isLast)}
-        aria-label="Next page"
-      >
-        Next →
-      </button>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button
+          onClick={onPrev}
+          disabled={isFirst}
+          style={btnStyle(isFirst)}
+          aria-label="Previous page"
+        >
+          ← Prev
+        </button>
+        <button
+          onClick={onNext}
+          disabled={isLast}
+          style={btnStyle(isLast)}
+          aria-label="Next page"
+        >
+          Next →
+        </button>
+      </div>
     </div>
   );
 }

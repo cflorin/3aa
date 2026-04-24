@@ -1,9 +1,11 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-053: Stock Detail Page
 // TASK-053-002: ScoreBar — horizontal score bar for bucket/EQ/BS scores
-// PRD §Stock Detail; RFC-003 §Stock Detail Screen; prototype screen-stock-detail.jsx
+// EPIC-004/STORY-054/TASK-054-007: Applied dark terminal theme (screen-stock-detail.jsx spec)
+// PRD §Stock Detail; RFC-003 §Stock Detail Screen
 
 import React from 'react';
+import { T } from '@/lib/theme';
 
 interface ScoreBarProps {
   label: string;
@@ -22,10 +24,10 @@ export default function ScoreBar({ label, value, max = 100, highlight = false, '
       data-testid={testId}
     >
       <span style={{
-        fontSize: 11,
-        fontFamily: 'monospace',
-        color: highlight ? '#15803d' : '#6b7280',
-        width: 20,
+        fontSize: 10,
+        fontFamily: 'var(--font-dm-mono, monospace)',
+        color: highlight ? T.accent : T.textDim,
+        width: 18,
         textAlign: 'right',
         fontWeight: highlight ? 700 : 400,
       }}>
@@ -34,22 +36,23 @@ export default function ScoreBar({ label, value, max = 100, highlight = false, '
       <div style={{
         flex: 1,
         height: 8,
-        background: '#e5e7eb',
+        background: T.borderFaint,
         borderRadius: 2,
         overflow: 'hidden',
       }}>
         <div style={{
           height: '100%',
           width: `${pct}%`,
-          background: highlight ? '#15803d' : '#9ca3af',
+          background: highlight ? T.accent : T.textDim + '55',
           borderRadius: 2,
+          transition: 'width 0.4s ease',
         }} />
       </div>
       <span style={{
-        fontSize: 11,
-        fontFamily: 'monospace',
-        color: highlight ? '#111827' : '#6b7280',
-        width: 28,
+        fontSize: 10,
+        fontFamily: 'var(--font-dm-mono, monospace)',
+        color: highlight ? T.text : T.textDim,
+        width: 26,
         textAlign: 'right',
         fontWeight: highlight ? 700 : 400,
       }}>

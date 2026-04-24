@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-051: Classification Override Modal
 // TASK-051-002: ClassificationModal — full classification detail, history, and override UI
+// EPIC-004/STORY-054/TASK-054-007: Applied dark terminal theme (screen-universe.jsx ClassificationModal spec)
 // PRD §Screen 2 — Classification Detail, §Override UI
 // RFC-003 §Classification Override Modal; RFC-001 §ClassificationResult; ADR-007 (display_only override scope)
 
@@ -8,6 +9,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import ConfidenceBadge from './ConfidenceBadge';
+import { T } from '@/lib/theme';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,24 +49,13 @@ interface ClassificationModalProps {
 const CODE_REGEX = /^[1-8]([ABC][ABC])?$/;
 const REASON_MIN_LENGTH = 10;
 
-const BUCKET_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: '#14532d', text: '#ffffff' },
-  2: { bg: '#166534', text: '#ffffff' },
-  3: { bg: '#15803d', text: '#ffffff' },
-  4: { bg: '#16a34a', text: '#ffffff' },
-  5: { bg: '#ca8a04', text: '#ffffff' },
-  6: { bg: '#d97706', text: '#ffffff' },
-  7: { bg: '#dc2626', text: '#ffffff' },
-  8: { bg: '#991b1b', text: '#ffffff' },
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function winningBucket(scores: Record<string, number>): number | null {
-  let best: number | null = null;
+function winningBucket(scores: Record<string, number>): string | null {
+  let best: string | null = null;
   let bestScore = -Infinity;
   for (const [k, v] of Object.entries(scores)) {
-    if (v > bestScore) { bestScore = v; best = parseInt(k, 10); }
+    if (v > bestScore) { bestScore = v; best = k; }
   }
   return bestScore > 0 ? best : null;
 }
@@ -107,26 +98,17 @@ export default function ClassificationModal({
   const [codeError, setCodeError] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
 
-  // Store trigger element for focus return on close
   const triggerRef = useRef<Element | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // ── Focus management ───────────────────────────────────────────────────────
-
   useEffect(() => {
     triggerRef.current = document.activeElement;
-    // Focus first focusable element in modal
     const focusable = modalRef.current?.querySelector<HTMLElement>(
       'button, [href], input, textarea, [tabindex]:not([tabindex="-1"])',
     );
     focusable?.focus();
-
-    return () => {
-      (triggerRef.current as HTMLElement | null)?.focus();
-    };
+    return () => { (triggerRef.current as HTMLElement | null)?.focus(); };
   }, []);
-
-  // ── ESC handler ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -135,8 +117,6 @@ export default function ClassificationModal({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
-
-  // ── Data fetch ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +134,6 @@ export default function ClassificationModal({
           setData(classData);
           setHistory(histData.history ?? []);
           setLoadState('ready');
-          // Pre-fill form with existing override if present
           if (classData.user_override_code) {
             setCodeInput(classData.user_override_code);
             setReasonInput(classData.user_override_reason ?? '');
@@ -168,10 +147,7 @@ export default function ClassificationModal({
     return () => { cancelled = true; };
   }, [ticker]);
 
-  // ── Override save ──────────────────────────────────────────────────────────
-
   async function handleSave() {
-    // Client-side validation
     let valid = true;
     if (!CODE_REGEX.test(codeInput)) {
       setCodeError('Invalid code — use format 1–8 or 1AA–8CC (e.g. 4AA)');
@@ -189,8 +165,6 @@ export default function ClassificationModal({
 
     setSaving(true);
     setSaveError(null);
-
-    // Optimistic update
     const prevCode = data?.active_code ?? null;
     onOverrideChange(ticker, codeInput);
 
@@ -203,7 +177,6 @@ export default function ClassificationModal({
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const result = await res.json();
       onOverrideChange(ticker, result.active_code);
-      // Refresh local data to show override section
       setData(prev => prev ? {
         ...prev,
         user_override_code: codeInput,
@@ -218,26 +191,17 @@ export default function ClassificationModal({
     }
   }
 
-  // ── Override clear ─────────────────────────────────────────────────────────
-
   async function handleClear() {
     setSaving(true);
     setSaveError(null);
-
     const prevCode = data?.active_code ?? null;
     const systemCode = data?.system_suggested_code ?? null;
-
-    // Optimistic update
     onOverrideChange(ticker, systemCode);
-
     try {
       const res = await fetch(`/api/classification-override/${ticker}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       setData(prev => prev ? {
-        ...prev,
-        user_override_code: null,
-        user_override_reason: null,
-        active_code: systemCode,
+        ...prev, user_override_code: null, user_override_reason: null, active_code: systemCode,
       } : prev);
       setCodeInput('');
       setReasonInput('');
@@ -249,26 +213,18 @@ export default function ClassificationModal({
     }
   }
 
-  // ── Form validation helpers ────────────────────────────────────────────────
-
   const codeValid = CODE_REGEX.test(codeInput);
   const reasonValid = reasonInput.length >= REASON_MIN_LENGTH;
   const saveEnabled = codeValid && reasonValid && !saving;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        paddingTop: '4rem',
-        overflowY: 'auto',
+        position: 'fixed', inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        zIndex: 1000, display: 'flex',
+        alignItems: 'flex-start', justifyContent: 'center',
+        paddingTop: '4rem', overflowY: 'auto',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -278,123 +234,128 @@ export default function ClassificationModal({
         aria-modal="true"
         aria-label={`Classification detail for ${ticker}`}
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          background: T.cardBg,
+          border: `1px solid ${T.border}`,
+          borderRadius: 8,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
           width: '100%',
-          maxWidth: '680px',
+          maxWidth: 600,
           margin: '0 1rem 4rem',
           overflow: 'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Section 1: Header ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: '16px 20px 14px', borderBottom: `1px solid ${T.border}`,
+          background: T.sidebarBg,
+        }}>
           <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'monospace', color: '#111827' }}>{ticker}</div>
-            <div style={{ fontSize: '0.875rem', color: '#374151', marginTop: '2px' }}>{companyName}</div>
-            {sector && <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>{sector}</div>}
+            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-dm-mono, monospace)', color: T.text }}>{ticker}</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{companyName}</div>
+            {sector && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{sector}</div>}
           </div>
           <button
             onClick={onClose}
             data-testid="modal-close-btn"
-            style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#6b7280', padding: '0 0 0 16px', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: T.textDim, padding: '0 0 0 16px', lineHeight: 1, fontFamily: 'inherit' }}
           >
             ×
           </button>
         </div>
 
         {loadState === 'loading' && (
-          <div style={{ padding: '40px 24px', textAlign: 'center', color: '#6b7280' }}>Loading classification…</div>
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: T.textDim }}>Loading classification…</div>
         )}
 
         {loadState === 'error' && (
-          <div style={{ padding: '40px 24px', textAlign: 'center', color: '#dc2626' }}>Failed to load classification. Please try again.</div>
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: '#ef4444' }}>Failed to load classification. Please try again.</div>
         )}
 
         {loadState === 'ready' && data && (
-          <div style={{ padding: '24px' }}>
+          <div style={{ padding: 20 }}>
 
-            {/* ── Section 2: Active code ── */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                {data.user_override_code ? 'Your Override Code' : 'Active Code (System)'}
-              </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'monospace', color: '#111827' }}>
-                {data.active_code ?? '—'}
+            {/* Active code + system suggestion */}
+            <div style={{ background: T.sidebarBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '12px 14px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>System Suggested</div>
+                  <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 24, fontWeight: 800, color: T.accent }}>
+                    {data.system_suggested_code ?? '—'}
+                  </div>
+                  <div style={{ marginTop: 4 }}><ConfidenceBadge confidence={data.system_confidence} /></div>
+                  {data.classified_at && (
+                    <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>{fmtDate(data.classified_at)}</div>
+                  )}
+                </div>
+                {data.user_override_code && (
+                  <div>
+                    <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Your Override (active)</div>
+                    <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 24, fontWeight: 800, color: '#f97316' }}>
+                      {data.user_override_code}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* ── Section 3: System suggestion ── */}
-            <div style={{ marginBottom: '20px', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>System Suggestion</div>
-                <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1rem', color: '#111827' }}>
-                  {data.system_suggested_code ?? 'System classification pending'}
-                </div>
-              </div>
-              <ConfidenceBadge confidence={data.system_confidence} />
-              {data.classified_at && (
-                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: 'auto' }}>
-                  as of {fmtDate(data.classified_at)}
-                </div>
-              )}
-            </div>
-
-            {/* ── Section 4: Bucket scores ── */}
-            {data.scores ? (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Bucket Scores</div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }} data-testid="bucket-scores">
-                  {([1,2,3,4,5,6,7,8] as const).map((b) => {
-                    const score = data.scores!.bucket[String(b)] ?? 0;
+            {/* Bucket scores */}
+            {data.scores && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Bucket Scores</div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }} data-testid="bucket-scores">
+                  {(['1','2','3','4','5','6','7','8']).map((b) => {
+                    const score = data.scores!.bucket[b] ?? 0;
                     const winner = winningBucket(data.scores!.bucket);
                     const isWinner = winner === b;
-                    const colors = BUCKET_COLORS[b];
                     return (
                       <div
                         key={b}
                         data-testid={`bucket-score-${b}`}
                         style={{
-                          flex: '1 1 60px',
-                          textAlign: 'center',
-                          padding: '8px 4px',
-                          borderRadius: '4px',
-                          backgroundColor: isWinner ? colors.bg : '#f3f4f6',
-                          color: isWinner ? colors.text : '#374151',
+                          flex: '1 1 50px', textAlign: 'center',
+                          padding: '6px 4px', borderRadius: 3,
+                          background: isWinner ? T.accent + '20' : T.sidebarBg,
+                          color: isWinner ? T.accent : T.textDim,
                           fontWeight: isWinner ? 800 : 400,
-                          fontSize: '0.75rem',
-                          border: isWinner ? '2px solid transparent' : '2px solid #e5e7eb',
+                          fontSize: 11,
+                          border: `1px solid ${isWinner ? T.accent + '44' : T.borderFaint}`,
+                          fontFamily: 'var(--font-dm-mono, monospace)',
                         }}
                       >
-                        <div style={{ fontSize: '0.6rem', opacity: 0.8 }}>B{b}</div>
+                        <div style={{ fontSize: 9, opacity: 0.7 }}>B{b}</div>
                         <div>{score.toFixed(0)}</div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            ) : (
-              <div style={{ marginBottom: '20px', color: '#6b7280', fontSize: '0.875rem' }}>Scores not available</div>
             )}
 
-            {/* ── Section 5: EQ / BS scores ── */}
+            {/* EQ / BS scores */}
             {data.scores && (
-              <div style={{ marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {(['eq', 'bs'] as const).map((key) => {
                   const scores = data.scores![key];
                   const winner = winningGrade(scores);
-                  const label = key === 'eq' ? 'Earnings Quality' : 'Balance Sheet Quality';
+                  const label = key === 'eq' ? 'Earnings Quality' : 'Balance Sheet';
                   return (
-                    <div key={key} style={{ flex: '1 1 180px', backgroundColor: '#f9fafb', padding: '12px 16px', borderRadius: '6px' }}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{label}</div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                    <div key={key} style={{ background: T.sidebarBg, border: `1px solid ${T.borderFaint}`, borderRadius: 4, padding: '10px' }}>
+                      <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{label}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
                         {(['A','B','C'] as const).map((grade) => {
                           const isWinner = winner === grade;
                           return (
-                            <div key={grade} data-testid={`${key}-grade-${grade}`} style={{ flex: 1, textAlign: 'center', padding: '6px', borderRadius: '4px', backgroundColor: isWinner ? '#e0f2fe' : '#f3f4f6', fontWeight: isWinner ? 700 : 400, fontSize: '0.8rem', color: isWinner ? '#0369a1' : '#6b7280' }}>
+                            <div key={grade} data-testid={`${key}-grade-${grade}`} style={{
+                              flex: 1, textAlign: 'center', padding: '5px 4px', borderRadius: 3,
+                              background: isWinner ? T.accent + '20' : T.borderFaint,
+                              fontWeight: isWinner ? 700 : 400,
+                              fontSize: 11, color: isWinner ? T.accent : T.textDim,
+                              fontFamily: 'var(--font-dm-mono, monospace)',
+                            }}>
                               <div>{grade}</div>
-                              <div style={{ fontSize: '0.65rem' }}>{(scores[grade] ?? 0).toFixed(0)}</div>
+                              <div style={{ fontSize: 9 }}>{(scores[grade] ?? 0).toFixed(0)}</div>
                             </div>
                           );
                         })}
@@ -405,72 +366,91 @@ export default function ClassificationModal({
               </div>
             )}
 
-            {/* ── Section 6: Reason codes ── */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Reason Codes</div>
+            {/* Reason codes */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Reason Codes</div>
               {data.reason_codes.length === 0 ? (
-                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>No reason codes available</span>
+                <span style={{ fontSize: 11, color: T.textDim }}>No reason codes available</span>
               ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {data.reason_codes.map((code) => (
-                    <span key={code} style={{ padding: '2px 8px', backgroundColor: '#e0f2fe', color: '#0369a1', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 500 }}>
-                      {code}
+                    <span key={code} style={{
+                      fontSize: 10, padding: '2px 7px', borderRadius: 3,
+                      background: T.accent + '15', color: T.accent, border: `1px solid ${T.accent}30`,
+                    }}>
+                      {code.replace(/_/g, ' ')}
                     </span>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* ── Section 7: Classification history ── */}
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Classification History</div>
+            {/* Classification history */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Classification History</div>
               {history.length === 0 ? (
-                <span data-testid="history-empty-state" style={{ fontSize: '0.8rem', color: '#9ca3af' }}>No classification history yet.</span>
+                <span data-testid="history-empty-state" style={{ fontSize: 11, color: T.textDim }}>No classification history yet.</span>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {history.map((row, i) => (
-                    <div key={i} data-testid="history-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '4px', fontSize: '0.8rem' }}>
-                      <span style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(row.classified_at)}</span>
-                      <span style={{ fontFamily: 'monospace', color: '#374151' }}>
-                        {row.previous_code ?? '—'} → {row.suggested_code ?? '—'}
-                      </span>
+                    <div key={i} data-testid="history-row" style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '5px 0', borderBottom: `1px solid ${T.borderFaint}`, fontSize: 11,
+                    }}>
+                      <span style={{ color: T.textDim, fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 10, width: 82 }}>{fmtDate(row.classified_at)}</span>
+                      <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', color: T.textMuted }}>{row.previous_code ?? 'null'}</span>
+                      <span style={{ color: T.textDim }}>→</span>
+                      <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', color: T.text, fontWeight: 600 }}>{row.suggested_code ?? 'null'}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* ── Section 8: Override section ── */}
-            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '20px' }}>
-              {/* Display-only disclaimer — always visible per ADR-007 */}
-              <div data-testid="override-disclaimer" style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '16px', padding: '8px 12px', backgroundColor: '#fef9c3', borderRadius: '4px', borderLeft: '3px solid #ca8a04' }}>
-                Your override affects display only — alerts use the system classification.
+            {/* Override section */}
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.textDim, marginBottom: 10 }}>
+                {data.user_override_code ? 'Edit Your Override' : 'Set My Classification'}
+              </div>
+
+              <div
+                data-testid="override-disclaimer"
+                style={{
+                  marginBottom: 12, padding: '8px 10px',
+                  background: '#3b82f618', border: '1px solid #3b82f630',
+                  borderRadius: 4, fontSize: 10, color: '#93c5fd',
+                  display: 'flex', gap: 6,
+                }}
+              >
+                <span>ℹ</span>
+                <span>Your override affects display only — alerts use the system classification.</span>
               </div>
 
               {data.user_override_code ? (
-                /* Has existing override */
                 <div>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Your Override</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{data.user_override_code}</span>
-                    <span style={{ fontSize: '0.875rem', color: '#374151' }}>{data.user_override_reason}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                    <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 700, fontSize: 16, color: '#f97316' }}>{data.user_override_code}</span>
+                    <span style={{ fontSize: 12, color: T.textMuted }}>{data.user_override_reason}</span>
                   </div>
                   <button
                     data-testid="clear-override-btn"
                     onClick={handleClear}
                     disabled={saving}
-                    style={{ padding: '6px 14px', borderRadius: '4px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '0.8rem', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}
+                    style={{
+                      padding: '6px 12px', borderRadius: 4,
+                      border: '1px solid #ef444444', background: '#ef444412',
+                      color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer',
+                      opacity: saving ? 0.6 : 1, fontFamily: 'inherit',
+                    }}
                   >
                     {saving ? '…' : 'Clear override'}
                   </button>
                 </div>
               ) : (
-                /* No override — show set form */
                 <div>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Set My Classification</div>
-                  <div style={{ marginBottom: '10px' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>
-                      Code <span style={{ color: '#6b7280' }}>(e.g. 4AA)</span>
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 10, color: T.textDim, marginBottom: 4 }}>
+                      Code <span style={{ color: T.textDim }}>(e.g. 4AA)</span>
                     </label>
                     <input
                       data-testid="override-code-input"
@@ -479,41 +459,72 @@ export default function ClassificationModal({
                       onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                       placeholder="4AA"
                       maxLength={3}
-                      style={{ width: '120px', padding: '6px 10px', borderRadius: '4px', border: codeError ? '1px solid #dc2626' : '1px solid #d1d5db', fontSize: '0.875rem', fontFamily: 'monospace' }}
+                      style={{
+                        width: 100, padding: '6px 10px', borderRadius: 4,
+                        border: `1px solid ${codeError ? '#ef4444' : T.border}`,
+                        background: T.inputBg, color: T.text,
+                        fontSize: 13, fontFamily: 'var(--font-dm-mono, monospace)', outline: 'none',
+                      }}
                     />
-                    {codeError && <div data-testid="code-error" style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px' }}>{codeError}</div>}
+                    {codeError && <div data-testid="code-error" style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{codeError}</div>}
                   </div>
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>
-                      Reason <span style={{ color: '#6b7280' }}>({REASON_MIN_LENGTH}+ characters)</span>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: 'block', fontSize: 10, color: T.textDim, marginBottom: 4 }}>
+                      Override Reason <span style={{ color: '#ef4444' }}>*</span>
+                      <span style={{ color: T.textDim, marginLeft: 6 }}>min {REASON_MIN_LENGTH} characters</span>
                     </label>
                     <textarea
                       data-testid="override-reason-input"
                       value={reasonInput}
                       onChange={(e) => setReasonInput(e.target.value)}
-                      rows={2}
-                      style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: reasonError ? '1px solid #dc2626' : '1px solid #d1d5db', fontSize: '0.875rem', resize: 'vertical', boxSizing: 'border-box' }}
+                      placeholder="Explain your classification judgment…"
+                      rows={3}
+                      style={{
+                        width: '100%', padding: '7px 10px', borderRadius: 4,
+                        border: `1px solid ${reasonError ? '#ef4444' : T.border}`,
+                        background: T.inputBg, color: T.text,
+                        fontSize: 12, resize: 'vertical', fontFamily: 'inherit',
+                        outline: 'none', boxSizing: 'border-box',
+                      }}
                     />
-                    {reasonError && <div data-testid="reason-error" style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px' }}>{reasonError}</div>}
+                    {reasonError && <div data-testid="reason-error" style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{reasonError}</div>}
                   </div>
-                  <button
-                    data-testid="save-override-btn"
-                    onClick={handleSave}
-                    disabled={!saveEnabled}
-                    style={{ padding: '6px 16px', borderRadius: '4px', border: '1px solid #15803d', backgroundColor: saveEnabled ? '#dcfce7' : '#f3f4f6', color: saveEnabled ? '#15803d' : '#9ca3af', fontSize: '0.8rem', cursor: saveEnabled ? 'pointer' : 'not-allowed', fontWeight: 600 }}
-                  >
-                    {saving ? '…' : 'Save'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={onClose}
+                      style={{
+                        padding: '7px 14px', fontSize: 12, borderRadius: 4,
+                        border: `1px solid ${T.border}`, background: 'transparent',
+                        color: T.textMuted, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      data-testid="save-override-btn"
+                      onClick={handleSave}
+                      disabled={!saveEnabled}
+                      style={{
+                        padding: '7px 18px', fontSize: 12, borderRadius: 4, fontWeight: 600,
+                        border: 'none',
+                        background: saveEnabled ? T.accent : T.borderFaint,
+                        color: saveEnabled ? '#0b0d11' : T.textDim,
+                        cursor: saveEnabled ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.1s', fontFamily: 'inherit',
+                      }}
+                    >
+                      {saving ? '…' : 'Save Override'}
+                    </button>
+                  </div>
                 </div>
               )}
 
               {saveError && (
-                <div data-testid="save-error" style={{ marginTop: '10px', fontSize: '0.75rem', color: '#dc2626' }}>
+                <div data-testid="save-error" style={{ marginTop: 10, fontSize: 11, color: '#ef4444' }}>
                   {saveError}
                 </div>
               )}
             </div>
-
           </div>
         )}
       </div>

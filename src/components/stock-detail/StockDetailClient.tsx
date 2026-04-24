@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-053: Stock Detail Page
 // TASK-053-003: StockDetailClient — 4-tab stock detail page (Classification/Fundamentals/Valuation/History)
+// EPIC-004/STORY-054/TASK-054-007: Applied dark terminal theme (screen-stock-detail.jsx spec)
 // PRD §Stock Detail; RFC-001 §ClassificationResult; RFC-003 §Stock Detail Screen
 // ADR-007 (display_only override scope); ADR-013 (scoring weights); ADR-014 (confidence thresholds)
 
@@ -17,6 +18,7 @@ import TieBreakList from './TieBreakList';
 import FlagPill from './FlagPill';
 import StarRating from './StarRating';
 import type { ConfidenceStep, TieBreakRecord } from '@/domain/classification/types';
+import { T } from '@/lib/theme';
 
 // ── Response shape from GET /api/stocks/[ticker]/detail ──────────────────────
 
@@ -112,47 +114,47 @@ function fmtDate(iso: string | null): string {
 }
 
 function growthColor(val: number | null): string {
-  if (val === null) return '#374151';
-  if (val >= 0.08) return '#15803d';
-  if (val >= 0.03) return '#854d0e';
-  return '#dc2626';
+  if (val === null) return T.textDim;
+  if (val >= 0.08) return '#16a34a';
+  if (val >= 0.03) return '#eab308';
+  return '#ef4444';
 }
 
 function netDebtColor(val: number | null): string {
-  if (val === null) return '#374151';
-  if (val <= 1.0) return '#15803d';
-  if (val <= 2.5) return '#854d0e';
-  return '#dc2626';
+  if (val === null) return T.textDim;
+  if (val <= 1.0) return '#16a34a';
+  if (val <= 2.5) return '#eab308';
+  return '#ef4444';
 }
 
 function fcfConvColor(val: number | null): string {
-  if (val === null) return '#374151';
-  if (val >= 0.80) return '#15803d';
-  if (val >= 0.50) return '#854d0e';
-  return '#dc2626';
+  if (val === null) return T.textDim;
+  if (val >= 0.80) return '#16a34a';
+  if (val >= 0.50) return '#eab308';
+  return '#ef4444';
 }
 
 // ── Shared style constants ────────────────────────────────────────────────────
 
 const SECTION_HEADER: React.CSSProperties = {
   padding: '6px 12px',
-  fontSize: 10,
+  fontSize: 9,
   fontWeight: 700,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: '#6b7280',
-  background: '#f9fafb',
-  borderBottom: '1px solid #e5e7eb',
-  borderTop: '1px solid #e5e7eb',
+  color: T.textDim,
+  background: T.tableHead,
+  borderBottom: `1px solid ${T.border}`,
+  borderTop: `1px solid ${T.border}`,
 };
 
 // ── MetricRow ─────────────────────────────────────────────────────────────────
 
 function MetricRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 12, color: '#6b7280' }}>{label}</span>
-      <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: color ?? '#111827' }}>{value}</span>
+    <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.borderFaint}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontSize: 11, color: T.textDim }}>{label}</span>
+      <span style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: color ?? T.text }}>{value}</span>
     </div>
   );
 }
@@ -240,7 +242,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+      <div style={{ padding: '2rem', textAlign: 'center', color: T.textDim }}>
         Loading stock data…
       </div>
     );
@@ -248,7 +250,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
   if (error || !detail) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#dc2626' }}
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}
         data-testid="error-state"
       >
         {error ?? 'Unable to load stock data.'}
@@ -286,16 +288,17 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
   return (
     <>
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#fff' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
-        padding: '10px 16px',
-        borderBottom: '1px solid #e5e7eb',
-        background: '#f9fafb',
+        padding: '8px 16px',
+        borderBottom: `1px solid ${T.border}`,
+        background: T.headerBg,
         display: 'flex',
         alignItems: 'center',
         gap: 12,
         flexWrap: 'wrap',
+        flexShrink: 0,
       }}>
         <button
           onClick={() => router.push('/universe')}
@@ -304,31 +307,30 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
             border: 'none',
             background: 'none',
             cursor: 'pointer',
-            color: '#15803d',
-            fontSize: 13,
+            color: T.accent,
+            fontSize: 12,
             padding: 0,
             fontWeight: 600,
+            fontFamily: 'inherit',
           }}
         >
           ← Universe
         </button>
-        <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
+        <div style={{ width: 1, height: 14, background: T.border }} />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: '#111827' }}>{detail.ticker}</span>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>{detail.company}</span>
-          {detail.sector && <span style={{ fontSize: 11, color: '#9ca3af' }}>{detail.sector}</span>}
+          <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 18, fontWeight: 700, color: T.text }}>{detail.ticker}</span>
+          <span style={{ fontSize: 13, color: T.textMuted }}>{detail.company}</span>
+          {detail.sector && <span style={{ fontSize: 11, color: T.textDim }}>{detail.sector}</span>}
         </div>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           {detail.price !== null && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
-                ${detail.price.toFixed(2)}
-              </div>
-            </div>
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+              ${detail.price.toFixed(2)}
+            </span>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 3 }}>Active Code</div>
+            <div style={{ fontSize: 9, color: T.textDim, marginBottom: 3 }}>Active Code</div>
             <ClassificationBadge code={activeCode} />
           </div>
           {detail.confidence_level && (
@@ -340,9 +342,10 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        borderBottom: '1px solid #e5e7eb',
-        background: '#f9fafb',
+        borderBottom: `1px solid ${T.border}`,
+        background: T.headerBg,
         paddingLeft: 16,
+        flexShrink: 0,
       }}>
         {TABS.map(tab => (
           <button
@@ -351,14 +354,15 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
             data-testid={`tab-${tab.id}`}
             style={{
               padding: '8px 16px',
-              fontSize: 13,
+              fontSize: 12,
               border: 'none',
               background: 'none',
               cursor: 'pointer',
-              color: activeTab === tab.id ? '#15803d' : '#6b7280',
-              borderBottom: `2px solid ${activeTab === tab.id ? '#15803d' : 'transparent'}`,
+              color: activeTab === tab.id ? T.accent : T.textMuted,
+              borderBottom: `2px solid ${activeTab === tab.id ? T.accent : 'transparent'}`,
               fontWeight: activeTab === tab.id ? 600 : 400,
               marginBottom: -1,
+              fontFamily: 'inherit',
             }}
           >
             {tab.label}
@@ -367,21 +371,21 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
       </div>
 
       {/* ── Tab content ────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
 
         {/* ── CLASSIFICATION TAB ─────────────────────────────────────────── */}
         {activeTab === 'classification' && (
           <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
 
             {/* Left: Scores column */}
-            <div style={{ flex: '0 0 300px', minWidth: 260, borderRight: '1px solid #e5e7eb' }}>
+            <div style={{ flex: '0 0 300px', minWidth: 260, borderRight: `1px solid ${T.border}` }}>
               {/* Active code block */}
-              <div style={{ padding: '16px 14px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '14px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>Active Code</div>
                 <div style={{ padding: '12px 0', display: 'flex', gap: 24, alignItems: 'flex-end' }}>
                   <div>
-                    <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>System Suggested</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+                    <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>System Suggested</div>
+                    <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: T.accent }}>
                       {detail.suggested_code ?? '—'}
                     </div>
                     {detail.confidence_level && (
@@ -392,21 +396,21 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                   </div>
                   {detail.final_code && (
                     <div>
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>Your Override</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 800, color: '#f97316' }}>
+                      <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Your Override</div>
+                      <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: '#f97316' }}>
                         {detail.final_code}
                       </div>
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4 }}>display only</div>
+                      <div style={{ fontSize: 9, color: T.textDim, marginTop: 4 }}>display only</div>
                     </div>
                   )}
                 </div>
                 {detail.classified_at && (
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  <div style={{ fontSize: 10, color: T.textDim }}>
                     Classified {fmtDate(detail.classified_at)}
                   </div>
                 )}
                 {!detail.suggested_code && !detail.classified_at && (
-                  <div style={{ fontSize: 12, color: '#6b7280' }} data-testid="no-classification-message">
+                  <div style={{ fontSize: 12, color: T.textMuted }} data-testid="no-classification-message">
                     No classification computed yet.
                   </div>
                 )}
@@ -432,7 +436,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
               {/* EQ scores */}
               {scores && scores.eq && Object.keys(scores.eq).length > 0 && (
-                <div style={{ padding: '12px 14px', borderTop: '1px solid #e5e7eb' }}>
+                <div style={{ padding: '12px 14px', borderTop: `1px solid ${T.border}` }}>
                   <div style={SECTION_HEADER}>Earnings Quality Scores</div>
                   <div style={{ paddingTop: 10 }}>
                     {Object.entries(scores.eq).map(([grade, score]) => (
@@ -450,7 +454,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
               {/* BS scores */}
               {scores && scores.bs && Object.keys(scores.bs).length > 0 && (
-                <div style={{ padding: '12px 14px', borderTop: '1px solid #e5e7eb' }}>
+                <div style={{ padding: '12px 14px', borderTop: `1px solid ${T.border}` }}>
                   <div style={SECTION_HEADER}>Balance Sheet Quality Scores</div>
                   <div style={{ paddingTop: 10 }}>
                     {Object.entries(scores.bs).map(([grade, score]) => (
@@ -471,7 +475,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
             <div style={{ flex: 1, minWidth: 0 }}>
 
               {/* Confidence derivation */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>Confidence Derivation (ADR-014)</div>
                 <div style={{ paddingTop: 10 }}>
                   <ConfidenceSteps steps={steps} />
@@ -479,7 +483,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               </div>
 
               {/* Tie-break analysis */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>Tie-Break Analysis</div>
                 <div style={{ paddingTop: 10 }}>
                   <TieBreakList tieBreaksFired={detail.tieBreaksFired ?? []} />
@@ -488,12 +492,12 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
               {/* Input snapshot */}
               {detail.input_snapshot && (
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+                <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                   <div style={SECTION_HEADER}>Input Snapshot</div>
                   <div style={{
                     marginTop: 10,
-                    background: '#f9fafb',
-                    border: '1px solid #e5e7eb',
+                    background: T.sidebarBg,
+                    border: `1px solid ${T.border}`,
                     borderRadius: 4,
                     padding: '10px 12px',
                     display: 'grid',
@@ -503,12 +507,12 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                     overflowY: 'auto',
                   }}>
                     {Object.entries(detail.input_snapshot).map(([k, v]) => (
-                      <div key={k} style={{ display: 'flex', gap: 6, padding: '2px 0', borderBottom: '1px solid #f3f4f6' }}>
-                        <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
+                      <div key={k} style={{ display: 'flex', gap: 6, padding: '2px 0', borderBottom: `1px solid ${T.borderFaint}` }}>
+                        <span style={{ fontSize: 10, color: T.textDim, fontFamily: 'var(--font-dm-mono, monospace)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
                         <span style={{
                           fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: v === null ? '#9ca3af' : v === true ? '#15803d' : v === false ? '#dc2626' : '#111827',
+                          fontFamily: 'var(--font-dm-mono, monospace)',
+                          color: v === null ? T.textDim : v === true ? '#16a34a' : v === false ? '#ef4444' : T.text,
                           fontWeight: v !== null ? 600 : 400,
                           flexShrink: 0,
                         }}>
@@ -521,7 +525,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               )}
 
               {/* E1–E6 enrichment */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>LLM Enrichment Scores (E1–E6)</div>
                 <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {([
@@ -532,8 +536,8 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                     { label: 'E5 Capital Intensity', val: detail.e5_capital_intensity, testId: 'e5-capital-intensity' },
                     { label: 'E6 Qualitative Cyclicality', val: detail.e6_qualitative_cyclicality, testId: 'e6-qualitative-cyclicality' },
                   ] as { label: string; val: number | null; testId: string }[]).map(({ label, val, testId }) => (
-                    <div key={label} style={{ padding: '8px 10px', background: '#f9fafb', borderRadius: 4, border: '1px solid #e5e7eb' }}>
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 5 }}>{label}</div>
+                    <div key={label} style={{ padding: '8px 10px', background: T.sidebarBg, borderRadius: 4, border: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 10, color: T.textDim, marginBottom: 5 }}>{label}</div>
                       <StarRating value={val} data-testid={testId} />
                     </div>
                   ))}
@@ -541,21 +545,21 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               </div>
 
               {/* Reason codes */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>Reason Codes</div>
                 <div style={{ marginTop: 10 }}>
                   {(detail.reason_codes ?? []).length === 0 ? (
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>No reason codes available.</span>
+                    <span style={{ fontSize: 12, color: T.textDim }}>No reason codes available.</span>
                   ) : (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {detail.reason_codes.map(r => (
                         <span key={r} style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 4,
-                          background: '#f0fdf4',
-                          color: '#15803d',
-                          border: '1px solid #bbf7d0',
+                          fontSize: 10,
+                          padding: '2px 7px',
+                          borderRadius: 3,
+                          background: T.accent + '15',
+                          color: T.accent,
+                          border: `1px solid ${T.accent}30`,
                           fontWeight: 500,
                         }}>
                           {r.replace(/_/g, ' ')}
@@ -570,17 +574,16 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <div style={{ padding: '14px 16px' }}>
                 <div style={SECTION_HEADER}>Classification Override</div>
                 <div style={{ marginTop: 10 }}>
-                  {/* Disclaimer — always visible */}
                   <div
                     data-testid="override-disclaimer"
                     style={{
-                      padding: '10px 12px',
-                      background: '#eff6ff',
-                      border: '1px solid #bfdbfe',
+                      padding: '8px 10px',
+                      background: '#3b82f618',
+                      border: '1px solid #3b82f630',
                       borderRadius: 4,
                       marginBottom: 12,
-                      fontSize: 12,
-                      color: '#1d4ed8',
+                      fontSize: 10,
+                      color: '#93c5fd',
                       display: 'flex',
                       gap: 6,
                     }}
@@ -592,26 +595,26 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                   {detail.final_code && (
                     <div style={{
                       padding: '10px 12px',
-                      background: '#fff7ed',
-                      border: '1px solid #fed7aa',
+                      background: T.sidebarBg,
+                      border: `1px solid ${T.border}`,
                       borderRadius: 4,
                       marginBottom: 12,
                     }}>
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>Current Override</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 700, color: '#f97316' }}>
+                      <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Current Override (active)</div>
+                      <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 16, fontWeight: 700, color: '#f97316' }}>
                         {detail.final_code}
                       </div>
                       {detail.override_reason && (
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{detail.override_reason}</div>
+                        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>{detail.override_reason}</div>
                       )}
                       {detail.overridden_at && (
-                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Set {fmtDate(detail.overridden_at)}</div>
+                        <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>Set {fmtDate(detail.overridden_at)}</div>
                       )}
                     </div>
                   )}
 
                   {clearError && (
-                    <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{clearError}</div>
+                    <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{clearError}</div>
                   )}
 
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -619,14 +622,15 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                       data-testid="set-override-btn"
                       onClick={() => setShowOverrideModal(true)}
                       style={{
-                        padding: '8px 16px',
+                        padding: '7px 14px',
                         fontSize: 12,
                         fontWeight: 600,
                         borderRadius: 4,
-                        border: '1px solid #86efac',
-                        background: '#f0fdf4',
-                        color: '#15803d',
+                        border: `1px solid ${T.accent}44`,
+                        background: T.accent + '12',
+                        color: T.accent,
                         cursor: 'pointer',
+                        fontFamily: 'inherit',
                       }}
                     >
                       {detail.final_code ? 'Edit Override' : 'Set Override'}
@@ -637,13 +641,14 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                         onClick={handleClearOverride}
                         disabled={clearingOverride}
                         style={{
-                          padding: '8px 12px',
+                          padding: '7px 12px',
                           fontSize: 12,
                           borderRadius: 4,
-                          border: '1px solid #fca5a5',
-                          background: '#fef2f2',
-                          color: '#dc2626',
+                          border: '1px solid #ef444444',
+                          background: '#ef444412',
+                          color: '#ef4444',
                           cursor: clearingOverride ? 'not-allowed' : 'pointer',
+                          fontFamily: 'inherit',
                         }}
                       >
                         {clearingOverride ? 'Clearing…' : 'Clear Override'}
@@ -660,8 +665,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
         {activeTab === 'fundamentals' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
 
-            {/* Growth & Margins column */}
-            <div style={{ borderRight: '1px solid #e5e7eb' }}>
+            <div style={{ borderRight: `1px solid ${T.border}` }}>
               <div style={SECTION_HEADER}>Growth</div>
               <MetricRow label="Rev Growth (Fwd)" value={fmtPct(detail.revenue_growth_fwd)} color={growthColor(detail.revenue_growth_fwd)} />
               <MetricRow label="Rev Growth 3Y CAGR" value={fmtPct(detail.revenue_growth_3y)} color={growthColor(detail.revenue_growth_3y)} />
@@ -675,8 +679,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <MetricRow label="FCF Margin" value={fmtPct(detail.fcf_margin)} color={growthColor(detail.fcf_margin)} />
             </div>
 
-            {/* Quality & Balance Sheet column */}
-            <div style={{ borderRight: '1px solid #e5e7eb' }}>
+            <div style={{ borderRight: `1px solid ${T.border}` }}>
               <div style={SECTION_HEADER}>Returns & Quality</div>
               <MetricRow label="FCF Conversion" value={fmtPct(detail.fcf_conversion)} color={fcfConvColor(detail.fcf_conversion)} />
               <MetricRow label="ROIC" value={fmtPct(detail.roic)} color={growthColor(detail.roic)} />
@@ -695,7 +698,6 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <MetricRow label="EV/EBIT" value={detail.ev_ebit !== null ? `${detail.ev_ebit.toFixed(1)}×` : '—'} />
             </div>
 
-            {/* Flags column */}
             <div>
               <div style={SECTION_HEADER}>Classification Flags</div>
               {([
@@ -719,7 +721,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
         {/* ── VALUATION TAB ──────────────────────────────────────────────── */}
         {activeTab === 'valuation' && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}
+          <div style={{ padding: '2rem', textAlign: 'center', color: T.textDim }}
             data-testid="valuation-placeholder"
           >
             Valuation thresholds and TSR hurdles are available in a future update.
@@ -732,12 +734,12 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
             <div style={SECTION_HEADER}>Classification History</div>
             <div style={{ paddingTop: 10 }}>
               {historyLoading && (
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>Loading history…</div>
+                <div style={{ color: T.textDim, fontSize: 12 }}>Loading history…</div>
               )}
               {!historyLoading && history !== null && history.length === 0 && (
                 <div
                   data-testid="history-empty-state"
-                  style={{ fontSize: 12, color: '#6b7280', padding: '24px 0' }}
+                  style={{ fontSize: 12, color: T.textMuted, padding: '24px 0' }}
                 >
                   No classification history recorded yet.
                 </div>
@@ -752,7 +754,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                         display: 'flex',
                         gap: 12,
                         padding: '10px 0',
-                        borderBottom: '1px solid #f3f4f6',
+                        borderBottom: `1px solid ${T.borderFaint}`,
                         alignItems: 'center',
                       }}
                     >
@@ -761,17 +763,17 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                         height: 7,
                         borderRadius: '50%',
                         flexShrink: 0,
-                        background: i === 0 ? '#15803d' : '#9ca3af',
+                        background: i === 0 ? T.accent : T.textDim,
                       }} />
-                      <div style={{ width: 90, flexShrink: 0, fontSize: 11, color: '#6b7280', fontFamily: 'monospace' }}>
+                      <div style={{ width: 90, flexShrink: 0, fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
                         {fmtDate(h.classified_at)}
                       </div>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: h.previous_code ? '#6b7280' : '#9ca3af' }}>
+                        <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 12, color: h.previous_code ? T.textMuted : T.textDim }}>
                           {h.previous_code ?? 'null'}
                         </span>
-                        <span style={{ color: '#9ca3af', fontSize: 12 }}>→</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: i === 0 ? '#15803d' : '#111827' }}>
+                        <span style={{ color: T.textDim, fontSize: 12 }}>→</span>
+                        <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 13, fontWeight: 700, color: i === 0 ? T.accent : T.text }}>
                           {h.suggested_code ?? 'null'}
                         </span>
                       </div>
@@ -781,12 +783,11 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               )}
             </div>
 
-            {/* Related alerts placeholder */}
             <div style={{ marginTop: 28 }}>
               <div style={SECTION_HEADER}>Related Alerts</div>
               <div
                 data-testid="alerts-placeholder"
-                style={{ paddingTop: 10, fontSize: 12, color: '#9ca3af' }}
+                style={{ paddingTop: 10, fontSize: 12, color: T.textDim }}
               >
                 Alert history available in a future update.
               </div>

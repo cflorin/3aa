@@ -23,34 +23,35 @@ describe('EPIC-004/STORY-048/TASK-048-003: ClassificationBadge', () => {
     expect(screen.getByTestId('classification-badge')).toHaveTextContent('4AA');
   });
 
-  it('"1AA" (bucket 1) → dark green badge', () => {
+  // Dark theme: all codes use accent color styling (T.accent = #2dd4bf)
+  it('"1AA" → renders badge with accent color', () => {
     render(<ClassificationBadge code="1AA" />);
     const badge = screen.getByTestId('classification-badge');
     expect(badge).toBeInTheDocument();
-    expect(badge.style.backgroundColor).toBe('rgb(20, 83, 45)'); // #14532d
+    expect(badge.style.color).toBe('rgb(45, 212, 191)'); // #2dd4bf accent
   });
 
-  it('"4AA" (bucket 4) → medium green badge', () => {
+  it('"4AA" → renders badge with accent color', () => {
     render(<ClassificationBadge code="4AA" />);
     const badge = screen.getByTestId('classification-badge');
-    expect(badge.style.backgroundColor).toBe('rgb(22, 163, 74)'); // #16a34a
+    expect(badge.style.color).toBe('rgb(45, 212, 191)'); // #2dd4bf accent
   });
 
-  it('"7BC" (bucket 7) → red badge', () => {
+  it('"7BC" → renders badge with accent color', () => {
     render(<ClassificationBadge code="7BC" />);
     const badge = screen.getByTestId('classification-badge');
-    expect(badge.style.backgroundColor).toBe('rgb(220, 38, 38)'); // #dc2626
+    expect(badge.style.color).toBe('rgb(45, 212, 191)'); // #2dd4bf accent
   });
 
-  it('"8" (bucket 8, bucket-only code) → darkest red', () => {
+  it('"8" (bucket-only code) → renders badge with accent color', () => {
     render(<ClassificationBadge code="8" />);
     const badge = screen.getByTestId('classification-badge');
-    expect(badge.style.backgroundColor).toBe('rgb(153, 27, 27)'); // #991b1b
+    expect(badge.style.color).toBe('rgb(45, 212, 191)'); // #2dd4bf accent
   });
 
-  it('"5BA" (bucket 5) → amber badge', () => {
+  it('"5BA" → renders badge with accent color', () => {
     render(<ClassificationBadge code="5BA" />);
     const badge = screen.getByTestId('classification-badge');
-    expect(badge.style.backgroundColor).toBe('rgb(202, 138, 4)'); // #ca8a04
+    expect(badge.style.color).toBe('rgb(45, 212, 191)'); // #2dd4bf accent
   });
 });

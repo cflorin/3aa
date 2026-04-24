@@ -4,6 +4,7 @@
 // PRD §Stock Detail; STORY-039/040 (E1–E6 LLM enrichment scores 1.0–5.0)
 
 import React from 'react';
+import { T } from '@/lib/theme';
 
 interface StarRatingProps {
   value: number | null;
@@ -13,7 +14,7 @@ interface StarRatingProps {
 
 export default function StarRating({ value, max = 5, 'data-testid': testId }: StarRatingProps) {
   if (value === null || value === undefined) {
-    return <span style={{ fontSize: 11, color: '#9ca3af' }}>—</span>;
+    return <span style={{ fontSize: 11, color: T.textDim }}>—</span>;
   }
 
   const pct = (value / max) * 100;
@@ -27,22 +28,22 @@ export default function StarRating({ value, max = 5, 'data-testid': testId }: St
       data-testid={testId}
       style={{ display: 'flex', alignItems: 'center', gap: 6 }}
     >
-      <div style={{ display: 'flex', gap: 2 }}>
+      <div style={{ display: 'flex', gap: 1 }}>
         {Array.from({ length: max }, (_, i) => (
           <div
             key={i}
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: 2,
-              background: i < full ? color : (i === full && half ? color + '70' : '#e5e7eb'),
+              width: 8,
+              height: 8,
+              borderRadius: 1,
+              background: i < full ? color : (i === full && half ? color + '70' : T.borderFaint),
             }}
           />
         ))}
       </div>
       <span style={{
-        fontSize: 11,
-        fontFamily: 'monospace',
+        fontSize: 10,
+        fontFamily: 'var(--font-dm-mono, monospace)',
         color,
         fontWeight: 600,
       }}>

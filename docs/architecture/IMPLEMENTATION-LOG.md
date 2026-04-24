@@ -8,6 +8,67 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-054: UI Theme Compliance — Dark Terminal Theme complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-054 — UI Theme Compliance (Dark Terminal Theme)
+**Tasks:** TASK-054-001 through TASK-054-007
+
+**Action:** Formal bug audit of deployed UI vs. spec (docs/ui/project/3aa/). Found 17 bugs (2 CRITICAL, 8 HIGH, 6 MEDIUM, 1 LOW) documented in `docs/bugs/UI-BUG-REGISTRY.md`. Implemented complete dark terminal theme across all screens:
+
+TASK-054-001: Created `src/lib/theme.ts` (T constants: bg=#0b0d11, accent=#2dd4bf, etc.), `src/app/globals.css` (dark base reset), updated `src/app/layout.tsx` (DM Sans + DM Mono via next/font/google).
+
+TASK-054-002: Created `src/components/layout/Sidebar.tsx` (200px sidebar, active nav state), created `src/app/(authenticated)/layout.tsx` (flex-column authenticated shell with sidebar).
+
+TASK-054-003: Rewrote `src/app/signin/SignInForm.tsx` with dark theme — 360px card, accent logo, T.cardBg/T.inputBg inputs, T.accent CTA.
+
+TASK-054-004: Rewrote `FilterBar.tsx` — inline header format matching spec (title + stock count + filter badge + all controls in one row), dark T tokens throughout, sector/confidence changed from multi-select/checkboxes to single `<select>` per spec. Rewrote `UniversePageClient.tsx` — removed `<main>` + `<h1>`, flex-column container, passes `total` to FilterBar.
+
+TASK-054-005: Rewrote `StockTable.tsx` — dark TH (T.tableHead bg, T.textMuted, 10px), dark TD (T.text, T.borderFaint, DM Mono numeric cols), dark row hover (T.rowHover), accent sort color. Rewrote `PaginationControls.tsx` — dark bottom bar (T.headerBg, T.border top), dark prev/next buttons.
+
+TASK-054-006: Rewrote `ClassificationBadge.tsx` — accent pill style (T.accent + '15' bg, T.accent color, DM Mono). Rewrote `ConfidenceBadge.tsx` — semantic colors (#16a34a/#eab308/#ef4444), abbreviated labels (High/Med/Low). Rewrote `MonitoringToggle.tsx` — dark buttons matching spec (T.border, transparent bg, T.textDim), confirmation "Yes/No" per spec.
+
+TASK-054-007: Rewrote `ClassificationModal.tsx` — dark modal (T.cardBg bg, rgba(0,0,0,0.7) overlay, T.accent bucket highlights). Rewrote `StockDetailClient.tsx` — dark header/tab-bar (T.headerBg), dark section headers (T.tableHead), dark metrics (T.text/T.textDim), accent override button, info-blue disclaimer. Updated all 5 sub-components (ScoreBar, ConfidenceSteps, TieBreakList, FlagPill, StarRating) to use T tokens.
+
+**Files Changed:**
+- `src/lib/theme.ts` (created)
+- `src/app/globals.css` (created)
+- `src/app/layout.tsx` (modified)
+- `src/components/layout/Sidebar.tsx` (created)
+- `src/app/(authenticated)/layout.tsx` (created)
+- `src/app/signin/SignInForm.tsx` (modified)
+- `src/components/universe/FilterBar.tsx` (modified)
+- `src/components/universe/UniversePageClient.tsx` (modified)
+- `src/components/universe/StockTable.tsx` (modified)
+- `src/components/universe/PaginationControls.tsx` (modified)
+- `src/components/universe/ClassificationBadge.tsx` (modified)
+- `src/components/universe/ConfidenceBadge.tsx` (modified)
+- `src/components/universe/MonitoringToggle.tsx` (modified)
+- `src/components/universe/ClassificationModal.tsx` (modified)
+- `src/components/stock-detail/StockDetailClient.tsx` (modified)
+- `src/components/stock-detail/ScoreBar.tsx` (modified)
+- `src/components/stock-detail/ConfidenceSteps.tsx` (modified)
+- `src/components/stock-detail/TieBreakList.tsx` (modified)
+- `src/components/stock-detail/FlagPill.tsx` (modified)
+- `src/components/stock-detail/StarRating.tsx` (modified)
+- `docs/bugs/UI-BUG-REGISTRY.md` (created) — 17 bugs documented
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-054-ui-theme-compliance.md` (created)
+- `tests/unit/components/ClassificationBadge.test.tsx` (modified) — updated color assertions for dark theme
+- `tests/unit/components/ConfidenceBadge.test.tsx` (modified) — updated color/label assertions
+- `tests/unit/components/StockTable.test.tsx` (modified) — updated opacity assertion (0.6→0.5)
+- `tests/unit/components/StockDetail.test.tsx` (modified) — updated StarRating border-radius assertion
+- `tests/unit/components/ClassificationModal.test.tsx` (modified) — updated null-code assertion
+
+**Tests Updated:** 5 test files updated to reflect dark theme changes (color values, abbreviated labels, opacity). No new bugs introduced.
+
+**Result:** 791/791 unit tests passing; TypeScript build clean (tsc --noEmit passes)
+**Verification level:** unit_verified + tsc_clean
+**Baseline Impact:** NO — UI-only changes; no API changes; no schema changes; no domain logic changes
+
+**Next Action:** Deploy to Cloud Run via Cloud Build trigger
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-052: EPIC-004 End-to-End Tests complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

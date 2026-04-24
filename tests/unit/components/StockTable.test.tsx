@@ -111,19 +111,19 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
 
   // ── STORY-050: Inactive row muting ─────────────────────────────────────────
 
-  it('inactive row (is_active=false) has opacity 0.6', () => {
+  it('inactive row (is_active=false) has reduced opacity', () => {
     render(<StockTable stocks={[makeStock({ is_active: false, ticker: 'MSFT' })]} />);
     const rows = screen.getAllByRole('row');
     const dataRow = rows[1]; // first data row
-    expect(dataRow).toHaveStyle('opacity: 0.6');
+    // Dark theme uses opacity 0.5 for inactive rows
+    expect(dataRow).toHaveStyle('opacity: 0.5');
   });
 
-  it('active row (is_active=true) has full opacity (not 0.6)', () => {
+  it('active row (is_active=true) has full opacity', () => {
     render(<StockTable stocks={[makeStock({ is_active: true, ticker: 'MSFT' })]} />);
     const rows = screen.getAllByRole('row');
     const dataRow = rows[1];
-    // Should not have opacity: 0.6 — either no opacity set or opacity: 1
-    expect(dataRow).not.toHaveStyle('opacity: 0.6');
+    expect(dataRow).toHaveStyle('opacity: 1');
   });
 
   // ── STORY-051: Classification badge click ────────────────────────────────────

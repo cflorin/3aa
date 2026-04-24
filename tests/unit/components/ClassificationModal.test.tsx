@@ -89,11 +89,12 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
     });
   });
 
-  it('shows "System classification pending" when system_suggested_code is null', async () => {
+  it('shows "—" when system_suggested_code is null', async () => {
     mockFetch({ system_suggested_code: null, active_code: null });
     renderModal();
     await waitFor(() => {
-      expect(screen.getByText(/system classification pending/i)).toBeInTheDocument();
+      // Dark theme: null code renders as "—" em dash
+      expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     });
   });
 

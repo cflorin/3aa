@@ -239,8 +239,8 @@ describe('EPIC-004/STORY-053/TASK-053-004: StarRating', () => {
 
   it('renders 5 blocks for max=5', () => {
     const { container } = render(<StarRating value={3.0} max={5} />);
-    // 5 square blocks inside the flex row
-    const blocks = container.querySelectorAll('div[style*="border-radius: 2px"]');
+    // 5 square blocks inside the flex row (dark theme uses border-radius: 1px)
+    const blocks = container.querySelectorAll('div[style*="border-radius: 1px"]');
     expect(blocks.length).toBe(5);
   });
 
