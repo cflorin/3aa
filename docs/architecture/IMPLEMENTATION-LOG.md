@@ -8,6 +8,45 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-055: Remove Stock from Universe — complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-055 — Remove Stock from Universe
+**Tasks:** TASK-055-001 through TASK-055-006
+
+**Action:** Full implementation of soft-delete stock removal. Designed API-first (DELETE endpoint), built confirmation dialog, integrated into StockTable with optimistic UI, added not-in-universe 404 state to StockDetailClient.
+
+TASK-055-001: Created `src/app/api/universe/stocks/[ticker]/route.ts` — DELETE handler. Auth via `validateSession`, ticker validation regex `[A-Z0-9.]{1,10}`, soft-delete (`inUniverse=false`, `universeStatusChangedAt=now()`), returns `{ticker, removed:true, removedAt}`. Returns 400 (invalid ticker), 401 (no/invalid session), 404 (not found), 409 (already removed).
+
+TASK-055-002: Created `src/components/universe/RemoveStockDialog.tsx` — dark terminal theme confirmation modal. `role="dialog"`, `aria-modal`, Escape key handler, focus-trap on cancel, `data-testid="remove-dialog-cancel"/"remove-dialog-confirm"`, `loading` prop disables buttons and shows "Removing…".
+
+TASK-055-003: Modified `src/components/universe/StockTable.tsx` — added `onRemoveConfirm?: (ticker: string) => void` prop, ✕ button per row (`data-testid="remove-btn-{ticker}"`), `stopPropagation` to prevent row navigation, `RemoveStockDialog` rendered in-tree when `removeTargetTicker !== null`.
+
+TASK-055-004: Modified `src/components/universe/UniversePageClient.tsx` — added `handleRemoveConfirm` (optimistic remove → API call → revert on error), `removeError` state, dismissible red error banner (`data-testid="remove-error-banner"`), passed `onRemoveConfirm` to `<StockTable>`.
+
+TASK-055-005: Modified `src/components/stock-detail/StockDetailClient.tsx` — added `notInUniverse` state; 404 from `/api/stocks/[ticker]` now shows `data-testid="not-in-universe-state"` with "∅" glyph, explanatory message with accent ticker, "← Back to Universe" button routing to `/universe`.
+
+TASK-055-006: Created `tests/unit/api/story-055-remove-stock.test.ts` (9 tests: auth, validation, 404, 409, 200 soft-delete, uppercase normalization) and `tests/unit/components/RemoveStockDialog.test.tsx` (13 tests: dialog renders, cancel/confirm/overlay/escape/loading; StockTable remove button visibility, dialog open, cancel flow, confirm flow, stopPropagation; StockDetailClient 404 state + navigation).
+
+**Files Changed:**
+- `src/app/api/universe/stocks/[ticker]/route.ts` (created — new directory)
+- `src/components/universe/RemoveStockDialog.tsx` (created)
+- `src/components/universe/StockTable.tsx` (modified — remove button + dialog)
+- `src/components/universe/UniversePageClient.tsx` (modified — optimistic remove + error banner)
+- `src/components/stock-detail/StockDetailClient.tsx` (modified — not-in-universe 404 state)
+- `tests/unit/api/story-055-remove-stock.test.ts` (created — 9 tests)
+- `tests/unit/components/RemoveStockDialog.test.tsx` (created — 13 tests)
+- `tests/unit/components/StockDetail.test.tsx` (modified — updated 1 test: 404→not-in-universe-state)
+- `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-055-remove-stock-from-universe.md` (created)
+
+**Tests Added/Updated:** +22 tests (9 API + 13 component) | 1 existing test updated
+**Result/Status:** ✅ DONE — 831/831 unit tests passing
+**Blockers/Issues:** Dev server requires restart to recognize new `src/app/api/universe/stocks/[ticker]/` directory (dynamic routes not hot-reloaded); live smoke test deferred to next server start.
+**Baseline Impact:** NO
+**Next Action:** Begin STORY-056 — Add Stock to Universe (API-first, SSE progress, full pipeline)
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-054: UI Theme Compliance — Dark Terminal Theme complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen
@@ -2864,3 +2903,88 @@ Key implementation decisions:
 **Baseline Impact:** NO
 
 **Next Action:** Start new session → read CLAUDE.md Current State section → decompose EPIC-004 stories → validate → implement
+
+---
+
+## 2026-04-24 — Bug fixes BUG-CE-001 / BUG-CE-002 / BUG-CE-003: Classification engine corrections
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen  
+**Story:** Cross-cutting (STORY-041, STORY-042, STORY-033)  
+**Tasks:** Bug-fix tasks outside formal story structure (identified via 5-stock manual analysis comparison)
+
+---
+
+### BUG-CE-001: Growth field format mismatch (all stocks → Bucket 1)
+
+**Action:** All 5 stocks' growth fields were inserted as decimal fractions (0.072) but `input-mapper.ts` divides by 100 — resulting in 0.0007 which fires Bucket 1 for all signals. Fixed by updating DB values to percentages (7.2, 14.4, etc.) via SQL UPDATE.
+
+**Files Changed:**
+- DB: `stocks` table — `revenue_growth_fwd`, `revenue_growth_3y`, `eps_growth_fwd`, `eps_growth_3y`, `gross_profit_growth` for MSFT, ADBE, TSLA, UBER, UNH
+- `src/domain/classification/input-mapper.ts` — added BUG-CE-001 comment documenting the percentage contract
+
+**Tests Added/Updated:** None (existing tests cover the mapper; DB state is integration-only)
+
+**Result/Status:** FIXED ✅
+
+---
+
+### BUG-CE-002: EQ scorer missing E2/E3/E4 rules (pricing_power, revenue_recurrence, margin_durability)
+
+**Action:** The three LLM enrichment scores were noted in `bucket-scorer.ts` as belonging to EQ scorer but never implemented (STORY-042 gap). Added 9 new weight constants and 3 rule blocks following the existing moat pattern (≥4.0→A, [2.5,4.0)→B, <2.5→C).
+
+**Files Changed:**
+- `src/domain/classification/scoring-weights.ts` — added `EQ_PRICING_*`, `EQ_RECURRENCE_*`, `EQ_MARGIN_DUR_*` constants (9 new exports)
+- `src/domain/classification/eq-scorer.ts` — imported new constants; added E2/E3/E4 rule blocks; added BUG-CE-002 comment
+
+**Tests Added/Updated:**
+- `tests/unit/classification/story-042-eq-bs-scorer.test.ts` — added 11 new tests covering: strong/moderate/weak thresholds for all 3 scores, boundary values (4.0, 2.5), UBER-like winner=B validation, interaction with existing rules
+
+**Result/Status:** FIXED ✅ — 808/808 tests passing post-fix
+
+---
+
+### BUG-CE-003: pre_operating_leverage_flag too restrictive for large profitable companies
+
+**Action:** The deterministic rule only fired for revenue < $50M or < $200M with losses. TSLA (6% op margin, $94.8B revenue) and UBER (12% op margin) were never flagged. Added a new rule: fires when `operatingMargin > 0 AND < 0.15 AND revenueTtm > $1B AND earningsTtm > 0`, excluding structural thin-margin industries (healthcare plans, managed care, insurance, grocery, food distribution).
+
+**Files Changed:**
+- `src/modules/data-ingestion/jobs/deterministic-classification-sync.service.ts` — added `STRUCTURAL_THIN_MARGIN_INDUSTRIES` set; added `operatingMargin` to `DeterministicFlagsInput` interface; added large-cap rule; updated `syncDeterministicClassificationFlags` to select and pass `operatingMargin`
+
+**Tests Added/Updated:**
+- `tests/unit/data-ingestion/story-033-deterministic-flags.test.ts` — added 6 new BUG-CE-003 tests: TSLA-like (TRUE), UBER-like (TRUE), UNH/Medical-Healthcare-Plans (FALSE — excluded), op margin ≥15% (FALSE), op margin ≤0 (FALSE), operatingMargin omitted (FALSE)
+- Updated 3 existing `syncDeterministicClassificationFlags` mock objects to include `operatingMargin` field
+
+**Result/Status:** FIXED ✅ — 808/808 tests passing post-fix
+
+---
+
+### Pipeline re-run post-fix
+
+**Action:** After all three fixes, re-ran full pipeline:
+1. `POST /api/admin/sync/deterministic-flags` → `{updated: 5, skipped: 0}` (TSLA + UBER now preOperatingLeverageFlag=true)
+2. `POST /api/admin/sync/classification-enrichment?mode=full` → `{stocks_updated: 5, llm_calls: 5}`
+3. `POST /api/cron/classification` → `{recomputed: 5}`
+
+**Post-fix classification results:**
+
+| Stock | Engine Code | Manual Code | Status |
+|-------|-------------|-------------|--------|
+| MSFT  | 3AA (low)   | 4AA (med)   | Expected deviation — GAAP FCF tie-break |
+| ADBE  | 4AA (low)   | 4BA (med)   | Expected deviation — AI risk is qualitative |
+| TSLA  | 3AA (low)   | 5CA (low)   | BUG-CE-004 (EQ) + BUG-CE-005 (Bucket) open |
+| UBER  | 5AA (med)   | 5BA (med)   | Bucket ✅ FIXED; EQ affected by BUG-CE-004 |
+| UNH   | 1AC (low)   | 3BC (low)   | Bucket = expected deviation; EQ affected by BUG-CE-004 |
+
+**Newly identified bugs documented in `docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md`:**
+- BUG-CE-004 (HIGH/OPEN): FCF conversion ratio inflated by thin GAAP earnings → TSLA, UNH, ADBE EQ grade too high
+- BUG-CE-005 (MEDIUM/OPEN): TSLA bucket 3 not 5 — FLAG_PRIMARY(2) insufficient to overcome rev_fwd B4 signal
+
+**Tests Added/Updated:** None for new bugs (not yet implemented)
+
+**Result/Status:** 3 original bugs fixed ✅; 2 new bugs documented
+
+**Blockers/Issues:** BUG-CE-004 and BUG-CE-005 require ADR-013 amendments before implementing fixes
+
+**Baseline Impact:** NO (bug fixes within existing architecture; new bugs require ADR amendment before fix)
+
+**Next Action:** Decide whether to fix BUG-CE-004/005 now or accept remaining divergences as user-overrideable expected deviations and proceed with the rest of EPIC-004

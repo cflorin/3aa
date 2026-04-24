@@ -293,11 +293,11 @@ describe('EPIC-004/STORY-053/TASK-053-004: StockDetailClient', () => {
     expect(mockPush).toHaveBeenCalledWith('/universe');
   });
 
-  it('shows error state for 404 response', async () => {
+  it('shows not-in-universe state for 404 response', async () => {
     mockFetch404();
     render(<StockDetailClient ticker="UNKNOWN" />);
-    await waitFor(() => screen.getByTestId('error-state'));
-    expect(screen.getByTestId('error-state')).toBeInTheDocument();
+    await waitFor(() => screen.getByTestId('not-in-universe-state'));
+    expect(screen.getByTestId('not-in-universe-state')).toBeInTheDocument();
   });
 
   it('Classification tab: override disclaimer always visible', async () => {

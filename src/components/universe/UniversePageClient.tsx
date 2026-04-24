@@ -3,6 +3,7 @@
 // TASK-048-002: UniversePageClient — client component with fetch, pagination, state management
 // STORY-049: Added FilterBar, column sort, URL state round-trip
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
+// STORY-055: Added handleRemoveConfirm — optimistic stock removal + error revert
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort
 
 'use client';
@@ -62,6 +63,7 @@ export default function UniversePageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sectors, setSectors] = useState<string[]>([]);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   // Debounce search to avoid API call on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,6 +131,28 @@ export default function UniversePageClient() {
     setPage(1);
   }, []);
 
+  const handleRemoveConfirm = useCallback(async (ticker: string) => {
+    if (!data) return;
+    setRemoveError(null);
+
+    // Optimistic: remove from local list immediately
+    const snapshot = data.stocks;
+    setData(prev => prev ? {
+      ...prev,
+      stocks: prev.stocks.filter(s => s.ticker !== ticker),
+      total: prev.total - 1,
+    } : prev);
+
+    try {
+      const res = await fetch(`/api/universe/stocks/${ticker}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed to remove ${ticker} (${res.status})`);
+    } catch (err) {
+      // Revert optimistic update
+      setData(prev => prev ? { ...prev, stocks: snapshot, total: snapshot.length } : prev);
+      setRemoveError(err instanceof Error ? err.message : `Failed to remove ${ticker}. Please try again.`);
+    }
+  }, [data]);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <FilterBar
@@ -163,6 +187,27 @@ export default function UniversePageClient() {
           </p>
         )}
 
+        {removeError && (
+          <div
+            role="alert"
+            data-testid="remove-error-banner"
+            style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 14px', background: '#ef444415', borderBottom: `1px solid #ef444430`,
+              color: '#ef4444', fontSize: 12,
+            }}
+          >
+            <span>{removeError}</span>
+            <button
+              onClick={() => setRemoveError(null)}
+              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {!loading && !error && data && (
           data.stocks.length === 0 ? (
             <p
@@ -172,7 +217,13 @@ export default function UniversePageClient() {
               No stocks match your current filters.
             </p>
           ) : (
-            <StockTable stocks={data.stocks} sort={sort} dir={dir} onSort={handleSort} />
+            <StockTable
+              stocks={data.stocks}
+              sort={sort}
+              dir={dir}
+              onSort={handleSort}
+              onRemoveConfirm={handleRemoveConfirm}
+            />
           )
         )}
       </div>

@@ -2,6 +2,7 @@
 // STORY-053: Stock Detail Page
 // TASK-053-003: StockDetailClient — 4-tab stock detail page (Classification/Fundamentals/Valuation/History)
 // EPIC-004/STORY-054/TASK-054-007: Applied dark terminal theme (screen-stock-detail.jsx spec)
+// STORY-055/TASK-055-004: Added not-in-universe 404 state (stock removed via STORY-055)
 // PRD §Stock Detail; RFC-001 §ClassificationResult; RFC-003 §Stock Detail Screen
 // ADR-007 (display_only override scope); ADR-013 (scoring weights); ADR-014 (confidence thresholds)
 
@@ -215,6 +216,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notInUniverse, setNotInUniverse] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('classification');
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [clearingOverride, setClearingOverride] = useState(false);
@@ -230,10 +232,11 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotInUniverse(false);
     try {
       const res = await fetch(`/api/stocks/${ticker}/detail`);
       if (res.status === 404) {
-        setError('Stock not found or not in universe.');
+        setNotInUniverse(true);
         setDetail(null);
         return;
       }
@@ -286,6 +289,37 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: T.textDim }}>
         Loading stock data…
+      </div>
+    );
+  }
+
+  if (notInUniverse) {
+    return (
+      <div
+        data-testid="not-in-universe-state"
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', flex: 1, padding: '3rem 2rem', gap: 16,
+        }}
+      >
+        <div style={{ fontSize: 32, color: T.textDim }}>∅</div>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: T.text }}>
+          Stock not in universe
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: T.textMuted }}>
+          <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', color: T.accent }}>{ticker}</span>
+          {' '}is not in your monitored universe.
+        </p>
+        <button
+          onClick={() => router.push('/universe')}
+          style={{
+            marginTop: 8, fontSize: 12, padding: '7px 16px', borderRadius: 4,
+            border: `1px solid ${T.border}`, background: 'transparent',
+            color: T.accent, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          ← Back to Universe
+        </button>
       </div>
     );
   }

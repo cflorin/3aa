@@ -101,7 +101,7 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** ✅ done — All 13 stories complete (2026-04-24)
+**Status:** in_progress — 13 stories complete; 2 new stories added 2026-04-24
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
@@ -122,8 +122,11 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-051 | Classification Override Modal (with history section) | ✅ done |
 | STORY-052 | EPIC-004 End-to-End Tests | ✅ done |
 | STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | ✅ done |
+| STORY-054 | UI Theme Compliance — Dark Terminal Theme | ✅ done |
+| STORY-055 | Remove Stock from Universe | ✅ done |
+| STORY-056 | Add Stock to Universe (API-first, SSE progress, full pipeline) | 🔲 ready |
 
-**Evidence:** 830/830 tests passing (793 unit + 37 E2E) (2026-04-24)
+**Evidence:** 831/831 tests passing (2026-04-24)
 
 ---
 

@@ -5,6 +5,7 @@
 // STORY-050: Replaced MonitoringBadge with MonitoringToggle; added inactive row muting
 // STORY-051: Badge click opens ClassificationModal; rowCodeOverlay tracks in-session overrides
 // EPIC-004/STORY-054/TASK-054-005: Applied dark terminal theme (screen-universe.jsx spec)
+// STORY-055: Added Remove button per row + RemoveStockDialog confirmation
 // PRD §Screen 2 columns; RFC-003 §Universe Screen
 
 'use client';
@@ -15,6 +16,7 @@ import ClassificationBadge from './ClassificationBadge';
 import ConfidenceBadge from './ConfidenceBadge';
 import MonitoringToggle from './MonitoringToggle';
 import ClassificationModal from './ClassificationModal';
+import RemoveStockDialog from './RemoveStockDialog';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 import { T } from '@/lib/theme';
 
@@ -95,6 +97,8 @@ interface StockTableProps {
   sort?: string;
   dir?: SortDir;
   onSort?: (colKey: string, dir: SortDir) => void;
+  /** Called when user confirms removal dialog — parent handles the DELETE call */
+  onRemoveConfirm?: (ticker: string) => void;
 }
 
 export default function StockTable({
@@ -102,6 +106,7 @@ export default function StockTable({
   sort = 'market_cap',
   dir = 'desc',
   onSort,
+  onRemoveConfirm,
 }: StockTableProps) {
   const router = useRouter();
 
@@ -119,6 +124,9 @@ export default function StockTable({
 
   const [rowCodeOverlay, setRowCodeOverlay] = useState<Record<string, string | null>>({});
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+
+  // Remove stock state — dialog only; API call handled by parent via onRemoveConfirm
+  const [removeTargetTicker, setRemoveTargetTicker] = useState<string | null>(null);
 
   useEffect(() => {
     setRowCodeOverlay({});
@@ -207,6 +215,7 @@ export default function StockTable({
             Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
           </th>
           <th scope="col" style={TH}>Zone</th>
+          {onRemoveConfirm && <th scope="col" style={{ ...TH, width: 32 }} />}
         </tr>
       </thead>
       <tbody>
@@ -272,11 +281,42 @@ export default function StockTable({
                 {fmtPct(s.operating_margin)}
               </td>
               <td style={{ ...TD, color: T.textDim }}>—</td>
+              {onRemoveConfirm && (
+                <td style={{ ...TD, padding: '4px 6px', textAlign: 'center' }}>
+                  <button
+                    data-testid={`remove-btn-${s.ticker}`}
+                    aria-label={`Remove ${s.ticker} from universe`}
+                    onClick={(e) => { e.stopPropagation(); setRemoveTargetTicker(s.ticker); }}
+                    style={{
+                      background: 'none', border: 'none', padding: '3px 5px',
+                      cursor: 'pointer', color: T.textDim, fontSize: 13, lineHeight: 1,
+                      borderRadius: 3,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = T.textDim; }}
+                    title="Remove from universe"
+                  >
+                    ✕
+                  </button>
+                </td>
+              )}
             </tr>
           );
         })}
       </tbody>
     </table>
+
+    {removeTargetTicker !== null && (
+      <RemoveStockDialog
+        ticker={removeTargetTicker}
+        onCancel={() => setRemoveTargetTicker(null)}
+        onConfirm={() => {
+          const ticker = removeTargetTicker;
+          setRemoveTargetTicker(null);
+          onRemoveConfirm!(ticker);
+        }}
+      />
+    )}
 
     {selectedTicker !== null && (() => {
       const stock = stocks.find(s => s.ticker === selectedTicker);
