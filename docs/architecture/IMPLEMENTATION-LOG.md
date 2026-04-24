@@ -8,6 +8,57 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-056: Add Stock to Universe — complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-056 — Add Stock to Universe (API-first, SSE progress, full pipeline)
+**Tasks:** TASK-056-001 through TASK-056-007
+
+**Action:** Full implementation of single-stock add flow. Designed API-first with SSE streaming progress. Added ticker filter to all 6 pipeline services. Implemented POST route with ReadableStream SSE. Added AddStockModal with progress bar, error handling, and retry. Wired button into FilterBar and UniversePageClient.
+
+TASK-056-001: Added `tickerFilter?: string` to options of all 6 pipeline batch services. Each service now filters `where: { inUniverse: true, ...(filter ? {ticker: filter} : {}) }`. Fully backward-compatible — no tickerFilter = all stocks (same as before). Affected: `syncFundamentals`, `syncForwardEstimates`, `syncMarketCapAndMultiples`, `syncDeterministicClassificationFlags`, `syncClassificationEnrichment`, `runClassificationBatch`.
+
+TASK-056-002: Created `src/app/api/universe/stocks/route.ts` — POST handler. Auth via `validateSession`. Returns SSE stream: 8 stage events + done event (with UniverseStockSummary result). Pre-stream JSON errors for 400/401/409. Re-add path: if `inUniverse=false` exists → `update({inUniverse:true})` instead of `create`. All 6 pipeline stages called with `tickerFilter=ticker`. Adapters instantiated fresh per request: TiingoAdapter, FMPAdapter, ClaudeProvider.
+
+TASK-056-003: Added `GET` handler to `src/app/api/universe/stocks/[ticker]/route.ts` (alongside existing DELETE). Added `getUniverseStock(userId, ticker)` to `src/domain/monitoring/monitoring.ts` (uses existing `makeStockSelect`/`mapRow`). Returns `{stock: UniverseStockSummary}` or 404.
+
+TASK-056-004: Created `src/components/universe/AddStockModal.tsx` — dark terminal theme. States: idle (ticker input form), submitting (SSE progress bar), error (stage name + retry). SSE consumer: `fetch()` POST + ReadableStream reader + TextDecoder + parseSSELines. Escape key closes (idle/error only). `data-testid` attributes for all interactive elements.
+
+TASK-056-005: Modified `src/components/universe/FilterBar.tsx` — added `onAddStock?: () => void` prop; "+ Add Stock" button with accent styling when prop provided. Modified `src/components/universe/UniversePageClient.tsx` — added `showAddModal` state, `handleStockAdded` (prepend new stock to list), AddStockModal rendering.
+
+TASK-056-006: Created `tests/unit/api/story-056-add-stock.test.ts` — 14 tests covering POST (401, 400 ×2, 409, SSE 8-stage sequence, tickerFilter verification, re-add path, pipeline error event, ticker normalization) and GET (401, 404, 200, 400) and DELETE regression.
+
+TASK-056-007: Created `tests/unit/components/AddStockModal.test.tsx` — 9 tests covering: renders in idle, validation errors (empty, invalid chars), progress bar while pending, onAdded+onClose called on done, error state with Retry button, Retry resets to idle, 409 already-in-universe message, Escape closes modal.
+
+**Fix during implementation:** jsdom environment does not expose `TextDecoder`/`TextEncoder` globals (even in Node.js 18). Added polyfill to `tests/jest.setup.ts` via `Object.assign(global, { TextDecoder, TextEncoder })` from `'util'`.
+
+**Files Changed:**
+- `src/app/api/universe/stocks/route.ts` (created)
+- `src/app/api/universe/stocks/[ticker]/route.ts` (modified — GET handler added)
+- `src/components/universe/AddStockModal.tsx` (created)
+- `src/components/universe/FilterBar.tsx` (modified — onAddStock prop + button)
+- `src/components/universe/UniversePageClient.tsx` (modified — showAddModal + handleStockAdded + AddStockModal)
+- `src/domain/monitoring/monitoring.ts` (modified — getUniverseStock function)
+- `src/domain/monitoring/index.ts` (modified — export getUniverseStock)
+- `src/modules/data-ingestion/jobs/fundamentals-sync.service.ts` (modified — tickerFilter)
+- `src/modules/data-ingestion/jobs/forward-estimates-sync.service.ts` (modified — tickerFilter)
+- `src/modules/data-ingestion/jobs/market-cap-sync.service.ts` (modified — tickerFilter)
+- `src/modules/data-ingestion/jobs/deterministic-classification-sync.service.ts` (modified — tickerFilter)
+- `src/modules/classification-enrichment/jobs/classification-enrichment-sync.service.ts` (modified — tickerFilter)
+- `src/modules/classification-batch/classification-batch.service.ts` (modified — tickerFilter)
+- `tests/jest.setup.ts` (modified — TextDecoder/TextEncoder globals)
+- `tests/unit/api/story-056-add-stock.test.ts` (created — 14 tests)
+- `tests/unit/components/AddStockModal.test.tsx` (created — 9 tests)
+- `stories/README.md` (modified — STORY-056 done)
+
+**Tests Added/Updated:** +23 tests (14 API + 9 component)
+**Result/Status:** ✅ DONE — 855/855 unit tests passing
+**Blockers/Issues:** Dev server needs restart to pick up new route files; live smoke test (benchmark stocks) deferred. TextDecoder fix required for jsdom test environment.
+**Baseline Impact:** NO
+**Next Action:** EPIC-004 complete — all 16 stories done. Next: EPIC-005 (Valuation Threshold Engine) story decomposition.
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-055: Remove Stock from Universe — complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

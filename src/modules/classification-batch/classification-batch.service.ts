@@ -20,14 +20,14 @@ export interface BatchSummary {
 
 const DURATION_WARN_MS = 45_000;
 
-export async function runClassificationBatch(): Promise<BatchSummary> {
+export async function runClassificationBatch(opts: { tickerFilter?: string } = {}): Promise<BatchSummary> {
   const start = Date.now();
   let recomputed = 0;
   let skipped = 0;
   let errors = 0;
 
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(opts.tickerFilter ? { ticker: opts.tickerFilter } : {}) },
     select: CLASSIFICATION_STOCK_FIELDS,
     orderBy: { ticker: 'asc' },
   });

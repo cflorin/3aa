@@ -180,7 +180,7 @@ function buildDeterministicProvenance(
 
 export async function syncClassificationEnrichment(
   llmProvider: LLMProvider,
-  options: { mode: 'incremental' | 'full'; now?: Date },
+  options: { mode: 'incremental' | 'full'; now?: Date; tickerFilter?: string },
 ): Promise<ClassificationEnrichmentSyncResult> {
   const now = options.now ?? new Date();
   const startedAt = now.getTime();
@@ -210,7 +210,7 @@ export async function syncClassificationEnrichment(
   };
 
   const dbStocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(options.tickerFilter ? { ticker: options.tickerFilter } : {}) },
     select: {
       ticker: true,
       companyName: true,

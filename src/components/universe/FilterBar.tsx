@@ -30,6 +30,7 @@ interface FilterBarProps {
   total: number;
   onChange: (f: FilterState) => void;
   onClear: () => void;
+  onAddStock?: () => void;
 }
 
 function activeFilterCount(f: FilterState): number {
@@ -54,7 +55,7 @@ const ctrlStyle: React.CSSProperties = {
   height: 28,
 };
 
-export default function FilterBar({ filters, sectors, total, onChange, onClear }: FilterBarProps) {
+export default function FilterBar({ filters, sectors, total, onChange, onClear, onAddStock }: FilterBarProps) {
   const count = activeFilterCount(filters);
 
   function set<K extends keyof FilterState>(key: K, value: FilterState[K]) {
@@ -168,6 +169,20 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear }
           }}
         >
           Clear
+        </button>
+      )}
+
+      {onAddStock && (
+        <button
+          data-testid="add-stock-btn"
+          onClick={onAddStock}
+          style={{
+            fontSize: 11, padding: '4px 10px', borderRadius: 4,
+            border: `1px solid ${T.accent}`, background: `${T.accent}15`,
+            color: T.accent, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+          }}
+        >
+          + Add Stock
         </button>
       )}
     </div>

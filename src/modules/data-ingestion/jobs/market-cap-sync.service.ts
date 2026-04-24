@@ -28,7 +28,7 @@ export interface MarketCapSyncResult {
  */
 export async function syncMarketCapAndMultiples(
   fmpAdapter: VendorAdapter,
-  options: { now?: Date } = {},
+  options: { now?: Date; tickerFilter?: string } = {},
 ): Promise<MarketCapSyncResult> {
   const now = options.now ?? new Date();
   const startedAt = now.getTime();
@@ -36,7 +36,7 @@ export async function syncMarketCapAndMultiples(
   console.log(JSON.stringify({ event: 'market_cap_sync_start', timestamp: now.toISOString() }));
 
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(options.tickerFilter ? { ticker: options.tickerFilter } : {}) },
     select: {
       ticker: true,
       currentPrice: true,

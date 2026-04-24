@@ -13,6 +13,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import StockTable from './StockTable';
 import PaginationControls from './PaginationControls';
 import FilterBar, { EMPTY_FILTERS, type FilterState } from './FilterBar';
+import AddStockModal from './AddStockModal';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 import { T } from '@/lib/theme';
 
@@ -64,6 +65,7 @@ export default function UniversePageClient() {
   const [error, setError] = useState<string | null>(null);
   const [sectors, setSectors] = useState<string[]>([]);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Debounce search to avoid API call on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,6 +133,14 @@ export default function UniversePageClient() {
     setPage(1);
   }, []);
 
+  const handleStockAdded = useCallback((stock: UniverseStockSummary) => {
+    setData(prev => prev ? {
+      ...prev,
+      stocks: [stock, ...prev.stocks],
+      total: prev.total + 1,
+    } : prev);
+  }, []);
+
   const handleRemoveConfirm = useCallback(async (ticker: string) => {
     if (!data) return;
     setRemoveError(null);
@@ -161,6 +171,7 @@ export default function UniversePageClient() {
         total={data?.total ?? 0}
         onChange={handleFiltersChange}
         onClear={handleClear}
+        onAddStock={() => setShowAddModal(true)}
       />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
@@ -235,6 +246,16 @@ export default function UniversePageClient() {
         onPrev={() => setPage(p => Math.max(1, p - 1))}
         onNext={() => setPage(p => Math.min(totalPages, p + 1))}
       />
+
+      {showAddModal && (
+        <AddStockModal
+          onClose={() => setShowAddModal(false)}
+          onAdded={(stock) => {
+            handleStockAdded(stock);
+            setShowAddModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

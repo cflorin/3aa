@@ -156,7 +156,7 @@ function buildUpdateFromFundamentals(
 export async function syncFundamentals(
   tiingoAdapter: VendorAdapter,
   fmpAdapter: VendorAdapter,
-  options: { now?: Date } = {},
+  options: { now?: Date; tickerFilter?: string } = {},
 ): Promise<FundamentalsSyncResult> {
   const now = options.now ?? new Date();
   const startedAt = now.getTime();
@@ -166,7 +166,7 @@ export async function syncFundamentals(
   console.log(JSON.stringify({ event: 'fundamentals_sync_start', timestamp: now.toISOString() }));
 
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(options.tickerFilter ? { ticker: options.tickerFilter } : {}) },
     select: { ticker: true },
   });
   const tickers = stocks.map((s) => s.ticker);

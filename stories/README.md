@@ -124,9 +124,9 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | ✅ done |
 | STORY-054 | UI Theme Compliance — Dark Terminal Theme | ✅ done |
 | STORY-055 | Remove Stock from Universe | ✅ done |
-| STORY-056 | Add Stock to Universe (API-first, SSE progress, full pipeline) | 🔲 ready |
+| STORY-056 | Add Stock to Universe (API-first, SSE progress, full pipeline) | ✅ done |
 
-**Evidence:** 831/831 tests passing (2026-04-24)
+**Evidence:** 855/855 tests passing (2026-04-24)
 
 ---
 

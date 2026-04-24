@@ -4,6 +4,8 @@
 // TASK-033-002: syncDeterministicClassificationFlags() job
 //
 // Authoritative writer for material_dilution_flag, insurer_flag, pre_operating_leverage_flag.
+// [BUG-CE-003] pre_operating_leverage_flag rule was too restrictive (only fired for revenue < $200M).
+// Fixed to also flag profitable large-cap companies with operating_margin < 15%. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
 // All three derived from existing DB fields — no new API calls.
 // RFC-001: flag rules and thresholds
 // RFC-002: stocks table column mapping, data_provider_provenance per field
@@ -22,11 +24,27 @@ const INSURER_INDUSTRIES = new Set([
   'health insurance',
 ]);
 
+// Industries with structurally thin margins that are NOT operating leverage stories
+// (used to gate the large-cap operating margin rule for pre_operating_leverage_flag)
+const STRUCTURAL_THIN_MARGIN_INDUSTRIES = new Set([
+  'medical - healthcare plans',
+  'managed care',
+  'health insurance',
+  'insurance - life',
+  'insurance - property & casualty',
+  'insurance - diversified',
+  'insurance - specialty',
+  'insurance - reinsurance',
+  'grocery stores',
+  'food distribution',
+]);
+
 export interface DeterministicFlagsInput {
   industry: string | null;
   shareCountGrowth3y: number | null;
   revenueTtm: number | null;
   earningsTtm: number | null;
+  operatingMargin?: number | null;
 }
 
 export interface DeterministicFlagsResult {
@@ -43,14 +61,30 @@ export function computeDeterministicFlags(input: DeterministicFlagsInput): Deter
     input.industry === null ? null : INSURER_INDUSTRIES.has(input.industry.toLowerCase());
 
   let preOperatingLeverageFlag: boolean | null;
+  const industryLower = (input.industry ?? '').toLowerCase();
   if (input.revenueTtm === null) {
     preOperatingLeverageFlag = null;
   } else if (input.revenueTtm < 50_000_000) {
+    // Early-stage: very small revenue → pre-operating leverage by definition
     preOperatingLeverageFlag = true;
   } else if (
     input.revenueTtm < 200_000_000 &&
     input.earningsTtm !== null &&
     input.earningsTtm < 0
+  ) {
+    // Small loss-making company on the path to profitability
+    preOperatingLeverageFlag = true;
+  } else if (
+    // [BUG-CE-003] Large profitable company with operating margin < 15%:
+    // thesis depends on margin expansion. Exclude industries where thin margins are structural
+    // (insurance, managed care, grocery) rather than a temporary operating leverage opportunity.
+    (input.operatingMargin ?? null) !== null &&
+    input.operatingMargin! > 0 &&
+    input.operatingMargin! < 0.15 &&
+    input.revenueTtm > 1_000_000_000 &&
+    input.earningsTtm !== null &&
+    input.earningsTtm > 0 &&
+    !STRUCTURAL_THIN_MARGIN_INDUSTRIES.has(industryLower)
   ) {
     preOperatingLeverageFlag = true;
   } else {
@@ -65,20 +99,23 @@ export interface DeterministicFlagsSyncResult {
   skipped: number;
 }
 
-export async function syncDeterministicClassificationFlags(): Promise<DeterministicFlagsSyncResult> {
+export async function syncDeterministicClassificationFlags(
+  opts: { tickerFilter?: string } = {},
+): Promise<DeterministicFlagsSyncResult> {
   let updated = 0;
   let skipped = 0;
 
   console.log(JSON.stringify({ event: 'deterministic_flags_sync_start' }));
 
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(opts.tickerFilter ? { ticker: opts.tickerFilter } : {}) },
     select: {
       ticker: true,
       industry: true,
       shareCountGrowth3y: true,
       revenueTtm: true,
       earningsTtm: true,
+      operatingMargin: true,
       dataProviderProvenance: true,
     },
   });
@@ -90,6 +127,7 @@ export async function syncDeterministicClassificationFlags(): Promise<Determinis
       shareCountGrowth3y: stock.shareCountGrowth3y !== null ? stock.shareCountGrowth3y.toNumber() : null,
       revenueTtm: stock.revenueTtm !== null ? stock.revenueTtm.toNumber() : null,
       earningsTtm: stock.earningsTtm !== null ? stock.earningsTtm.toNumber() : null,
+      operatingMargin: stock.operatingMargin !== null ? stock.operatingMargin.toNumber() : null,
     };
 
     const flags = computeDeterministicFlags(input);

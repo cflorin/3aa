@@ -83,7 +83,7 @@ export function computeForwardPe(trailingPe: number, epsGrowthFwd: number): numb
 export async function syncForwardEstimates(
   fmpAdapter: VendorAdapter,
   tiingoAdapter: VendorAdapter,
-  options: { now?: Date } = {},
+  options: { now?: Date; tickerFilter?: string } = {},
 ): Promise<ForwardEstimatesSyncResult> {
   const now = options.now ?? new Date();
   const startedAt = now.getTime();
@@ -97,7 +97,7 @@ export async function syncForwardEstimates(
   // - Level 3 guardrail fields: trailingPe (prior run), epsGrowthFwd (prior run), cyclicalityFlag
   // - Ratio computation fields: currentPrice, marketCap, totalDebt, cashAndEquivalents, epsTtm, revenueTtm
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where: { inUniverse: true, ...(options.tickerFilter ? { ticker: options.tickerFilter } : {}) },
     select: {
       ticker: true,
       trailingPe: true,

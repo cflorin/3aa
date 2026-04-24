@@ -121,6 +121,17 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
   };
 }
 
+export async function getUniverseStock(
+  userId: string,
+  ticker: string,
+): Promise<UniverseStockSummary | null> {
+  const row = await prisma.stock.findFirst({
+    where: { ticker: ticker.toUpperCase(), inUniverse: true },
+    select: makeStockSelect(userId),
+  });
+  return row ? mapRow(row) : null;
+}
+
 export async function getMonitoringStatus(userId: string, ticker: string): Promise<boolean> {
   const row = await prisma.userDeactivatedStock.findUnique({
     where: { userId_ticker: { userId, ticker } },
