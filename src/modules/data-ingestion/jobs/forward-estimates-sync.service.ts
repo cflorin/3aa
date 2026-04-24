@@ -169,18 +169,8 @@ export async function syncForwardEstimates(
         ? ev / revenueNtm
         : null;
 
-      // eps_growth_fwd = (eps_ntm − eps_ttm) / |eps_ttm| × 100 (stored as percentage)
-      const epsGrowthFwdComputed = epsNtm != null && epsTtmNum != null && Math.abs(epsTtmNum) > 0.001
-        ? ((epsNtm - epsTtmNum) / Math.abs(epsTtmNum)) * 100
-        : null;
-
-      // revenue_growth_fwd = (revenue_ntm − revenue_ttm) / revenue_ttm × 100 (percentage)
-      // Both revenue_ntm and revenue_ttm are in absolute USD (STORY-028 invariant)
-      const revenueGrowthFwdComputed = revenueNtm != null && revenueTtmNum != null && revenueTtmNum > 0
-        ? ((revenueNtm - revenueTtmNum) / revenueTtmNum) * 100
-        : null;
-
-      // STORY-031: gaap_adjustment_factor = epsTtm (GAAP, from DB) / nonGaapEpsMostRecentFy
+      // STORY-031: gaap_adjustment_factor = epsTtm (GAAP) / nonGaapEpsMostRecentFy (NonGAAP)
+      // Must be computed before eps_growth_fwd so the factor can normalize epsNtm.
       // epsTtmNum is FMP annual epsDiluted for FMP-primary stocks (set by prior fundamentals sync)
       // V1 simplification: date-matching guard skipped (requires extra DB column not in spec)
       const nonGaapEpsMostRecentFy: number | null = estimatesResult.value?.nonGaapEpsMostRecentFy ?? null;
@@ -191,6 +181,27 @@ export async function syncForwardEstimates(
         const raw = epsTtmNum / nonGaapEpsMostRecentFy;
         gaapAdjustmentFactor = Math.max(0.10, Math.min(2.00, raw));
       }
+
+      // [BUG-DI-001] eps_growth_fwd: apply gaapAdjustmentFactor to normalize Non-GAAP NTM EPS
+      // to a GAAP-equivalent basis before comparing against GAAP TTM EPS.
+      // FMP epsAvg (epsNtm) is Non-GAAP analyst consensus; epsTtm is GAAP diluted.
+      // Without adjustment, the GAAP/Non-GAAP spread (often 15–25%) inflates the growth figure.
+      // When factor is unavailable, fall back to raw epsNtm (unadjusted — acceptable for stocks
+      // with minimal GAAP/Non-GAAP difference).
+      const epsNtmGaapEquiv = epsNtm !== null && gaapAdjustmentFactor !== null
+        ? epsNtm * gaapAdjustmentFactor
+        : epsNtm;
+
+      // eps_growth_fwd = (eps_ntm_gaap_equiv − eps_ttm) / |eps_ttm| × 100 (stored as percentage)
+      const epsGrowthFwdComputed = epsNtmGaapEquiv != null && epsTtmNum != null && Math.abs(epsTtmNum) > 0.001
+        ? ((epsNtmGaapEquiv - epsTtmNum) / Math.abs(epsTtmNum)) * 100
+        : null;
+
+      // revenue_growth_fwd = (revenue_ntm − revenue_ttm) / revenue_ttm × 100 (percentage)
+      // Both revenue_ntm and revenue_ttm are in absolute USD (STORY-028 invariant)
+      const revenueGrowthFwdComputed = revenueNtm != null && revenueTtmNum != null && revenueTtmNum > 0
+        ? ((revenueNtm - revenueTtmNum) / revenueTtmNum) * 100
+        : null;
 
       let fwdPeValue: number | null = forwardPeFromProvider;
       let fwdPeProviderUsed: string = estimatesResult.source_provider;
