@@ -5,14 +5,14 @@
 - **PRD:** /docs/prd/PRD.md
 - **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
 - **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23)
-- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in progress)
-- **Validated Stories:** STORY-001 through STORY-053 complete; STORY-052 next
+- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅
+- **Validated Stories:** STORY-001 through STORY-053 all complete
 
 ## Status Summary
-- **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
-- **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
-- **Active Story:** STORY-052 — EPIC-004 End-to-End Tests (next)
-- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041–053 ✅ except STORY-052)
+- **Current Phase:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe (story decomposition required)
+- **Active Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe (planned)
+- **Active Story:** None — EPIC-005 needs story decomposition before any coding
+- **Overall Progress:** 5/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
 ## Status Model
@@ -299,7 +299,7 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-051-classification-override-modal.md`
 
 #### STORY-052 — EPIC-004 End-to-End Tests
-- **Status:** planned
+- **Status:** done ✅ (2026-04-24, integration_verified_real — 37/37 E2E tests passing)
 - **Dependencies:** STORY-041–051 and STORY-053 all complete
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-052-epic-004-e2e-tests.md`
 

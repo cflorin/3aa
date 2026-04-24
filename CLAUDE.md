@@ -7,10 +7,10 @@ This is the 3AA Monitoring Product V1 implementation. This document provides man
 - **Version:** V1.0 (frozen 2026-04-19; amendments below)
 - **PRD:** `/docs/prd/PRD.md`
 - **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
-- **ADRs:** ADR-001 through ADR-012 (accepted; ADR-012 added 2026-04-21)
+- **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23 — scoring weights and confidence thresholds for classification engine)
 - **Validated Epics:** EPIC-001 through EPIC-003.1
 
-## Current State (as of 2026-04-22) — READ THIS FIRST
+## Current State (as of 2026-04-23) — READ THIS FIRST
 
 **Quick orientation for a new Claude session:**
 

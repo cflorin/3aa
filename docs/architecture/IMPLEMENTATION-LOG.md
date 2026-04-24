@@ -8,6 +8,44 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-052: EPIC-004 End-to-End Tests complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-052 — EPIC-004 End-to-End Tests
+**Tasks:** TASK-052-001 through TASK-052-004
+
+**Action:** Implemented full E2E test suite for EPIC-004 using Jest (existing framework; Playwright not installed). Created 5-stock + BIN8_TEST seed fixture with sanitized_real data from `data/universe-snapshot-5.md`. Tests exercise real routes, real classifier, real DB. Batch cron bypasses OIDC in test environment via `NODE_ENV !== 'production'` guard in `scheduler-auth.ts`. 
+
+Key fix: BIN8_TEST initially returned `suggested_code=null` because `NULL_SUGGESTION_THRESHOLD=5` gate at classifier Step 1 fired before binary_flag special case at Step 3 (all 10 critical fields were null → missing=10 > 5). Fix: gave BIN8_TEST 6 non-null critical fields (revenueGrowthFwd, revenueGrowth3y, epsGrowthFwd, epsGrowth3y, fcfConversion, fcfPositive) → missing=4 ≤ 5 → gate passes → binary_flag fires → "8".
+
+**Files Changed:**
+- `tests/e2e/epic-004/fixtures/seed-universe.ts` (created) — 6-stock seed fixture (sanitized_real)
+- `tests/e2e/epic-004/workflow-1-4.test.ts` (created) — 18 tests: W1 classification journey, W2 deactivation, W3 filter+sort, W4 pagination
+- `tests/e2e/epic-004/workflow-5-7.test.ts` (created) — 14 tests: W5 multi-user isolation, W6 batch job trigger, W7 stock detail API
+- `tests/e2e/epic-004/regression-invariants.test.ts` (created) — 5 tests: INV-1 auth guard, INV-2 confidence_level, INV-3 Bucket 8, INV-4 override validation, INV-5 override_scope
+
+**Tests Added:**
+- 37 E2E tests across 3 test files, all passing
+- W1 (5 tests): universe GET → classification GET → POST override → verify → DELETE → revert
+- W2 (3 tests): deactivate → filter inactive → reactivate
+- W3 (6 tests): search, sector filter, sort market_cap desc/asc, healthcare filter, no filter
+- W4 (4 tests): pagination pages differ, total ≥ 6, search reduces total, page 99 empty
+- W5 (4 tests): per-user override isolation verified
+- W6 (5 tests): batch job clears + recomputes all 6 stocks including BIN8_TEST="8"
+- W7 (5 tests): stock detail shape, classification keys, 7 flags, E1-E6, scores.bucket 1-8
+- INV-1–5 (5 tests): auth guard, non-null confidence, Bucket 8, 422 validation, override_scope
+
+**Result:** 37/37 E2E tests passing; 830/830 total tests (793 unit + 37 E2E)
+**Verification level:** integration_verified_real (hit real test DB at localhost:5433)
+**Fixture provenance:** sanitized_real (values from universe-snapshot-5.md, 2026-04-21)
+**Baseline Impact:** NO — test files only; no source changes; no schema changes
+
+**EPIC-004 COMPLETE** — All 13 stories done ✅
+
+**Next Action:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe (story decomposition required first)
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-053: Stock Detail Page complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

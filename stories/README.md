@@ -14,7 +14,7 @@ Complete index of all epics and stories for the 3AA Monitoring Product V1.
 | EPIC-002 | Authentication & User Management | ✅ done | STORY-010–014 (5 stories) |
 | EPIC-003 | Data Ingestion & Universe Management | ✅ done | STORY-015–033 (19 stories) |
 | EPIC-003.1 | Classification LLM Enrichment | ✅ done | STORY-034–040 (7 stories) |
-| EPIC-004 | Classification Engine & Universe Screen | 🔄 in_progress | STORY-041–053 (13 stories) |
+| EPIC-004 | Classification Engine & Universe Screen | ✅ done | STORY-041–053 (13 stories) |
 | EPIC-005 | Valuation Threshold Engine & Enhanced Universe | planned | TBD |
 | EPIC-006 | Monitoring & Alerts Engine with Alerts UI | planned | TBD |
 | EPIC-007 | User Preferences & Settings | planned | TBD |
@@ -101,7 +101,7 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** 🔄 in_progress — STORY-041–051 and STORY-053 done; STORY-052 (E2E tests) planned
+**Status:** ✅ done — All 13 stories complete (2026-04-24)
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
@@ -120,10 +120,10 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-049 | Universe Screen: Filters and Sort | ✅ done |
 | STORY-050 | Monitoring: Deactivate/Reactivate UI | ✅ done |
 | STORY-051 | Classification Override Modal (with history section) | ✅ done |
-| STORY-052 | EPIC-004 End-to-End Tests | planned |
+| STORY-052 | EPIC-004 End-to-End Tests | ✅ done |
 | STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | ✅ done |
 
-**Evidence:** 793/793 unit tests passing (2026-04-24)
+**Evidence:** 830/830 tests passing (793 unit + 37 E2E) (2026-04-24)
 
 ---
 
