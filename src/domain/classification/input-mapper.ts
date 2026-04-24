@@ -5,6 +5,8 @@
 //
 // Growth fields stored as percentages in DB (7.24 = 7.24%) — divide by 100.
 // Ratio/margin/flag fields stored as decimal fractions or booleans — used as-is.
+// [BUG-CE-001] If growth fields are ever inserted as decimals (0.072 instead of 7.2),
+// pct() will produce 0.0007, firing Bucket 1 for all signals. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
 
 import type { ClassificationInput } from './types';
 

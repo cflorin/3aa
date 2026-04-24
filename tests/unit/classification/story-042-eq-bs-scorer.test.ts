@@ -236,6 +236,84 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
     });
   });
 
+  // ─── EQ E2/E3/E4 enrichment rules (BUG-CE-002) ───────────────────────────
+
+  describe('(e2) EQ pricing_power, revenue_recurrence, margin_durability rules', () => {
+    it('[BUG-CE-002] pricing_power_score=4.5 → scores.A += 2, reason strong_pricing_power', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: 4.5 }));
+      expect(r.scores.A).toBeGreaterThanOrEqual(2);
+      expect(r.reason_codes).toContain('strong_pricing_power');
+    });
+
+    it('[BUG-CE-002] pricing_power_score=3.0 → scores.B += 1, reason moderate_pricing_power', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: 3.0 }));
+      expect(r.scores.B).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('moderate_pricing_power');
+    });
+
+    it('[BUG-CE-002] pricing_power_score=2.0 → scores.C += 1, reason weak_pricing_power', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: 2.0 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('weak_pricing_power');
+    });
+
+    it('[BUG-CE-002] pricing_power_score=4.0 boundary → A (strong, not moderate)', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: 4.0 }));
+      expect(r.scores.A).toBe(2);
+      expect(r.scores.B).toBe(0);
+    });
+
+    it('[BUG-CE-002] pricing_power_score=2.5 boundary → B (moderate, not weak)', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: 2.5 }));
+      expect(r.scores.B).toBe(1);
+      expect(r.scores.C).toBe(0);
+    });
+
+    it('[BUG-CE-002] revenue_recurrence_score=4.5 → scores.A += 2, reason strong_revenue_recurrence', () => {
+      const r = EarningsQualityScorer(makeInput({ revenue_recurrence_score: 4.5 }));
+      expect(r.scores.A).toBeGreaterThanOrEqual(2);
+      expect(r.reason_codes).toContain('strong_revenue_recurrence');
+    });
+
+    it('[BUG-CE-002] revenue_recurrence_score=2.0 → scores.C += 1, reason weak_revenue_recurrence', () => {
+      const r = EarningsQualityScorer(makeInput({ revenue_recurrence_score: 2.0 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('weak_revenue_recurrence');
+    });
+
+    it('[BUG-CE-002] margin_durability_score=4.5 → scores.A += 2, reason strong_margin_durability', () => {
+      const r = EarningsQualityScorer(makeInput({ margin_durability_score: 4.5 }));
+      expect(r.scores.A).toBeGreaterThanOrEqual(2);
+      expect(r.reason_codes).toContain('strong_margin_durability');
+    });
+
+    it('[BUG-CE-002] margin_durability_score=3.0 → scores.B += 1, reason moderate_margin_durability', () => {
+      const r = EarningsQualityScorer(makeInput({ margin_durability_score: 3.0 }));
+      expect(r.scores.B).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('moderate_margin_durability');
+    });
+
+    it('[BUG-CE-002] UBER-like input → winner=B (weak FCF context + moderate enrichment signals)', () => {
+      // UBER: fcf_conversion=0.97→A(+3), moat=3.5→B(+1), NI→A(+1)B(+1), pricing=3.0→B(+1), recurrence=2.5→B(+1), margin_dur=3.0→B(+1)
+      const r = EarningsQualityScorer(makeInput({
+        fcf_conversion: 0.97,
+        moat_strength_score: 3.5,
+        net_income_positive: true,
+        pricing_power_score: 3.0,
+        revenue_recurrence_score: 2.5,
+        margin_durability_score: 3.0,
+      }));
+      expect(r.winner).toBe('B');
+    });
+
+    it('[BUG-CE-002] pricing_power_score=null → E2 rule does not fire', () => {
+      const r = EarningsQualityScorer(makeInput({ pricing_power_score: null }));
+      expect(r.reason_codes).not.toContain('strong_pricing_power');
+      expect(r.reason_codes).not.toContain('moderate_pricing_power');
+      expect(r.reason_codes).not.toContain('weak_pricing_power');
+    });
+  });
+
   // ─── BS Scorer ────────────────────────────────────────────────────────────
 
   describe('(f) BS per-rule tests', () => {

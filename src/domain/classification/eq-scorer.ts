@@ -3,12 +3,18 @@
 // TASK-042-002: EarningsQualityScorer implementation
 // ADR-013 §Earnings Quality Scorer Point Weights; RFC-001 §Earnings Quality Scorer
 
+// [BUG-CE-002] pricing_power_score, revenue_recurrence_score, margin_durability_score (E2/E3/E4)
+// were missing from this scorer — implemented below. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
+
 import type { ClassificationInput } from './types';
 import type { GradeScorerOutput } from './types';
 import {
   EQ_FCF_STRONG, EQ_FCF_MODERATE, EQ_FCF_WEAK,
   EQ_MOAT_STRONG, EQ_MOAT_MODERATE, EQ_MOAT_WEAK,
   EQ_NI_POSITIVE,
+  EQ_PRICING_STRONG, EQ_PRICING_MODERATE, EQ_PRICING_WEAK,
+  EQ_RECURRENCE_STRONG, EQ_RECURRENCE_MODERATE, EQ_RECURRENCE_WEAK,
+  EQ_MARGIN_DUR_STRONG, EQ_MARGIN_DUR_MODERATE, EQ_MARGIN_DUR_WEAK,
 } from './scoring-weights';
 
 // Primary EQ fundamental fields tracked for missing_field_count (enrichment scores excluded)
@@ -61,7 +67,49 @@ export function EarningsQualityScorer(input: ClassificationInput): GradeScorerOu
     reason_codes.push('real_earnings');
   }
 
-  // Missing field count (primary fundamentals only; moat is enrichment, not counted)
+  // E2: pricing power — mutually exclusive by range, same thresholds as moat
+  if (input.pricing_power_score !== null && input.pricing_power_score !== undefined) {
+    if (input.pricing_power_score >= 4.0) {
+      scores.A += EQ_PRICING_STRONG;
+      reason_codes.push('strong_pricing_power');
+    } else if (input.pricing_power_score >= 2.5) {
+      scores.B += EQ_PRICING_MODERATE;
+      reason_codes.push('moderate_pricing_power');
+    } else {
+      scores.C += EQ_PRICING_WEAK;
+      reason_codes.push('weak_pricing_power');
+    }
+  }
+
+  // E3: revenue recurrence — mutually exclusive by range
+  if (input.revenue_recurrence_score !== null && input.revenue_recurrence_score !== undefined) {
+    if (input.revenue_recurrence_score >= 4.0) {
+      scores.A += EQ_RECURRENCE_STRONG;
+      reason_codes.push('strong_revenue_recurrence');
+    } else if (input.revenue_recurrence_score >= 2.5) {
+      scores.B += EQ_RECURRENCE_MODERATE;
+      reason_codes.push('moderate_revenue_recurrence');
+    } else {
+      scores.C += EQ_RECURRENCE_WEAK;
+      reason_codes.push('weak_revenue_recurrence');
+    }
+  }
+
+  // E4: margin durability — mutually exclusive by range
+  if (input.margin_durability_score !== null && input.margin_durability_score !== undefined) {
+    if (input.margin_durability_score >= 4.0) {
+      scores.A += EQ_MARGIN_DUR_STRONG;
+      reason_codes.push('strong_margin_durability');
+    } else if (input.margin_durability_score >= 2.5) {
+      scores.B += EQ_MARGIN_DUR_MODERATE;
+      reason_codes.push('moderate_margin_durability');
+    } else {
+      scores.C += EQ_MARGIN_DUR_WEAK;
+      reason_codes.push('weak_margin_durability');
+    }
+  }
+
+  // Missing field count (primary fundamentals only; enrichment scores excluded)
   const missing_field_count = EQ_PRIMARY_FIELDS.reduce((n, f) => {
     const v = input[f];
     return v === null || v === undefined ? n + 1 : n;

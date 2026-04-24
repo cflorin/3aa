@@ -21,6 +21,16 @@ export const EQ_MOAT_STRONG = 2;    // moat_strength_score ≥ 4.0 → +2 to A
 export const EQ_MOAT_MODERATE = 1;  // moat_strength_score [2.5, 4.0) → +1 to B
 export const EQ_MOAT_WEAK = 1;      // moat_strength_score < 2.5 → +1 to C
 export const EQ_NI_POSITIVE = 1;    // net_income_positive = true → +1 to A and +1 to B
+// [BUG-CE-002] E2/E3/E4 enrichment weights — same pattern as moat (STORY-042 gap)
+export const EQ_PRICING_STRONG = 2;      // pricing_power_score ≥ 4.0 → +2 to A
+export const EQ_PRICING_MODERATE = 1;   // pricing_power_score [2.5, 4.0) → +1 to B
+export const EQ_PRICING_WEAK = 1;       // pricing_power_score < 2.5 → +1 to C
+export const EQ_RECURRENCE_STRONG = 2;  // revenue_recurrence_score ≥ 4.0 → +2 to A
+export const EQ_RECURRENCE_MODERATE = 1;// revenue_recurrence_score [2.5, 4.0) → +1 to B
+export const EQ_RECURRENCE_WEAK = 1;    // revenue_recurrence_score < 2.5 → +1 to C
+export const EQ_MARGIN_DUR_STRONG = 2;  // margin_durability_score ≥ 4.0 → +2 to A
+export const EQ_MARGIN_DUR_MODERATE = 1;// margin_durability_score [2.5, 4.0) → +1 to B
+export const EQ_MARGIN_DUR_WEAK = 1;    // margin_durability_score < 2.5 → +1 to C
 
 // BS scorer weights (STORY-042)
 export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda < 1.0 strict → +3 to A

@@ -145,6 +145,76 @@ describe('EPIC-003/STORY-033: computeDeterministicFlags()', () => {
     const r = computeDeterministicFlags({ industry: null, shareCountGrowth3y: null, revenueTtm: 500_000_000, earningsTtm: -10_000_000 });
     expect(r.preOperatingLeverageFlag).toBe(false);
   });
+
+  // ── BUG-CE-003: large-cap operating leverage rule ──────────────────────────
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: TRUE for large profitable company with op margin < 15%', () => {
+    // TSLA-like: $94.8B revenue, $3.8B earnings, 6% operating margin
+    const r = computeDeterministicFlags({
+      industry: 'Auto - Manufacturers',
+      shareCountGrowth3y: null,
+      revenueTtm: 94_800_000_000,
+      earningsTtm: 3_800_000_000,
+      operatingMargin: 0.06,
+    });
+    expect(r.preOperatingLeverageFlag).toBe(true);
+  });
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: TRUE for UBER-like (12% op margin, $52B revenue)', () => {
+    const r = computeDeterministicFlags({
+      industry: 'Software - Application',
+      shareCountGrowth3y: null,
+      revenueTtm: 52_000_000_000,
+      earningsTtm: 10_100_000_000,
+      operatingMargin: 0.12,
+    });
+    expect(r.preOperatingLeverageFlag).toBe(true);
+  });
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: FALSE for healthcare plan (structural thin margins excluded)', () => {
+    // UNH-like: $447.6B revenue, $12.1B earnings, 4% operating margin — excluded by industry
+    const r = computeDeterministicFlags({
+      industry: 'Medical - Healthcare Plans',
+      shareCountGrowth3y: null,
+      revenueTtm: 447_600_000_000,
+      earningsTtm: 12_100_000_000,
+      operatingMargin: 0.04,
+    });
+    expect(r.preOperatingLeverageFlag).toBe(false);
+  });
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: FALSE when op margin >= 15% (already achieved)', () => {
+    const r = computeDeterministicFlags({
+      industry: 'Software - Infrastructure',
+      shareCountGrowth3y: null,
+      revenueTtm: 50_000_000_000,
+      earningsTtm: 10_000_000_000,
+      operatingMargin: 0.20,
+    });
+    expect(r.preOperatingLeverageFlag).toBe(false);
+  });
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: FALSE when op margin <= 0 (unprofitable large-cap)', () => {
+    const r = computeDeterministicFlags({
+      industry: 'Software - Application',
+      shareCountGrowth3y: null,
+      revenueTtm: 50_000_000_000,
+      earningsTtm: -1_000_000_000,
+      operatingMargin: -0.02,
+    });
+    expect(r.preOperatingLeverageFlag).toBe(false);
+  });
+
+  it('[BUG-CE-003] preOperatingLeverageFlag: FALSE when operatingMargin omitted (optional field)', () => {
+    const r = computeDeterministicFlags({
+      industry: 'Software - Application',
+      shareCountGrowth3y: null,
+      revenueTtm: 50_000_000_000,
+      earningsTtm: 5_000_000_000,
+      // operatingMargin not provided → large-cap rule does not fire
+    });
+    expect(r.preOperatingLeverageFlag).toBe(false);
+  });
 });
 
 // ─── syncDeterministicClassificationFlags() ──────────────────────────────────
@@ -169,8 +239,9 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
         ticker: 'AAPL',
         industry: 'Technology',
         shareCountGrowth3y: d(-0.04),    // buybacks → materialDilutionFlag = false
-        revenueTtm: d(400_000_000_000),  // large revenue → preOperatingLeverageFlag = false
+        revenueTtm: d(400_000_000_000),  // large revenue, high margin → preOperatingLeverageFlag = false
         earningsTtm: d(100_000_000_000),
+        operatingMargin: d(0.30),        // 30% op margin → above 15% threshold
         dataProviderProvenance: { existing_key: { provider: 'tiingo' } },
       },
     ]);
@@ -206,6 +277,7 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
         shareCountGrowth3y: null,
         revenueTtm: null,
         earningsTtm: null,
+        operatingMargin: null,
         dataProviderProvenance: {},
       },
     ]);
@@ -224,6 +296,7 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
         shareCountGrowth3y: null,      // materialDilutionFlag = null → NOT written
         revenueTtm: null,              // preOperatingLeverageFlag = null → NOT written
         earningsTtm: null,
+        operatingMargin: null,
         dataProviderProvenance: {},
       },
     ]);
