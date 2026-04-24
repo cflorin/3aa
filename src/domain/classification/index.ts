@@ -57,3 +57,6 @@ export { classifyStock } from './classifier';
 export { persistClassification, getClassificationState, getClassificationHistory } from './persistence';
 export { resolveActiveCode } from './override';
 export type { ActiveCodeResult } from './override';
+export { shouldRecompute } from './recompute';
+export { toClassificationInput, CLASSIFICATION_STOCK_FIELDS } from './input-mapper';
+export type { ClassificationStockRow } from './input-mapper';

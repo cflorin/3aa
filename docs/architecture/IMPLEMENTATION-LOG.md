@@ -8,6 +8,37 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-047: Classification Recompute Batch Job complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-047 — Classification Recompute Batch Job
+**Tasks:** TASK-047-001 through TASK-047-006
+
+**Action:** Implemented the nightly classification batch job. `shouldRecompute()` checks `revenue_growth_fwd`/`eps_growth_fwd` delta >5% and any flag change. `toClassificationInput` production mapper extracts from Prisma stock rows (growth fields /100, ratios as-is). `runClassificationBatch()` iterates all `inUniverse=true` stocks, calls `shouldRecompute` with persisted `input_snapshot` as previous, classifies only changed stocks. Per-stock error isolation: errors logged, batch continues. Replaced `/api/cron/classification` placeholder with real implementation.
+
+**Files Changed:**
+- `src/domain/classification/recompute.ts` (created) — shouldRecompute pure function
+- `src/domain/classification/input-mapper.ts` (created) — toClassificationInput, CLASSIFICATION_STOCK_FIELDS, ClassificationStockRow
+- `src/domain/classification/index.ts` (modified) — exports for shouldRecompute, toClassificationInput, CLASSIFICATION_STOCK_FIELDS, ClassificationStockRow
+- `src/modules/classification-batch/classification-batch.service.ts` (created) — runClassificationBatch, BatchSummary
+- `src/app/api/cron/classification/route.ts` (modified) — placeholder replaced with real implementation
+- `tests/unit/classification/story-047-recompute.test.ts` (created) — 15 unit tests (shouldRecompute pure function)
+- `tests/integration/api/cron/classification.test.ts` (created) — 6 integration tests (first run, idempotency, delta, in_universe=FALSE skip, contract)
+
+**Tests Added/Updated:**
+- Unit: 15 new tests (all passing)
+- Integration: 6 new tests (all passing); dynamically discovers in-universe stock count to avoid hardcoded assumptions
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** Initial integration tests hardcoded 5 stocks; test DB has 6 in-universe stocks (AAPL also present). Fixed by discovering count dynamically in `beforeAll`.
+
+**Baseline Impact:** NO — RFC-001 §Classification Batch Job and §shouldRecompute fully implemented; ADR-008 OIDC auth pattern unchanged
+
+**Next Action:** STORY-048 — Universe Screen: Stock Table
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-046: User Monitoring Preferences API complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen
