@@ -19,6 +19,45 @@ Each entry includes:
 
 ---
 
+## 2026-04-24 UTC - EPIC-004/STORY-042 Complete: EarningsQualityScorer and BalanceSheetQualityScorer
+
+**Epic:** EPIC-004
+**Story:** STORY-042 — Earnings Quality and Balance Sheet Quality Scoring
+**Task:** TASK-042-001 through TASK-042-005 (all complete)
+**Action:** Implemented both quality scorers with all ADR-013 additive rules. Fixed stale comments and typos in scoring-weights.ts and ADR-013. Added 62 unit tests (per-rule, boundary, winner, null, contract, golden-set, determinism) and 6 integration tests against test DB.
+
+**Files Changed:**
+- `src/domain/classification/types.ts` (modified — added `missing_field_count` to GradeScorerOutput)
+- `src/domain/classification/scoring-weights.ts` (modified — fixed 7 comment errors: EQ_FCF_WEAK, EQ_MOAT_WEAK, BS_COVERAGE_STRONG, BS_COVERAGE_MODERATE, BS_COVERAGE_WEAK, BS_DEBT_LOW, BS_NET_CASH_BONUS)
+- `src/domain/classification/eq-scorer.ts` (created — EarningsQualityScorer, 7 rules)
+- `src/domain/classification/bs-scorer.ts` (created — BalanceSheetQualityScorer, 6 rules + net-cash bonus)
+- `src/domain/classification/index.ts` (modified — added EarningsQualityScorer, BalanceSheetQualityScorer exports)
+- `docs/adr/ADR-013-classification-scoring-algorithm-weights.md` (modified — net_debt_ebitda → net_debt_to_ebitda, 4 occurrences)
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (modified — STORY-042 done, STORY-043 ready, active story updated)
+- `stories/README.md` (modified — STORY-042 status updated to done)
+
+**Tests Added:**
+- `tests/unit/classification/story-042-eq-bs-scorer.test.ts` (created — 62 tests, groups a–k)
+- `tests/unit/classification/fixtures/eq-bs-scorer-golden.ts` (created — MSFT/UNH golden-set constants)
+- `tests/integration/classification/eq-bs-scorer.test.ts` (created — 6 integration tests)
+
+**Result/Status:** ✅ Success — 612/612 unit tests passing; 13/13 integration tests passing
+
+**Blockers/Issues:**
+- Prisma integration test initially failed due to missing DATABASE_URL — resolved by loading .env.test
+- Integration test initially used snake_case Prisma field names; fixed to camelCase (Prisma convention)
+
+**Baseline Impact:** NO — all changes within ADR-013 scope; comment/typo fixes only in baseline docs
+
+**Self-validation findings incorporated:**
+- EQ_FCF_WEAK/EQ_MOAT_WEAK comment errors found during self-validation and fixed in TASK-042-001
+- BS_NET_CASH_BONUS boundary: `≤ 0` (not `< 0`) — fixed in scoring-weights.ts and bs-scorer.ts
+- Integration test gap (UNH EQ winner) — added UNH EQ assertion in TASK-042-005
+
+**Next Action:** STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases)
+
+---
+
 ## 2026-04-24 UTC - EPIC-004 Story Decomposition Complete; STORY-041 Task Decomposition Ready
 
 **Epic:** EPIC-004

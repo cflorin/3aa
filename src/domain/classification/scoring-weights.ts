@@ -14,20 +14,20 @@ export const FLAG_PRIMARY = 2;          // pre_operating_leverage_flag → Bucke
 export const ENRICHMENT_BONUS = 1;      // E1/E5/E6 enrichment bonus (threshold ≥ 4.0)
 
 // EQ scorer weights (STORY-042)
-export const EQ_FCF_STRONG = 3;     // fcf_conversion > 0.80
-export const EQ_FCF_MODERATE = 2;   // fcf_conversion 0.50–0.80
-export const EQ_FCF_WEAK = 2;       // fcf_conversion < 0.50 (penalty, applied as negative)
-export const EQ_MOAT_STRONG = 2;    // moat_strength_score ≥ 4.0
-export const EQ_MOAT_MODERATE = 1;  // moat_strength_score 2.5–3.9
-export const EQ_MOAT_WEAK = 1;      // moat_strength_score < 2.5 (penalty)
-export const EQ_NI_POSITIVE = 1;    // net_income_positive = true
+export const EQ_FCF_STRONG = 3;     // fcf_conversion > 0.80 → +3 to A
+export const EQ_FCF_MODERATE = 2;   // fcf_conversion [0.50, 0.80] → +2 to B
+export const EQ_FCF_WEAK = 2;       // fcf_conversion < 0.50 or fcf_positive=false → +2 to C
+export const EQ_MOAT_STRONG = 2;    // moat_strength_score ≥ 4.0 → +2 to A
+export const EQ_MOAT_MODERATE = 1;  // moat_strength_score [2.5, 4.0) → +1 to B
+export const EQ_MOAT_WEAK = 1;      // moat_strength_score < 2.5 → +1 to C
+export const EQ_NI_POSITIVE = 1;    // net_income_positive = true → +1 to A and +1 to B
 
 // BS scorer weights (STORY-042)
-export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda ≤ 1.0 (low leverage)
-export const BS_DEBT_MODERATE = 2;     // net_debt_to_ebitda 1.0–2.5
-export const BS_DEBT_HIGH = 2;         // net_debt_to_ebitda > 2.5 (penalty)
-export const BS_COVERAGE_STRONG = 2;   // interest_coverage > 10×
-export const BS_COVERAGE_MODERATE = 1; // interest_coverage 3–10×
-export const BS_COVERAGE_WEAK = 2;     // interest_coverage < 3× (penalty)
-export const BS_CAPITAL_INTENSITY = 1; // capital_intensity_score ≥ 4.0
-export const BS_NET_CASH_BONUS = 1;    // net_debt_to_ebitda < 0 (net cash position)
+export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda < 1.0 strict → +3 to A
+export const BS_DEBT_MODERATE = 2;     // net_debt_to_ebitda [1.0, 2.5] → +2 to B
+export const BS_DEBT_HIGH = 2;         // net_debt_to_ebitda > 2.5 → +2 to C
+export const BS_COVERAGE_STRONG = 2;   // interest_coverage > 12.0 → +2 to A
+export const BS_COVERAGE_MODERATE = 1; // interest_coverage [5.0, 12.0] → +1 to B
+export const BS_COVERAGE_WEAK = 2;     // interest_coverage < 5.0 → +2 to C
+export const BS_CAPITAL_INTENSITY = 1; // capital_intensity_score ≥ 4.0 → +1 to C
+export const BS_NET_CASH_BONUS = 1;    // net_debt_to_ebitda ≤ 0 (net cash) → +1 to A (stacks with DEBT_LOW)

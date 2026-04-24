@@ -11,8 +11,8 @@
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
 - **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
-- **Active Story:** STORY-042 — Earnings Quality and Balance Sheet Quality Scoring (ready)
-- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041 ✅)
+- **Active Story:** STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases) (ready)
+- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041 ✅, STORY-042 ✅)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
 ## Status Model
@@ -205,7 +205,7 @@
 - **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
 
 ### EPIC-004 — Classification Engine & Universe Screen
-- **Status:** in_progress (STORY-041 ✅ done, STORY-042 active)
+- **Status:** in_progress (STORY-041 ✅ done, STORY-042 ✅ done, STORY-043 active)
 - **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 - **Stories:** STORY-041 through STORY-053 (13 stories — decomposed 2026-04-23/24)
 - **Integration Checkpoint:** Classification engine running, Universe screen functional, Stock Detail screen functional
@@ -225,12 +225,19 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-041-bucket-scoring-algorithm.md`
 
 #### STORY-042 — Earnings Quality and Balance Sheet Quality Scoring
-- **Status:** ready
+- **Status:** ✅ done (2026-04-24)
 - **Dependencies:** STORY-041 (ClassificationInput interface, scoring-weights.ts)
+- **Tasks:** TASK-042-001 through TASK-042-005 — all complete
+  - TASK-042-001 ✅: GradeScorerOutput + missing_field_count; scoring-weights.ts comment fixes; ADR-013 field name fix
+  - TASK-042-002 ✅: EarningsQualityScorer (7 rules, null-safe, winner tie-break A>B>C)
+  - TASK-042-003 ✅: BalanceSheetQualityScorer (6 rules + net-cash bonus, null-safe)
+  - TASK-042-004 ✅: 62 unit tests (groups a–k: per-rule, winner, boundary, null, contract, golden-set, determinism)
+  - TASK-042-005 ✅: 6 integration tests; golden-set fixtures; tracking updated; git commit
+- **Evidence:** 612/612 unit tests + 13 integration tests passing
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-042-earnings-and-balance-sheet-quality-scoring.md`
 
 #### STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases)
-- **Status:** planned
+- **Status:** ready
 - **Dependencies:** STORY-041, STORY-042 (scorers)
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-043-classification-result-assembly.md`
 

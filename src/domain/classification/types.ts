@@ -56,6 +56,7 @@ export interface BucketScorerOutput {
 
 export interface GradeScorerOutput {
   scores: Record<GradeLevel, number>;
-  winner: GradeLevel | null;
+  winner: GradeLevel | null;       // highest-scoring grade; null when all scores = 0
   reason_codes: string[];
+  missing_field_count: number;     // count of scorer-relevant fundamental fields that are null
 }

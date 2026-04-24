@@ -110,7 +110,7 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | Story | Title | Status |
 |-------|-------|--------|
 | STORY-041 | Bucket Scoring Algorithm | ✅ done |
-| STORY-042 | Earnings Quality and Balance Sheet Quality Scoring | ready |
+| STORY-042 | Earnings Quality and Balance Sheet Quality Scoring | ✅ done |
 | STORY-043 | Classification Result Assembly (Tie-Break, Confidence, Special Cases) | planned |
 | STORY-044 | Classification State Persistence and History | planned |
 | STORY-045 | User Classification Override API | planned |
@@ -123,7 +123,7 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-052 | EPIC-004 End-to-End Tests | planned |
 | STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | planned |
 
-**Evidence:** 550/550 unit tests passing + 7 integration tests passing (2026-04-24)
+**Evidence:** 612/612 unit tests passing + 13 integration tests passing (2026-04-24)
 
 ---
 

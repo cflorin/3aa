@@ -43,3 +43,5 @@ export {
 } from './confidence-thresholds';
 
 export { BucketScorer } from './bucket-scorer';
+export { EarningsQualityScorer } from './eq-scorer';
+export { BalanceSheetQualityScorer } from './bs-scorer';
