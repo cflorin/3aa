@@ -3,6 +3,9 @@
 ## Purpose
 This log tracks all implementation actions taken during V1 build. It is append-only in spirit and must be updated continuously. Each significant implementation step must be logged with evidence.
 
+## Log Format
+Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Action** taken · **Files Changed** · **Tests Added/Updated** · **Result/Status** · **Blockers/Issues** · **Baseline Impact** (YES/NO) · **Next Action**
+
 ---
 
 ## 2026-04-24 — EPIC-004/STORY-044: Classification State Persistence complete
@@ -68,20 +71,6 @@ This log tracks all implementation actions taken during V1 build. It is append-o
 **Baseline Impact:** NO
 
 **Next Action:** STORY-044 — Classification State Persistence and History
-
-## Log Format
-Each entry includes:
-- **Timestamp**: ISO 8601 format
-- **Epic**: Epic ID
-- **Story**: Story ID
-- **Task**: Task ID (if applicable)
-- **Action**: What was done
-- **Files Changed**: Paths of files created/modified/deleted
-- **Tests Added/Updated**: Test files changed
-- **Result/Status**: Outcome (success, failure, blocked)
-- **Blockers/Issues**: Any problems encountered
-- **Baseline Impact**: Whether frozen baseline was affected (YES/NO, explain if YES)
-- **Next Action**: What should happen next
 
 ---
 
