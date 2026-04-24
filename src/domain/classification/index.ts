@@ -55,3 +55,5 @@ export { EarningsQualityScorer } from './eq-scorer';
 export { BalanceSheetQualityScorer } from './bs-scorer';
 export { classifyStock } from './classifier';
 export { persistClassification, getClassificationState, getClassificationHistory } from './persistence';
+export { resolveActiveCode } from './override';
+export type { ActiveCodeResult } from './override';

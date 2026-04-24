@@ -95,7 +95,6 @@ model User {
   sessions                  UserSession[]
   monitoredStocks           UserMonitoredStock[]
   classificationOverrides   UserClassificationOverride[]
-  classificationOverridesBy UserClassificationOverride[] @relation("OverriddenBy")
   valuationOverrides        UserValuationOverride[]
   alertPreferences          UserAlertPreferences?
   preferences               UserPreferences?
@@ -378,22 +377,16 @@ model UserMonitoredStock {
   @@map("user_monitored_stocks")
 }
 
+// EPIC-004/STORY-045: Refactored for STORY-045 — RFC-001 §User Override API; ADR-007
 model UserClassificationOverride {
-  userId                 String    @db.Uuid @map("user_id")
-  ticker                 String    @db.VarChar(10)
-  finalBucket            Int?      @map("final_bucket")
-  finalEarningsQuality   String?   @db.Char(1) @map("final_earnings_quality")
-  finalBalanceSheetQuality String? @db.Char(1) @map("final_balance_sheet_quality")
-  finalCode              String    @db.VarChar(5) @map("final_code")
-  overrideReason         String?   @db.Text @map("override_reason")
-  overriddenAt           DateTime  @default(now()) @db.Timestamptz(6) @map("overridden_at")
-  overriddenBy           String?   @db.Uuid @map("overridden_by")
-  createdAt              DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
-  updatedAt              DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  userId         String    @db.Uuid @map("user_id")
+  ticker         String    @db.VarChar(10)
+  finalCode      String    @db.VarChar(5) @map("final_code")
+  overrideReason String    @db.Text @map("override_reason")
+  overriddenAt   DateTime  @default(now()) @db.Timestamptz(6) @map("overridden_at")
 
-  user         User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  stock        Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
-  overriddenByUser User? @relation("OverriddenBy", fields: [overriddenBy], references: [userId])
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
 
   @@id([userId, ticker])
   @@index([userId], name: "idx_user_classification_overrides_user_id")

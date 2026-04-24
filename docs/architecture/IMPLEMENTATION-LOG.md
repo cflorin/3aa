@@ -8,6 +8,39 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-045: User Classification Override API complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-045 — User Classification Override API
+**Tasks:** TASK-045-001 through TASK-045-006
+
+**Action:** Implemented the full user classification override API. Refactored `user_classification_overrides` schema (removed stale columns from RFC-002 v1; simplified to composite PK). Built `resolveActiveCode` domain function (COALESCE: override wins over system), POST upsert route with validation, DELETE route with P2025 → 404, and GET classification route. Unit and integration tests written and passing.
+
+**Files Changed:**
+- `prisma/schema.prisma` (modified) — UserClassificationOverride model stripped to minimal shape (userId, ticker, finalCode, overrideReason, overriddenAt); removed stale columns; User relation updated
+- `prisma/migrations/20260424000002_refactor_user_classification_overrides/migration.sql` (created) — DROP stale columns (final_bucket, final_earnings_quality, final_balance_sheet_quality, overridden_by, created_at, updated_at); SET override_reason NOT NULL
+- `src/domain/classification/override.ts` (created) — ActiveCodeResult interface, resolveActiveCode (parallel fetch of state + override)
+- `src/domain/classification/index.ts` (modified) — barrel exports for resolveActiveCode and ActiveCodeResult
+- `src/app/api/classification-override/route.ts` (created) — POST handler: auth, validate final_code regex `^[1-8]([ABC][ABC])?$`, validate override_reason ≥10 chars, stock existence check, upsert, resolveActiveCode response
+- `src/app/api/classification-override/[ticker]/route.ts` (created) — DELETE handler: auth, delete by composite PK, catch P2025→404, 204
+- `src/app/api/stocks/[ticker]/classification/route.ts` (created) — GET handler: auth, stock existence check, parallel resolveActiveCode + getClassificationState, 200 response
+- `tests/unit/classification/story-045-override.test.ts` (created) — 6 unit tests (mocked Prisma + persistence)
+- `tests/integration/api/classification-override/override.test.ts` (created) — 18 integration tests (10 test groups: auth guard, POST valid, GET round-trip, DELETE revert, DELETE 404, invalid code, short reason, empty reason, unknown ticker, multi-user isolation)
+
+**Tests Added/Updated:**
+- Unit: 6 new tests in story-045-override.test.ts (all passing)
+- Integration: 18 new tests in override.test.ts (all passing)
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — schema refactor aligns with RFC-001 §User Override API; no data lost (column removals were stale RFC-002 v1 artifacts)
+
+**Next Action:** STORY-046 — User Monitoring Preferences API
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-044: Classification State Persistence complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

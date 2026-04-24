@@ -6,12 +6,12 @@
 - **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
 - **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23)
 - **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in progress)
-- **Validated Stories:** STORY-001 through STORY-044 complete; STORY-045 next
+- **Validated Stories:** STORY-001 through STORY-045 complete; STORY-046 next
 
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
 - **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
-- **Active Story:** STORY-045 — User Classification Override API (next)
+- **Active Story:** STORY-046 — User Monitoring Preferences API (next)
 - **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅, STORY-044 ✅)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
@@ -205,7 +205,7 @@
 - **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
 
 ### EPIC-004 — Classification Engine & Universe Screen
-- **Status:** in_progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅, STORY-044 ✅, STORY-045 next)
+- **Status:** in_progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅, STORY-044 ✅, STORY-045 ✅, STORY-046 next)
 - **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 - **Stories:** STORY-041 through STORY-053 (13 stories — decomposed 2026-04-23/24)
 - **Integration Checkpoint:** Classification engine running, Universe screen functional, Stock Detail screen functional
@@ -260,7 +260,8 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-044-classification-state-persistence.md`
 
 #### STORY-045 — User Classification Override API
-- **Status:** planned
+- **Status:** done ✅
+- **Evidence:** 6 unit tests + 18 integration tests passing; domain/classification/override.ts, POST/DELETE/GET routes, schema migration
 - **Dependencies:** STORY-044 (classification_state table)
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-045-user-classification-override-api.md`
 
