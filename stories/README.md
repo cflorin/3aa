@@ -101,7 +101,7 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** 🔄 in_progress — STORY-041, STORY-042, STORY-043, STORY-044, STORY-045, STORY-046, STORY-047 done
+**Status:** 🔄 in_progress — STORY-041, STORY-042, STORY-043, STORY-044, STORY-045, STORY-046, STORY-047, STORY-048 done
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
@@ -116,7 +116,7 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-045 | User Classification Override API | ✅ done |
 | STORY-046 | User Monitoring Preferences API (all-default-monitored, per-user deactivation) | ✅ done |
 | STORY-047 | Classification Recompute Batch Job | ✅ done |
-| STORY-048 | Universe Screen: Stock Table (all in-universe stocks, paginated) | planned |
+| STORY-048 | Universe Screen: Stock Table (all in-universe stocks, paginated) | ✅ done |
 | STORY-049 | Universe Screen: Filters and Sort | planned |
 | STORY-050 | Monitoring: Deactivate/Reactivate UI | planned |
 | STORY-051 | Classification Override Modal (with history section) | planned |
