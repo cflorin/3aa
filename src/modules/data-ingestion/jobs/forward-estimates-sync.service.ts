@@ -274,6 +274,10 @@ export async function syncForwardEstimates(
         updateData.nonGaapEpsFy = nonGaapEpsMostRecentFy;
         provenanceUpdates['non_gaap_eps_fy'] = fmpProvenance;
       }
+      if (gaapEpsCompletedFy !== null) {
+        updateData.gaapEpsCompletedFy = gaapEpsCompletedFy;
+        provenanceUpdates['gaap_eps_completed_fy'] = fmpProvenance;
+      }
 
       // Computed forward ratios
       if (fwdPeValue !== null) {

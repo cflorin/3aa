@@ -47,6 +47,7 @@ export async function GET(
       epsTtm: true,
       epsNtm: true,
       nonGaapEpsFy: true,
+      gaapEpsCompletedFy: true,
       gaapAdjustmentFactor: true,
       // Growth — stored as percentages in DB; divide by 100 for decimal fraction
       revenueGrowthFwd: true,
@@ -143,7 +144,8 @@ export async function GET(
     eps_ntm_non_gaap: num(stock.epsNtm),
     non_gaap_eps_fy: num(stock.nonGaapEpsFy),
     gaap_adjustment_factor: num(stock.gaapAdjustmentFactor),
-    // GAAP-equivalent NTM EPS = epsNtm × factor (what the growth denominator sees)
+    gaap_eps_fy: num(stock.gaapEpsCompletedFy),   // FMP income statement epsDiluted — factor numerator
+    // GAAP-equivalent NTM EPS = epsNtm × factor (what the growth numerator sees)
     eps_ntm_gaap_equiv:
       stock.epsNtm !== null && stock.gaapAdjustmentFactor !== null
         ? num(stock.epsNtm)! * num(stock.gaapAdjustmentFactor)!

@@ -57,6 +57,7 @@ interface DetailResponse {
   eps_ttm_gaap: number | null;
   eps_ntm_non_gaap: number | null;
   non_gaap_eps_fy: number | null;
+  gaap_eps_fy: number | null;
   gaap_adjustment_factor: number | null;
   eps_ntm_gaap_equiv: number | null;
   // Fundamentals
@@ -804,6 +805,10 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                 label="EPS last FY (Non-GAAP)"
                 value={detail.non_gaap_eps_fy !== null ? `$${detail.non_gaap_eps_fy.toFixed(2)}` : '—'}
                 color={T.textDim}
+              />
+              <MetricRow
+                label="EPS last FY (GAAP)"
+                value={detail.gaap_eps_fy !== null ? `$${detail.gaap_eps_fy.toFixed(2)}` : '—'}
               />
               <MetricRow
                 label="GAAP Adj Factor"

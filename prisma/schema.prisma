@@ -185,7 +185,10 @@ model Stock {
   nonGaapEarningsFy    Decimal? @db.Decimal(20, 2) @map("non_gaap_earnings_fy")
   // Non-GAAP EPS for most recently completed FY (FMP epsAvg for past entries). Used in gaap_adjustment_factor.
   nonGaapEpsFy         Decimal? @db.Decimal(10, 4) @map("non_gaap_eps_fy")
-  // STORY-031: GAAP/non-GAAP adjustment factor = GAAP epsDiluted / non-GAAP analyst consensus epsAvg
+  // STORY-031/BUG-DI-001: GAAP epsDiluted from FMP income statement for the same completed FY as nonGaapEpsFy.
+  // Source data for gaapAdjustmentFactor — stored so it can be audited independently of the factor.
+  gaapEpsCompletedFy   Decimal? @db.Decimal(10, 4) @map("gaap_eps_completed_fy")
+  // STORY-031: GAAP/non-GAAP adjustment factor = gaapEpsCompletedFy / nonGaapEpsFy
   gaapAdjustmentFactor Decimal? @db.Decimal(5, 4)  @map("gaap_adjustment_factor")
 
   // EPIC-003.1: STORY-039 — LLM qualitative enrichment scores (E1–E6); half-integer precision 1.0–5.0
