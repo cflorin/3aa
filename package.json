@@ -17,7 +17,9 @@
     "db:test:down": "docker-compose -f docker-compose.test.yml down",
     "test": "jest --testPathPatterns='tests/unit' --passWithNoTests",
     "test:integration": "dotenv -e .env.test -- jest --testPathPatterns='tests/integration' --runInBand --forceExit",
-    "test:all": "npm run test && npm run test:integration"
+    "test:all": "npm run test && npm run test:integration",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:async": "bash scripts/deploy.sh --async"
   },
   "prisma": {
     "seed": "./node_modules/.bin/ts-node --project tsconfig.seed.json prisma/seed.ts"
