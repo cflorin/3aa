@@ -2,15 +2,16 @@
 // STORY-048: Universe Screen — Stock Table
 // TASK-048-002: StockTable — 13-column table with metric color-coding and row navigation
 // STORY-049: Added optional sort/dir/onSort props for column sorting
+// STORY-050: Replaced MonitoringBadge with MonitoringToggle; added inactive row muting
 // PRD §Screen 2 columns; RFC-003 §Universe Screen
 
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ClassificationBadge from './ClassificationBadge';
 import ConfidenceBadge from './ConfidenceBadge';
-import MonitoringBadge from './MonitoringBadge';
+import MonitoringToggle from './MonitoringToggle';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 
 // ── Metric color helpers ────────────────────────────────────────────────────
@@ -79,23 +80,10 @@ const TD: React.CSSProperties = {
 
 type SortDir = 'asc' | 'desc';
 
-interface SortableColumn {
-  key: string;
-  label: string;
-  align?: 'left' | 'right';
-}
-
-const SORTABLE: SortableColumn[] = [
-  { key: 'ticker', label: 'Ticker' },
-  { key: 'market_cap', label: 'Market Cap', align: 'right' },
-  { key: 'revenue_growth_fwd', label: 'Rev Growth Fwd', align: 'right' },
-  { key: 'eps_growth_fwd', label: 'EPS Growth Fwd', align: 'right' },
-  { key: 'fcf_conversion', label: 'FCF Conv', align: 'right' },
-  { key: 'net_debt_to_ebitda', label: 'Net Debt/EBITDA', align: 'right' },
-  { key: 'operating_margin', label: 'Op Margin', align: 'right' },
-];
-
-const SORTABLE_KEYS = new Set(SORTABLE.map(c => c.key));
+const SORTABLE_KEYS = new Set([
+  'ticker', 'market_cap', 'revenue_growth_fwd', 'eps_growth_fwd',
+  'fcf_conversion', 'net_debt_to_ebitda', 'operating_margin',
+]);
 
 function sortIcon(colKey: string, sort: string, dir: SortDir): string {
   if (colKey !== sort) return ' ↕';
@@ -118,6 +106,20 @@ export default function StockTable({
   onSort,
 }: StockTableProps) {
   const router = useRouter();
+
+  // Optimistic monitoring state overlay — tracks local toggle changes per ticker
+  const [rowActiveState, setRowActiveState] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(stocks.map(s => [s.ticker, s.is_active])),
+  );
+
+  // Re-sync when a new page/filter load arrives
+  useEffect(() => {
+    setRowActiveState(Object.fromEntries(stocks.map(s => [s.ticker, s.is_active])));
+  }, [stocks]);
+
+  function handleMonitoringStateChange(ticker: string, newIsActive: boolean) {
+    setRowActiveState(prev => ({ ...prev, [ticker]: newIsActive }));
+  }
 
   function handleHeaderClick(colKey: string) {
     if (!onSort || !SORTABLE_KEYS.has(colKey)) return;
@@ -209,57 +211,67 @@ export default function StockTable({
           </tr>
         </thead>
         <tbody>
-          {stocks.map((s) => (
-            <tr
-              key={s.ticker}
-              onClick={() => router.push(`/stocks/${s.ticker}`)}
-              style={{ cursor: 'pointer' }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLTableRowElement).style.backgroundColor = '#f0fdf4';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLTableRowElement).style.backgroundColor = '';
-              }}
-            >
-              <td style={{ ...TD, fontWeight: 700, fontFamily: 'monospace', color: '#111827' }}>
-                {s.ticker}
-              </td>
-              <td style={{ ...TD, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {s.company_name}
-              </td>
-              <td style={{ ...TD, color: '#6b7280' }}>
-                {s.sector ?? '—'}
-              </td>
-              <td style={TD}>
-                <ClassificationBadge code={s.active_code} />
-              </td>
-              <td style={TD}>
-                <ConfidenceBadge confidence={s.confidence_level} />
-              </td>
-              <td style={{ ...TD, color: '#9ca3af' }}>—</td>
-              <td style={{ ...TD, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtMcap(s.market_cap)}
-              </td>
-              <td style={TD}>
-                <MonitoringBadge isActive={s.is_active} />
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: growthColor(s.revenue_growth_fwd), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.revenue_growth_fwd)}
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: growthColor(s.eps_growth_fwd), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.eps_growth_fwd)}
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: fcfConvColor(s.fcf_conversion), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.fcf_conversion)}
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: netDebtColor(s.net_debt_to_ebitda), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtRatio(s.net_debt_to_ebitda)}
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: growthColor(s.operating_margin), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.operating_margin)}
-              </td>
-            </tr>
-          ))}
+          {stocks.map((s) => {
+            const isActive = rowActiveState[s.ticker] ?? s.is_active;
+            return (
+              <tr
+                key={s.ticker}
+                onClick={() => router.push(`/stocks/${s.ticker}`)}
+                style={{
+                  cursor: 'pointer',
+                  opacity: isActive ? 1 : 0.6,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLTableRowElement).style.backgroundColor = '#f0fdf4';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLTableRowElement).style.backgroundColor = '';
+                }}
+              >
+                <td style={{ ...TD, fontWeight: 700, fontFamily: 'monospace', color: '#111827' }}>
+                  {s.ticker}
+                </td>
+                <td style={{ ...TD, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {s.company_name}
+                </td>
+                <td style={{ ...TD, color: '#6b7280' }}>
+                  {s.sector ?? '—'}
+                </td>
+                <td style={TD}>
+                  <ClassificationBadge code={s.active_code} />
+                </td>
+                <td style={TD}>
+                  <ConfidenceBadge confidence={s.confidence_level} />
+                </td>
+                <td style={{ ...TD, color: '#9ca3af' }}>—</td>
+                <td style={{ ...TD, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtMcap(s.market_cap)}
+                </td>
+                <td style={TD}>
+                  <MonitoringToggle
+                    ticker={s.ticker}
+                    isActive={isActive}
+                    onStateChange={handleMonitoringStateChange}
+                  />
+                </td>
+                <td style={{ ...TD, textAlign: 'right', color: growthColor(s.revenue_growth_fwd), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtPct(s.revenue_growth_fwd)}
+                </td>
+                <td style={{ ...TD, textAlign: 'right', color: growthColor(s.eps_growth_fwd), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtPct(s.eps_growth_fwd)}
+                </td>
+                <td style={{ ...TD, textAlign: 'right', color: fcfConvColor(s.fcf_conversion), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtPct(s.fcf_conversion)}
+                </td>
+                <td style={{ ...TD, textAlign: 'right', color: netDebtColor(s.net_debt_to_ebitda), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtRatio(s.net_debt_to_ebitda)}
+                </td>
+                <td style={{ ...TD, textAlign: 'right', color: growthColor(s.operating_margin), fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtPct(s.operating_margin)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

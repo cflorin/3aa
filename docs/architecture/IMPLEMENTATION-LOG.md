@@ -50,6 +50,37 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-050: Monitoring Deactivate/Reactivate UI complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-050 — Monitoring: Deactivate/Reactivate UI
+**Tasks:** TASK-050-001 through TASK-050-004
+
+**Action:** Created `MonitoringToggle` component with per-row deactivate/reactivate controls. Deactivation requires inline confirmation (Confirm/Cancel); reactivation is immediate. All button clicks call `e.stopPropagation()` to prevent row navigation. Optimistic update pattern: `onStateChange` called before fetch; reverts via `onStateChange` on API error with error message shown. Updated `StockTable` to use `MonitoringToggle` in place of the static badge, added `rowActiveState: Record<string, boolean>` overlay (lazy-initialized from `stocks` prop, re-synced on filter/page change via `useEffect`), and applied `opacity: isActive ? 1 : 0.6` to inactive rows. Full unit test coverage for toggle (10/10) and updated StockTable tests (10/10 including 2 new opacity tests).
+
+**Files Changed:**
+- `src/components/universe/MonitoringToggle.tsx` (created) — deactivate/reactivate toggle with confirmation, optimistic update, error revert
+- `src/components/universe/StockTable.tsx` (modified) — replaced static badge with MonitoringToggle, rowActiveState overlay, inactive row opacity
+- `tests/unit/components/MonitoringToggle.test.tsx` (created) — 10 unit tests
+- `tests/unit/components/StockTable.test.tsx` (modified) — global.fetch mock added, 2 new opacity tests
+
+**Tests Added/Updated:**
+- Unit: 10 new MonitoringToggle tests (button visibility, confirm flow, cancel, fetch calls, API error + revert, propagation stop, loading state) — all 10 pass
+- Unit: 2 new StockTable opacity tests — all 10 StockTable tests pass
+- Regression: 736/736 total unit tests pass (0 regressions)
+
+**Result/Status:** DONE ✅
+
+**Verification levels:** unit_verified (MonitoringToggle, StockTable opacity)
+
+**Blockers/Issues:** None — pre-existing TypeScript errors in data-ingestion module (not introduced by STORY-050)
+
+**Baseline Impact:** NO — per RFC-003 §Monitor List Management UI; ADR-007 optimistic update pattern
+
+**Next Action:** STORY-051 — Classification Override Modal (with history section)
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-048: Universe Screen Stock Table complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

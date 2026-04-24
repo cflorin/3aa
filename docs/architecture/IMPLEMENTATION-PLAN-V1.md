@@ -6,13 +6,13 @@
 - **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
 - **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23)
 - **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in progress)
-- **Validated Stories:** STORY-001 through STORY-049 complete; STORY-050 next
+- **Validated Stories:** STORY-001 through STORY-050 complete; STORY-051 next
 
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
 - **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
-- **Active Story:** STORY-050 — Monitoring: Deactivate/Reactivate UI (next)
-- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041–049 ✅)
+- **Active Story:** STORY-051 — Classification Override Modal (next)
+- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041–050 ✅)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
 ## Status Model

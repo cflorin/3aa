@@ -4,12 +4,16 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-048: Universe Screen — Stock Table
 // TASK-048-003: Unit tests — StockTable component
+// STORY-050: Added tests for inactive row muting (opacity)
 // PRD §Screen 2; RFC-003 §Universe Screen
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
+
+// Mock fetch — MonitoringToggle makes fetch calls on user interaction only
+global.fetch = jest.fn().mockResolvedValue({ ok: true });
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -103,5 +107,22 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     // Multiple "—" cells expected (Zone + any null metrics)
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // ── STORY-050: Inactive row muting ─────────────────────────────────────────
+
+  it('inactive row (is_active=false) has opacity 0.6', () => {
+    render(<StockTable stocks={[makeStock({ is_active: false, ticker: 'MSFT' })]} />);
+    const rows = screen.getAllByRole('row');
+    const dataRow = rows[1]; // first data row
+    expect(dataRow).toHaveStyle('opacity: 0.6');
+  });
+
+  it('active row (is_active=true) has full opacity (not 0.6)', () => {
+    render(<StockTable stocks={[makeStock({ is_active: true, ticker: 'MSFT' })]} />);
+    const rows = screen.getAllByRole('row');
+    const dataRow = rows[1];
+    // Should not have opacity: 0.6 — either no opacity set or opacity: 1
+    expect(dataRow).not.toHaveStyle('opacity: 0.6');
   });
 });
