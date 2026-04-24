@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-041: Bucket Scoring Algorithm
 // TASK-041-001: ClassificationInput interface and BucketScorerOutput interface
+// STORY-043: TASK-043-001: ClassificationResult, ConfidenceStep, TieBreakRecord interfaces
 // RFC-001 §ClassificationResult; ADR-013 (scoring weights); ADR-014 (confidence thresholds)
 
 // All numeric fields stored as decimal fractions (0.10 = 10%). Mirrors Prisma @map() names.
@@ -59,4 +60,44 @@ export interface GradeScorerOutput {
   winner: GradeLevel | null;       // highest-scoring grade; null when all scores = 0
   reason_codes: string[];
   missing_field_count: number;     // count of scorer-relevant fundamental fields that are null
+}
+
+// One entry per ADR-014 confidence derivation step; populated for every classifyStock call
+export interface ConfidenceStep {
+  step: number;
+  label: string;
+  note: string;
+  band: 'high' | 'medium' | 'low';
+  tieBreaks?: number;
+  missing?: number;
+}
+
+// Records a single tie-break evaluation that fired during classifyStock
+export interface TieBreakRecord {
+  rule: string;                           // e.g. "3v4", "4v5"
+  description: string;                    // human-readable explanation
+  winner: number | string;               // resolved bucket number
+  condition: string;                      // text of the deciding condition
+  values: Record<string, number | null>; // actual input values tested
+  outcome: string;                        // e.g. "Bucket 4 chosen: strong FCF and ROIC"
+  marginAtTrigger: number;               // BucketScorer margin when this rule fired
+}
+
+// Final output of classifyStock — consumed by STORY-044 persistence
+// RFC-001 §ClassificationResult; ADR-014 §Confidence Computation
+export interface ClassificationResult {
+  suggested_code: string | null;                // "4AA", "8", or null when data too sparse
+  bucket: BucketNumber | null;                  // null only when missing_field_count > 5
+  eq_grade: GradeLevel | null;                  // null for Bucket 8 or all-null EQ input
+  bs_grade: GradeLevel | null;                  // null for Bucket 8 or all-null BS input
+  confidence_level: 'high' | 'medium' | 'low'; // NEVER null (ADR-014 §Confidence invariant)
+  reason_codes: string[];                       // union of all scorer + tie-break + flag codes
+  scores: {
+    bucket: Record<BucketNumber, number>;
+    eq: Record<GradeLevel, number>;
+    bs: Record<GradeLevel, number>;
+  };
+  missing_field_count: number;
+  confidenceBreakdown: { steps: ConfidenceStep[] }; // always ≥ 1 step
+  tieBreaksFired: TieBreakRecord[];               // empty array (never null) when no tie-breaks
 }

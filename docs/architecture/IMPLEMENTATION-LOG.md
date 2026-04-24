@@ -3,6 +3,42 @@
 ## Purpose
 This log tracks all implementation actions taken during V1 build. It is append-only in spirit and must be updated continuously. Each significant implementation step must be logged with evidence.
 
+---
+
+## 2026-04-24 — EPIC-004/STORY-043: Classification Result Assembly complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases)
+**Tasks:** TASK-043-001 through TASK-043-004
+
+**Action:** Implemented classifyStock — the top-level orchestrator that combines BucketScorer, EarningsQualityScorer, and BalanceSheetQualityScorer into a ClassificationResult with tie-break resolution, special-case overrides, confidence computation, and suggested_code assembly.
+
+**Files Changed:**
+- `src/domain/classification/types.ts` (modified) — added ConfidenceStep, TieBreakRecord, ClassificationResult interfaces; added missing_field_count to GradeScorerOutput
+- `src/domain/classification/confidence-thresholds.ts` (modified) — added HIGH_MARGIN_THRESHOLD=4, MEDIUM_MARGIN_THRESHOLD=2
+- `src/domain/classification/classifier.ts` (created) — classifyStock, resolveTieBreaks, computeConfidence
+- `src/domain/classification/index.ts` (modified) — barrel exports for new types and classifyStock
+- `docs/adr/ADR-013-classification-scoring-algorithm-weights.md` (modified) — fixed net_debt_ebitda→net_debt_to_ebitda (4 occurrences)
+- `tests/unit/classification/story-043-classify-stock.test.ts` (created) — 44 unit tests (tie-breaks, overrides, confidence, contract, determinism, golden-set)
+- `tests/unit/classification/fixtures/classify-stock-golden.ts` (created) — ClassifyGolden fixtures for MSFT/ADBE/TSLA/UBER/UNH
+- `tests/integration/classification/classify-stock.test.ts` (created) — 5 integration tests against test DB
+
+**Tests Added/Updated:**
+- Unit: 44 new tests in story-043-classify-stock.test.ts (all passing)
+- Integration: 5 new tests in classify-stock.test.ts (all passing)
+- Total: 656/656 unit tests + 18/18 integration tests passing
+
+**Result/Status:** DONE ✅
+
+**Blockers/Issues:** 5 unit test input constructs required revision:
+  - B4/B5 tie with flag=true: BucketScorer's FLAG_PRIMARY rule makes B5 win outright (margin=2); no tie-break fires — test assertion corrected
+  - B6/B7 tests: profitability fields (fcf_positive, ni_positive, fcf_conversion) contaminated B3/B4 causing spurious 4v5 and 3v4 tie-breaks — removed from TIE_BASE; used rev_fwd=0.21 (>B5_MAX=0.20) to isolate B6
+  - margin=3 test: original input yielded margin=4 (eps signals added to both B4 and B5 equally) — revised to use fcf_conversion=0.40 (below FCF_CONVERSION_THRESHOLD=0.50, set but no signal)
+
+**Baseline Impact:** NO
+
+**Next Action:** STORY-044 — Classification State Persistence and History
+
 ## Log Format
 Each entry includes:
 - **Timestamp**: ISO 8601 format

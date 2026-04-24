@@ -9,6 +9,9 @@ export type {
   GradeLevel,
   BucketScorerOutput,
   GradeScorerOutput,
+  ConfidenceStep,
+  TieBreakRecord,
+  ClassificationResult,
 } from './types';
 
 export {
@@ -40,8 +43,11 @@ export {
 export {
   CRITICAL_FIELDS,
   NULL_SUGGESTION_THRESHOLD,
+  HIGH_MARGIN_THRESHOLD,
+  MEDIUM_MARGIN_THRESHOLD,
 } from './confidence-thresholds';
 
 export { BucketScorer } from './bucket-scorer';
 export { EarningsQualityScorer } from './eq-scorer';
 export { BalanceSheetQualityScorer } from './bs-scorer';
+export { classifyStock } from './classifier';

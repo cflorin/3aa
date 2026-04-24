@@ -27,3 +27,10 @@ export const CRITICAL_FIELDS = [
 // When missing_field_count > NULL_SUGGESTION_THRESHOLD → suggested_code = null, confidence = 'low'
 // ADR-014 §Null-Suggestion Threshold: "missing_field_count > 5"
 export const NULL_SUGGESTION_THRESHOLD = 5;
+
+// Score margin thresholds for confidence computation (ADR-014 §Step 2)
+// margin ≥ HIGH_MARGIN_THRESHOLD → 'high' base confidence
+export const HIGH_MARGIN_THRESHOLD = 4;
+
+// margin ≥ MEDIUM_MARGIN_THRESHOLD (and < HIGH) → 'medium' base confidence
+export const MEDIUM_MARGIN_THRESHOLD = 2;
