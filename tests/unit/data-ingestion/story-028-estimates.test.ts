@@ -184,6 +184,32 @@ describe('EPIC-003/STORY-028/TASK-028-005: syncForwardEstimates() ratio computat
     expect(Number(updateCall.data.epsGrowthFwd)).toBeCloseTo((7.20 - 6.13) / 6.13 * 100, 2);
   });
 
+  it('[BUG-DI-001] does NOT apply adjustment when factor > 1.0 (GAAP > NonGAAP — period mismatch or one-time gain)', async () => {
+    // MSFT-like: Tiingo CY epsTtm=$16.05 > FMP FY NonGAAP consensus=$13.42 → factor=1.196
+    // Applying factor upward would inflate forward estimate; cap at 1.0 → use raw epsNtm
+    (mockPrisma.stock.findMany as jest.Mock).mockResolvedValue([{
+      ...AAPL_ROW,
+      epsTtm: 16.05,
+      revenueTtm: 270_000_000_000,
+    }]);
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL', eps_ntm: 18.97, ebit_ntm: null, revenue_ntm: null,
+        nonGaapEpsMostRecentFy: 13.42,  // factor = 16.05/13.42 = 1.196 > 1.0 → not applied
+      },
+      source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+
+    // Factor >1.0 → no adjustment → growth = (18.97 - 16.05) / 16.05 * 100 ≈ 18.2%
+    const expected = (18.97 - 16.05) / 16.05 * 100;
+    expect(Number(updateCall.data.epsGrowthFwd)).toBeCloseTo(expected, 1);
+    // Must NOT be the inflated value ≈ 41.4%
+    expect(Number(updateCall.data.epsGrowthFwd)).toBeLessThan(25);
+  });
+
   it('computes revenue_growth_fwd = (revenue_ntm - revenue_ttm) / revenue_ttm * 100 (percentage)', async () => {
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: { ticker: 'AAPL', eps_ntm: null, ebit_ntm: null, revenue_ntm: 415000000000 },

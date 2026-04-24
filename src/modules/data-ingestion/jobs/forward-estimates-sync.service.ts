@@ -186,10 +186,17 @@ export async function syncForwardEstimates(
       // to a GAAP-equivalent basis before comparing against GAAP TTM EPS.
       // FMP epsAvg (epsNtm) is Non-GAAP analyst consensus; epsTtm is GAAP diluted.
       // Without adjustment, the GAAP/Non-GAAP spread (often 15–25%) inflates the growth figure.
-      // When factor is unavailable, fall back to raw epsNtm (unadjusted — acceptable for stocks
-      // with minimal GAAP/Non-GAAP difference).
-      const epsNtmGaapEquiv = epsNtm !== null && gaapAdjustmentFactor !== null
-        ? epsNtm * gaapAdjustmentFactor
+      //
+      // Factor is capped at 1.0 (downward adjustment only). Factor > 1.0 means GAAP TTM > Non-GAAP
+      // consensus, which indicates either (a) a period mismatch between epsTtm source (Tiingo, CY)
+      // and FMP fiscal-year estimates, or (b) a one-time GAAP gain in the base period. In both cases
+      // applying an upward adjustment to forward estimates is wrong — fall back to raw epsNtm.
+      // V1 simplification: date-matching guard not implemented (see docs/bugs/DATA-INGESTION-BUG-REGISTRY.md BUG-DI-001).
+      const effectiveFactor = gaapAdjustmentFactor !== null && gaapAdjustmentFactor < 1.0
+        ? gaapAdjustmentFactor
+        : null;
+      const epsNtmGaapEquiv = epsNtm !== null && effectiveFactor !== null
+        ? epsNtm * effectiveFactor
         : epsNtm;
 
       // eps_growth_fwd = (eps_ntm_gaap_equiv − eps_ttm) / |eps_ttm| × 100 (stored as percentage)

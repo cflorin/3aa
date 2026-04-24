@@ -64,20 +64,27 @@ STORY-031 built `gaapAdjustmentFactor = epsTtm / nonGaapEpsMostRecentFy` precise
 ### Fix
 
 1. Move `gaapAdjustmentFactor` computation before `epsGrowthFwdComputed`.
-2. Apply the factor to normalize `epsNtm` to GAAP-equivalent before computing growth:
+2. Apply the factor **only when < 1.0** (downward normalization only). Factor > 1.0 indicates
+   either a period mismatch (e.g. Tiingo CY epsTtm vs FMP FY estimates) or a one-time GAAP gain —
+   in both cases inflating forward estimates is wrong.
 
 ```typescript
-// Apply GAAP adjustment factor to convert Non-GAAP NTM analyst EPS to GAAP-equivalent.
-// gaapAdjustmentFactor = epsTtm(GAAP) / nonGaapEpsMostRecentFy(NonGAAP)
-// When null (factor not available), fall back to raw epsNtm (no adjustment applied).
-const epsNtmGaapEquiv = epsNtm !== null && gaapAdjustmentFactor !== null
-  ? epsNtm * gaapAdjustmentFactor
-  : epsNtm;
-const epsGrowthFwdComputed = epsNtmGaapEquiv != null && epsTtmNum != null && Math.abs(epsTtmNum) > 0.001
-  ? ((epsNtmGaapEquiv - epsTtmNum) / Math.abs(epsTtmNum)) * 100
-  : null;
+// Only apply when factor < 1.0 (Non-GAAP > GAAP — the normal case).
+// Factor > 1.0: GAAP > NonGAAP consensus, likely period mismatch (Tiingo CY vs FMP FY) — skip.
+const effectiveFactor = gaapAdjustmentFactor !== null && gaapAdjustmentFactor < 1.0
+  ? gaapAdjustmentFactor : null;
+const epsNtmGaapEquiv = epsNtm !== null && effectiveFactor !== null
+  ? epsNtm * effectiveFactor : epsNtm;
 ```
 
 ### Evidence post-fix
 
-ADBE re-synced 2026-04-24: `epsGrowthFwd` = **13.02%** (previously 36.98%)
+ADBE re-synced 2026-04-24: `epsGrowthFwd` = **13.0%** (factor 0.825 applied — Non-GAAP premium normalized)  
+MSFT re-synced 2026-04-24: `epsGrowthFwd` = **18.2%** (factor 1.196 > 1.0 — capped, no upward inflation)
+
+### Residual limitation
+
+`epsTtm` for non-December FY companies (MSFT: June 30) may come from Tiingo CY data while
+`nonGaapEpsFy` comes from FMP FY estimates — misaligned windows. A proper date-matching guard
+(V1 simplification: skipped) would fix this definitively by ensuring both values reference the
+same fiscal period.
