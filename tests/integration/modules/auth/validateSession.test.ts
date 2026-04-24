@@ -5,7 +5,7 @@
 
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { validateSession } from '../../../../src/modules/auth/auth.service';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const TEST_EMAIL = 'integration-validate-session@test.local';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;

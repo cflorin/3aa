@@ -9,7 +9,7 @@
 // All test isolation uses a dedicated test ticker that is cleaned up per test.
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { GET } from '../../../../src/app/api/stocks/[ticker]/detail/route';
 

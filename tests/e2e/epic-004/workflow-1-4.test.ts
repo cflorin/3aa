@@ -7,7 +7,7 @@
 // Requires: test DB at DATABASE_URL (NODE_ENV=test)
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   seedUniverse, cleanupUniverse, prisma,
   STOCK_TICKERS,

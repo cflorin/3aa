@@ -15,7 +15,7 @@ jest.mock('@/infrastructure/database/prisma', () => ({
   },
 }));
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
   compare: jest.fn(),
 }));
 
@@ -28,7 +28,7 @@ jest.mock('@/modules/auth/rate-limiter', () => ({
 
 import { signIn } from '@/modules/auth/auth.service';
 import { prisma } from '@/infrastructure/database/prisma';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import * as rateLimiter from '@/modules/auth/rate-limiter';
 
 const mockFindUnique = prisma.user.findUnique as jest.Mock;

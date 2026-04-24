@@ -8,7 +8,7 @@
 // Batch cron OIDC bypass: verifySchedulerToken returns early when NODE_ENV !== 'production'
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   seedUniverse, cleanupUniverse, clearClassificationState, prisma,
   BUCKET8_TICKER,

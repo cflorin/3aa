@@ -5,7 +5,7 @@
 // PRD §9A: Admin-assisted password reset (no self-service)
 
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/infrastructure/database/prisma';
 import { validateAdminApiKey } from '@/lib/admin-auth';
 

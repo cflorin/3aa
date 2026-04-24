@@ -6,7 +6,7 @@
 // PRD §9A: Admin-controlled account provisioning
 
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/infrastructure/database/prisma';
 import { validateAdminApiKey } from '@/lib/admin-auth';
 

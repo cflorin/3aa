@@ -6,7 +6,7 @@
 // Requires: test DB at DATABASE_URL; MSFT must exist in stocks table
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { PUT } from '../../../../src/app/api/stocks/[ticker]/monitoring/route';
 import { GET } from '../../../../src/app/api/universe/route';

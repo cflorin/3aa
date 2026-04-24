@@ -4,7 +4,7 @@
 // ADR-011: idempotent sign-out; batch cleanup strictly deletes lt:expiresAt only
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { POST } from '../../../../src/app/api/auth/signout/route';
 import { cleanupExpiredSessions } from '../../../../src/modules/auth/cleanup.service';

@@ -16,7 +16,7 @@ jest.mock('@/infrastructure/database/prisma', () => ({
   },
 }));
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
   hash: jest.fn(),
 }));
 
@@ -24,7 +24,7 @@ import { POST } from '@/app/api/admin/users/route';
 import { PATCH as patchPassword } from '@/app/api/admin/users/[userId]/password/route';
 import { PATCH as patchActive } from '@/app/api/admin/users/[userId]/active/route';
 import { prisma } from '@/infrastructure/database/prisma';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const mockUserCreate = prisma.user.create as jest.Mock;
 const mockUserUpdate = prisma.user.update as jest.Mock;

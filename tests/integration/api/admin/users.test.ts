@@ -4,7 +4,7 @@
 // ADR-011: Full creation flow, auth gate, bcrypt verification, deactivation, error paths
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { POST } from '../../../../src/app/api/admin/users/route';
 import { PATCH as patchPassword } from '../../../../src/app/api/admin/users/[userId]/password/route';

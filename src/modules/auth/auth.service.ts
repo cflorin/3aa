@@ -6,7 +6,7 @@
 // RFC-002: user_sessions schema (sessionId, userId, expiresAt, ipAddress, userAgent, lastActivityAt)
 // PRD §9A: 7-day sessions; generic error for all failure cases; expired/inactive → null
 
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/infrastructure/database/prisma';
 import { isRateLimited, recordFailedAttempt, resetRateLimit } from './rate-limiter';
 

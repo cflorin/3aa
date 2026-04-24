@@ -11,7 +11,7 @@
 //   INV-5: override_scope === "display_only" always present in classification response
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   seedUniverse, cleanupUniverse, prisma, BUCKET8_TICKER,
 } from './fixtures/seed-universe';

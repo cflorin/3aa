@@ -5,7 +5,7 @@
 // Satisfies STORY-010 cross-story AC: "deactivated user blocked at sign-in"
 
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../../../src/infrastructure/database/prisma';
 import { POST } from '../../../../src/app/api/auth/signin/route';
 import { clearAll } from '../../../../src/modules/auth/rate-limiter';
