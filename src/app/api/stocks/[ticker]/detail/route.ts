@@ -13,6 +13,8 @@ import { validateSession } from '@/modules/auth/auth.service';
 import { getClassificationState } from '@/domain/classification/persistence';
 import { resolveActiveCode } from '@/domain/classification/override';
 
+const TICKER_RE = /^[A-Z0-9.]{1,10}$/i;
+
 const num = (v: unknown): number | null =>
   v !== null && v !== undefined ? Number(v) : null;
 
@@ -30,6 +32,12 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { ticker } = await params;
+
+  if (!ticker || !TICKER_RE.test(ticker)) {
+    return NextResponse.json({ error: 'Invalid ticker' }, { status: 400 });
+  }
+
+  try {
 
   const stock = await prisma.stock.findUnique({
     where: { ticker },
@@ -184,4 +192,9 @@ export async function GET(
     pre_operating_leverage_flag: stock.preOperatingLeverageFlag ?? null,
     material_dilution_flag: stock.materialDilutionFlag ?? null,
   });
+
+  } catch (err) {
+    console.error('[detail/route] Unhandled error for ticker', ticker, err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

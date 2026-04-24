@@ -9,6 +9,7 @@ import { validateSession } from '@/modules/auth/auth.service';
 import { getClassificationHistory } from '@/domain/classification/persistence';
 
 const HISTORY_LIMIT = 10;
+const TICKER_RE = /^[A-Z0-9.]{1,10}$/i;
 
 export async function GET(
   req: NextRequest,
@@ -22,17 +23,26 @@ export async function GET(
 
   const { ticker } = await params;
 
-  const stock = await prisma.stock.findUnique({ where: { ticker }, select: { ticker: true } });
-  if (!stock) return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
+  if (!ticker || !TICKER_RE.test(ticker)) {
+    return NextResponse.json({ error: 'Invalid ticker' }, { status: 400 });
+  }
 
-  const rows = await getClassificationHistory(ticker, HISTORY_LIMIT);
+  try {
+    const stock = await prisma.stock.findUnique({ where: { ticker }, select: { ticker: true } });
+    if (!stock) return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
 
-  return NextResponse.json({
-    ticker,
-    history: rows.map((r) => ({
-      classified_at: r.classified_at,
-      previous_code: r.old_suggested_code,
-      suggested_code: r.new_suggested_code,
-    })),
-  });
+    const rows = await getClassificationHistory(ticker, HISTORY_LIMIT);
+
+    return NextResponse.json({
+      ticker,
+      history: rows.map((r) => ({
+        classified_at: r.classified_at,
+        previous_code: r.old_suggested_code,
+        suggested_code: r.new_suggested_code,
+      })),
+    });
+  } catch (err) {
+    console.error('[classification/history] Unhandled error for ticker', ticker, err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

@@ -224,6 +224,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [notInUniverse, setNotInUniverse] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('classification');
   const [showOverrideModal, setShowOverrideModal] = useState(false);
@@ -240,9 +241,15 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotFound(false);
     setNotInUniverse(false);
     try {
       const res = await fetch(`/api/stocks/${ticker}/detail`);
+      if (res.status === 400) {
+        setNotFound(true);
+        setDetail(null);
+        return;
+      }
       if (res.status === 404) {
         setNotInUniverse(true);
         setDetail(null);
@@ -297,6 +304,37 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: T.textDim }}>
         Loading stock data…
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div
+        data-testid="not-found-state"
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', flex: 1, padding: '3rem 2rem', gap: 16,
+        }}
+      >
+        <div style={{ fontSize: 32, color: T.textDim }}>?</div>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: T.text }}>
+          Ticker not found
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: T.textMuted }}>
+          <span style={{ fontFamily: 'var(--font-dm-mono, monospace)', color: T.accent }}>{ticker}</span>
+          {' '}does not exist in the system.
+        </p>
+        <button
+          onClick={() => router.push('/universe')}
+          style={{
+            marginTop: 8, fontSize: 12, padding: '7px 16px', borderRadius: 4,
+            border: `1px solid ${T.border}`, background: 'transparent',
+            color: T.accent, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          ← Back to Universe
+        </button>
       </div>
     );
   }
