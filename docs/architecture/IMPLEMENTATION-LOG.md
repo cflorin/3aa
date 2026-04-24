@@ -8,6 +8,46 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-24 — EPIC-004/STORY-053: Stock Detail Page complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-053 — Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History)
+**Tasks:** TASK-053-001 through TASK-053-004
+
+**Action:** Implemented the full-page Stock Detail Screen at `/stocks/[ticker]`. Built comprehensive `GET /api/stocks/[ticker]/detail` endpoint returning all 4-tab data in a single call. Created 5 sub-components (`ScoreBar`, `ConfidenceSteps`, `TieBreakList`, `FlagPill`, `StarRating`) in `src/components/stock-detail/`. Built `StockDetailClient` — 4-tab client component (Classification with bucket/EQ/BS score bars, confidence derivation chain, tie-break analysis, input snapshot, E1–E6 star ratings, override section; Fundamentals with all growth/margin/quality/BS metrics + 7 flag pills; Valuation placeholder; History tab with lazy-loaded timeline). Reuses STORY-051 `ClassificationModal` for override editing. Back navigation to `/universe`.
+
+**Data notes (V1 gaps documented in code):**
+- `net_margin` not in V1 schema — `fcf_margin` exposed instead
+- Standalone `enterprise_value` / `ev_ebitda` not in schema — `forward_ev_ebit` exposed instead
+
+**Files Changed:**
+- `src/app/api/stocks/[ticker]/detail/route.ts` (created) — GET /api/stocks/[ticker]/detail
+- `src/app/(authenticated)/stocks/[ticker]/page.tsx` (created) — Next.js server component
+- `src/components/stock-detail/ScoreBar.tsx` (created)
+- `src/components/stock-detail/ConfidenceSteps.tsx` (created)
+- `src/components/stock-detail/TieBreakList.tsx` (created)
+- `src/components/stock-detail/FlagPill.tsx` (created)
+- `src/components/stock-detail/StarRating.tsx` (created)
+- `src/components/stock-detail/StockDetailClient.tsx` (created) — 4-tab client component
+- `tests/unit/components/StockDetail.test.tsx` (created) — 35 unit tests
+- `tests/integration/api/stocks/stock-detail.test.ts` (created) — 7 integration tests
+- `stories/README.md` (modified) — STORY-053 status → done
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` (modified) — STORY-053 done, active → STORY-052
+
+**Tests Added:**
+- 35 unit tests — ScoreBar (4), ConfidenceSteps (3), TieBreakList (2), FlagPill (5), StarRating (5), StockDetailClient (16)
+- 7 integration tests — 401 no session, 401 invalid session, 404 unknown ticker, 404 out-of-universe, 200 shape contract, confidenceBreakdown/tieBreaksFired keys, graceful skip when test DB empty
+
+**Result:** 793/793 unit tests passing (up from 758); 0 regressions
+**Verification level:** unit_verified
+**Fixture provenance:** synthetic (test fixtures hand-crafted; no real stock data)
+**Unverified:** integration tests not run against real DB (pre-existing FK issue: MSFT not seeded in test DB — same as STORY-044/045/046/051)
+**Baseline Impact:** NO — additive API endpoint + UI page only; no schema changes; no existing route modified
+
+**Next Action:** STORY-052 — EPIC-004 End-to-End Tests
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-049: Universe Screen: Filters and Sort complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

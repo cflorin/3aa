@@ -101,7 +101,7 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** 🔄 in_progress — STORY-041, STORY-042, STORY-043, STORY-044, STORY-045, STORY-046, STORY-047, STORY-048 done
+**Status:** 🔄 in_progress — STORY-041–051 and STORY-053 done; STORY-052 (E2E tests) planned
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
@@ -121,9 +121,9 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-050 | Monitoring: Deactivate/Reactivate UI | ✅ done |
 | STORY-051 | Classification Override Modal (with history section) | ✅ done |
 | STORY-052 | EPIC-004 End-to-End Tests | planned |
-| STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | planned |
+| STORY-053 | Stock Detail Page (4-tab drill-down: Classification, Fundamentals, Valuation, History) | ✅ done |
 
-**Evidence:** 758/758 unit tests passing + 37 new integration tests passing (2026-04-24)
+**Evidence:** 793/793 unit tests passing (2026-04-24)
 
 ---
 

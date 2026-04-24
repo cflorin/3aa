@@ -6,13 +6,13 @@
 - **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
 - **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23)
 - **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in progress)
-- **Validated Stories:** STORY-001 through STORY-051 complete; STORY-052 next
+- **Validated Stories:** STORY-001 through STORY-053 complete; STORY-052 next
 
 ## Status Summary
 - **Current Phase:** EPIC-004 — Classification Engine & Universe Screen
 - **Active Epic:** EPIC-004 — Classification Engine & Universe Screen (in progress)
 - **Active Story:** STORY-052 — EPIC-004 End-to-End Tests (next)
-- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041–051 ✅)
+- **Overall Progress:** 4/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅); EPIC-004 in progress (STORY-041–053 ✅ except STORY-052)
 - **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
 
 ## Status Model
@@ -304,8 +304,15 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-052-epic-004-e2e-tests.md`
 
 #### STORY-053 — Stock Detail Page
-- **Status:** planned
+- **Status:** done ✅ (2026-04-24, unit_verified)
 - **Dependencies:** STORY-043, STORY-044, STORY-045, STORY-048, STORY-051
+- **Tasks:**
+  - TASK-053-001 ✅: GET /api/stocks/[ticker]/detail — comprehensive single-call endpoint; all 4-tab data; 7 flags; E1–E6; 404 for unknown/out-of-universe
+  - TASK-053-002 ✅: 5 sub-components — ScoreBar, ConfidenceSteps, TieBreakList, FlagPill, StarRating
+  - TASK-053-003 ✅: /stocks/[ticker] page + StockDetailClient — 4 tabs; back nav; override modal reuse
+  - TASK-053-004 ✅: 35 unit tests + 7 integration tests; 793/793 passing; 0 regressions
+- **Evidence:** 793/793 unit tests passing (2026-04-24); unit_verified
+- **V1 data gaps (documented):** net_margin → fcf_margin; enterprise_value/ev_ebitda → forward_ev_ebit
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-053-stock-detail-page.md`
 
 ### EPIC-005 — Valuation Threshold Engine & Enhanced Universe
