@@ -109,6 +109,7 @@ export default function AddStockModal({ onClose, onAdded }: Props) {
       // Consume SSE stream
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
+      let completed = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -116,17 +117,31 @@ export default function AddStockModal({ onClose, onAdded }: Props) {
         const text = decoder.decode(value, { stream: true });
         parseSSELines(text, (evt) => {
           if (evt.stage === 'done') {
+            completed = true;
             if (evt.result) onAdded(evt.result);
             onClose();
           } else if (evt.stage === 'error') {
-            setErrorStage(evt.failedStage ?? 'unknown');
-            setErrorMessage(evt.message ?? 'Pipeline failed. Please try again.');
-            setStatus('error');
+            completed = true;
+            if (evt.failedStage === 'validate') {
+              // Validation failure — show inline on the form so user can correct the ticker
+              setValidationError(evt.message ?? 'Ticker not found.');
+              setStatus('idle');
+            } else {
+              setErrorStage(evt.failedStage ?? 'unknown');
+              setErrorMessage(evt.message ?? 'Pipeline failed. Please try again.');
+              setStatus('error');
+            }
           } else if (evt.step !== undefined && evt.label) {
             setCurrentStep(evt.step);
             setCurrentLabel(evt.label);
           }
         });
+      }
+
+      // Stream closed without a done/error event — surface a generic error
+      if (!completed) {
+        setErrorMessage('Connection lost. Please try again.');
+        setStatus('error');
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Network error. Please try again.');
