@@ -144,6 +144,7 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
       value: {
         ticker: 'AAPL', eps_ntm: 8.49, ebit_ntm: 155769099889, revenue_ntm: 415000000000,
         nonGaapEpsMostRecentFy: 7.20, nonGaapEpsFiscalYearEnd: '2023-09-30',
+        gaapEpsCompletedFy: 6.13,     // FMP income statement — same FY as nonGaapEpsMostRecentFy
         nonGaapEarningsMostRecentFy: 100000000000, nonGaapEarningsNtm: 115000000000,
         ntmFiscalYearEnd: '2024-09-30',
       },
@@ -162,7 +163,7 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
     expect(updateCall.data.epsNtm).toBe(8.49);
     // forwardPe = 213.49 / 8.49 ≈ 25.15
     expect(Number(updateCall.data.forwardPe)).toBeCloseTo(213.49 / 8.49, 2);
-    // STORY-031: gaapAdjustmentFactor = epsTtm(6.13) / nonGaapEps(7.20) ≈ 0.8514
+    // STORY-031: gaapAdjustmentFactor = gaapEpsCompletedFy(6.13) / nonGaapEps(7.20) ≈ 0.8514
     expect(Number(updateCall.data.gaapAdjustmentFactor)).toBeCloseTo(6.13 / 7.20, 4);
   });
 

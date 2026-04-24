@@ -118,6 +118,10 @@ export interface ForwardEstimates {
   nonGaapEpsMostRecentFy: number | null;
   /** Fiscal year end date for nonGaapEpsMostRecentFy — ISO string. STORY-031. */
   nonGaapEpsFiscalYearEnd: string | null;
+  /** GAAP diluted EPS from FMP income statement for the same completed fiscal year as
+   *  nonGaapEpsMostRecentFy. Used as the GAAP base in gaapAdjustmentFactor so both sides
+   *  of the ratio are from the same source and the same fiscal period (period consistency fix). */
+  gaapEpsCompletedFy: number | null;
   /** Non-GAAP consensus net income (FMP netIncomeAvg) for the most recently completed fiscal year. */
   nonGaapEarningsMostRecentFy: number | null;
   /** Non-GAAP consensus net income (FMP netIncomeAvg) for the NTM fiscal year. */

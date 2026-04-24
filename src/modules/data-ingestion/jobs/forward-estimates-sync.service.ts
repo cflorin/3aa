@@ -169,34 +169,25 @@ export async function syncForwardEstimates(
         ? ev / revenueNtm
         : null;
 
-      // STORY-031: gaap_adjustment_factor = epsTtm (GAAP) / nonGaapEpsMostRecentFy (NonGAAP)
-      // Must be computed before eps_growth_fwd so the factor can normalize epsNtm.
-      // epsTtmNum is FMP annual epsDiluted for FMP-primary stocks (set by prior fundamentals sync)
-      // V1 simplification: date-matching guard skipped (requires extra DB column not in spec)
+      // STORY-031 / [BUG-DI-001] gaap_adjustment_factor — period-consistent computation.
+      // Both numerator (GAAP epsDiluted) and denominator (NonGAAP epsAvg) are from FMP's own data
+      // for the same completed fiscal year, eliminating period mismatches caused by Tiingo providing
+      // calendar-year TTM data for non-December fiscal year companies (e.g. MSFT June FY).
       const nonGaapEpsMostRecentFy: number | null = estimatesResult.value?.nonGaapEpsMostRecentFy ?? null;
+      const gaapEpsCompletedFy: number | null = estimatesResult.value?.gaapEpsCompletedFy ?? null;
       const nonGaapEarningsMostRecentFy: number | null = estimatesResult.value?.nonGaapEarningsMostRecentFy ?? null;
       const nonGaapEarningsNtm: number | null = estimatesResult.value?.nonGaapEarningsNtm ?? null;
       let gaapAdjustmentFactor: number | null = null;
-      if (epsTtmNum !== null && nonGaapEpsMostRecentFy !== null && Math.abs(nonGaapEpsMostRecentFy) >= 0.10) {
-        const raw = epsTtmNum / nonGaapEpsMostRecentFy;
+      if (gaapEpsCompletedFy !== null && nonGaapEpsMostRecentFy !== null && Math.abs(nonGaapEpsMostRecentFy) >= 0.10) {
+        const raw = gaapEpsCompletedFy / nonGaapEpsMostRecentFy;
         gaapAdjustmentFactor = Math.max(0.10, Math.min(2.00, raw));
       }
 
-      // [BUG-DI-001] eps_growth_fwd: apply gaapAdjustmentFactor to normalize Non-GAAP NTM EPS
-      // to a GAAP-equivalent basis before comparing against GAAP TTM EPS.
-      // FMP epsAvg (epsNtm) is Non-GAAP analyst consensus; epsTtm is GAAP diluted.
-      // Without adjustment, the GAAP/Non-GAAP spread (often 15–25%) inflates the growth figure.
-      //
-      // Factor is capped at 1.0 (downward adjustment only). Factor > 1.0 means GAAP TTM > Non-GAAP
-      // consensus, which indicates either (a) a period mismatch between epsTtm source (Tiingo, CY)
-      // and FMP fiscal-year estimates, or (b) a one-time GAAP gain in the base period. In both cases
-      // applying an upward adjustment to forward estimates is wrong — fall back to raw epsNtm.
-      // V1 simplification: date-matching guard not implemented (see docs/bugs/DATA-INGESTION-BUG-REGISTRY.md BUG-DI-001).
-      const effectiveFactor = gaapAdjustmentFactor !== null && gaapAdjustmentFactor < 1.0
-        ? gaapAdjustmentFactor
-        : null;
-      const epsNtmGaapEquiv = epsNtm !== null && effectiveFactor !== null
-        ? epsNtm * effectiveFactor
+      // [BUG-DI-001] Apply gaapAdjustmentFactor to normalize Non-GAAP NTM EPS to GAAP-equivalent.
+      // With period-consistent factor (both sides FMP, same fiscal year), no cap is needed:
+      // the factor now correctly represents the true GAAP/NonGAAP basis difference.
+      const epsNtmGaapEquiv = epsNtm !== null && gaapAdjustmentFactor !== null
+        ? epsNtm * gaapAdjustmentFactor
         : epsNtm;
 
       // eps_growth_fwd = (eps_ntm_gaap_equiv − eps_ttm) / |eps_ttm| × 100 (stored as percentage)

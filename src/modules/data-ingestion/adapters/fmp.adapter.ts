@@ -327,9 +327,15 @@ export class FMPAdapter implements VendorAdapter {
    * - revenue_ntm: NTM revenue in absolute USD (FMP estimatedRevenueAvg — no /1_000_000)
    */
   async fetchForwardEstimates(ticker: string): Promise<ForwardEstimates | null> {
-    const raw = await this.fmpFetch(
-      `/analyst-estimates?symbol=${encodeURIComponent(ticker)}&period=annual`,
-    ) as Record<string, unknown>[] | null;
+    const encoded = encodeURIComponent(ticker);
+
+    // Fetch analyst estimates and income statement in parallel.
+    // Income statement is needed to get GAAP epsDiluted for the same completed fiscal year
+    // as the NonGAAP analyst consensus — ensures period-consistent gaapAdjustmentFactor.
+    const [raw, incomeRaw] = await Promise.all([
+      this.fmpFetch(`/analyst-estimates?symbol=${encoded}&period=annual`) as Promise<Record<string, unknown>[] | null>,
+      this.fmpFetch(`/income-statement?symbol=${encoded}&period=annual&limit=5`) as Promise<Record<string, unknown>[] | null>,
+    ]);
 
     if (!Array.isArray(raw) || raw.length === 0) {
       return null;
@@ -371,10 +377,29 @@ export class FMPAdapter implements VendorAdapter {
     const nonGaapEarningsMostRecentFy = mostRecentCompletedFy?.netIncomeAvg != null
       ? Number(mostRecentCompletedFy.netIncomeAvg) : null;
 
+    // GAAP epsDiluted from FMP income statement for the same fiscal year as mostRecentCompletedFy.
+    // This ensures the gaapAdjustmentFactor uses the same source and the same period on both sides
+    // (NonGAAP = FMP analyst estimates FY, GAAP = FMP income statement FY — period-consistent).
+    // The income statement date may not exactly match the estimates date (fiscal year boundary
+    // rounding differences) — match by finding the closest entry within a 90-day window.
+    let gaapEpsCompletedFy: number | null = null;
+    if (mostRecentCompletedFy && Array.isArray(incomeRaw) && incomeRaw.length > 0) {
+      const completedDate = new Date(String(mostRecentCompletedFy.date)).getTime();
+      const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+      const matchingEntry = incomeRaw.find(
+        e => Math.abs(new Date(String(e.date)).getTime() - completedDate) <= ninetyDays,
+      );
+      if (matchingEntry?.epsDiluted != null) {
+        gaapEpsCompletedFy = Number(matchingEntry.epsDiluted);
+      }
+    }
+
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
       ticker,
       ntm_date: String(ntmEntry.date),
+      completed_fy_date: nonGaapEpsFiscalYearEnd,
+      gaap_eps_completed_fy: gaapEpsCompletedFy,
       num_analysts: ntmEntry.numAnalystsEps ?? null,
     }));
 
@@ -386,6 +411,7 @@ export class FMPAdapter implements VendorAdapter {
       nonGaapEarningsNtm,
       nonGaapEpsMostRecentFy,
       nonGaapEpsFiscalYearEnd,
+      gaapEpsCompletedFy,
       nonGaapEarningsMostRecentFy,
       ntmFiscalYearEnd: String(ntmEntry.date),
     };
