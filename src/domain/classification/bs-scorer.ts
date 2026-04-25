@@ -1,7 +1,9 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-042: Earnings Quality and Balance Sheet Quality Scoring
 // TASK-042-003: BalanceSheetQualityScorer implementation
+// STORY-067: Quarterly dilution trend enhancement (material_dilution_trend_flag, sbc_burden_score)
 // ADR-013 §Balance Sheet Scorer Point Weights; RFC-001 §Balance Sheet Quality Scorer
+// RFC-001 Amendment 2026-04-25 (quarterly dilution trend; coexistence period)
 
 import type { ClassificationInput } from './types';
 import type { GradeScorerOutput } from './types';
@@ -9,6 +11,7 @@ import {
   BS_DEBT_LOW, BS_DEBT_MODERATE, BS_DEBT_HIGH,
   BS_COVERAGE_STRONG, BS_COVERAGE_MODERATE, BS_COVERAGE_WEAK,
   BS_CAPITAL_INTENSITY, BS_NET_CASH_BONUS,
+  BS_DILUTION_TREND, BS_SBC_BURDEN,
 } from './scoring-weights';
 
 // Primary BS fundamental fields tracked for missing_field_count (enrichment scores excluded)
@@ -59,6 +62,22 @@ export function BalanceSheetQualityScorer(input: ClassificationInput): GradeScor
     if (input.capital_intensity_score >= 4.0) {
       scores.C += BS_CAPITAL_INTENSITY;
       reason_codes.push('high_capital_intensity');
+    }
+  }
+
+  // ── Quarterly dilution trend signals (STORY-067) ───────────────────────────────────────────
+  // When quarters_available >= 4: prefer trend-based dilution flag over point-in-time.
+  // RFC-008 §Balance Sheet Scorer coexistence period — old material_dilution_flag not removed.
+  const tm = input.trend_metrics;
+  if (tm != null && (tm.quartersAvailable ?? 0) >= 4) {
+    if (tm.materialDilutionTrendFlag === true) {
+      scores.C += BS_DILUTION_TREND;
+      reason_codes.push('material_dilution_trend');
+    }
+    const sbcBurden = tm.sbcBurdenScore ?? null;
+    if (sbcBurden !== null && sbcBurden > 0.50) {
+      scores.C += BS_SBC_BURDEN;
+      reason_codes.push('high_sbc_burden');
     }
   }
 

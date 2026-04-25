@@ -8,6 +8,56 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-25 — EPIC-004/STORY-066–072: Quarterly History Classification Engine Integration — complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Stories:** STORY-066 (EQ Quarterly Signals), STORY-067 (BS Dilution Trend), STORY-068 (Bucket Acceleration Tie-Break), STORY-069 (Confidence Step 5 Trajectory Penalty), STORY-070 (Universe Screen Trend Columns), STORY-071 (Stock Detail Quarterly History), STORY-072 (Regression Tests)
+
+**Action:** Full implementation of quarterly history integration into classification engine and UI.
+
+STORY-066: EQ scorer quarterly/proxy branching. When `quartersAvailable >= 4`, quarterly path fires `earningsQualityTrendScore` (>0.30 → eq_trend_positive, <-0.30 → eq_trend_negative), `deterioratingCashConversionFlag` (→ deteriorating_cash_conversion), `operatingLeverageEmergingFlag` (→ operating_leverage_emerging). Proxy path (eps_declining, spread) retained as fallback. Fixed field name bug: `earnings_quality_trend_score` → `earningsQualityTrendScore` in eq-scorer.ts.
+
+STORY-067: BS scorer quarterly dilution trend signals when `quartersAvailable >= 4`: `materialDilutionTrendFlag` → +BS_DILUTION_TREND(2) to C; `sbcBurdenScore > 0.50` → +BS_SBC_BURDEN(1) to C. RFC-008 coexistence: old `material_dilution_flag` not removed.
+
+STORY-068: Bucket scorer acceleration tie-break. `operatingIncomeAccelerationFlag = true` when `quartersAvailable >= 4` → +1 to Bucket 4 and Bucket 5. Reason code: `op_income_acceleration_tiebreak`.
+
+STORY-069: Confidence Step 5 (trajectory quality penalty) inserted between Step 4 and final. New logic: `quartersAvailable < 4` → force LOW; `4–7` → cap MEDIUM; `stability_score < 0.40` → degrade; `deteriorating_cfo + eq IN [A,B]` → degrade; `eq_trend_score < -0.50` → degrade. When `trend_metrics` absent → Step 5 skipped, final is Step 5 (backward compatible). Final step renumbered to Step 6 when trend_metrics present.
+
+STORY-070: Universe screen quarterly trend columns. Extended `UniverseStockSummary` with optional `trend?: UniverseTrendMetrics`. Extended `getUniverseStocks` with `includeTrend`, `eqTrendMin/Max`, `dilutionFlagOnly`, `minQuartersAvailable` options. Extended `/api/universe` GET route with `?include=trend` and trend filter/sort params. Extended `StockTable` with 4 togglable trend columns (OpMgn Slope, EQ Trend, Dilution Flag, Qtrs). Extended `FilterBar` with trend filter section (EQ preset, dilution flag, quarters filter, column chooser). Extended `UniversePageClient` with `visibleTrendColumns` state and `handleToggleTrendColumn`.
+
+STORY-071: New `GET /api/stocks/[ticker]/quarterly-history` endpoint returns `{quarters: QuarterRow[], derived: DerivedMetricsSummary | null}`. Added collapsible "Quarterly Financial History" section to `StockDetailClient` — collapsed by default, lazy-loaded on expand.
+
+STORY-072: Created `tests/integration/quarterly-history-classification.test.ts` — 28 coherence and regression tests covering: positive scenario, negative scenario, graceful degradation (all scorers identical without trend_metrics), shouldRecompute quarterly trigger, all 5 confidence trajectory penalty conditions, original classification contract preserved.
+
+Also fixed pre-existing TypeScript error in `quarterly-history-sync.service.ts`: replaced `Record<string, unknown>` + cast with proper `Prisma.StockWhereInput`.
+
+**Files Changed:**
+- `src/domain/classification/eq-scorer.ts` (modified — quarterly/proxy branching; bug fix: earningsQualityTrendScore)
+- `src/domain/classification/bs-scorer.ts` (modified — quarterly dilution trend signals)
+- `src/domain/classification/bucket-scorer.ts` (modified — acceleration tie-break)
+- `src/domain/classification/classifier.ts` (modified — confidence Step 5 trajectory penalty; computeConfidence signature extended)
+- `src/domain/monitoring/monitoring.ts` (modified — UniverseTrendMetrics, includeTrend option, trend filters/sort)
+- `src/app/api/universe/route.ts` (modified — trend params, sort fields)
+- `src/app/api/stocks/[ticker]/quarterly-history/route.ts` (created — STORY-071 endpoint)
+- `src/components/universe/StockTable.tsx` (modified — trend columns)
+- `src/components/universe/FilterBar.tsx` (modified — trend filters + column chooser)
+- `src/components/universe/UniversePageClient.tsx` (modified — trend column state, fetch wiring)
+- `src/components/stock-detail/StockDetailClient.tsx` (modified — quarterly history section)
+- `src/modules/data-ingestion/jobs/quarterly-history-sync.service.ts` (modified — TS error fix)
+- `tests/unit/classification/story-066-eq-quarterly-signals.test.ts` (created — 30 tests)
+- `tests/unit/classification/story-067-bs-dilution-trend.test.ts` (created — 20 tests)
+- `tests/unit/classification/story-068-bucket-acceleration-tiebreak.test.ts` (created — 14 tests)
+- `tests/unit/classification/story-069-confidence-trajectory-penalty.test.ts` (created — 28 tests)
+- `tests/integration/quarterly-history-classification.test.ts` (created — 28 tests)
+
+**Tests Added/Updated:** +120 tests (92 unit + 28 integration)
+**Result/Status:** ✅ DONE — 1077 tests passing (1049 unit + 28 integration); TypeScript compiles clean
+**Blockers/Issues:** None
+**Baseline Impact:** YES — RFC-001 Amendment 2026-04-25 implemented (confidence Step 5); RFC-008 implemented (UI columns + quarterly history endpoint). Amendments pre-approved in RFC.
+**Next Action:** Git commit STORY-066–072; begin EPIC-005 story decomposition.
+
+---
+
 ## 2026-04-24 — EPIC-004/STORY-056: Add Stock to Universe — complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

@@ -6,7 +6,8 @@
 // STORY-051: Badge click opens ClassificationModal; rowCodeOverlay tracks in-session overrides
 // EPIC-004/STORY-054/TASK-054-005: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-055: Added Remove button per row + RemoveStockDialog confirmation
-// PRD §Screen 2 columns; RFC-003 §Universe Screen
+// STORY-070: Added optional quarterly trend columns (togglable; hidden by default)
+// PRD §Screen 2 columns; RFC-003 §Universe Screen; RFC-008 §Classifier-Facing Derived Fields
 
 'use client';
 
@@ -76,6 +77,36 @@ const TD: React.CSSProperties = {
   color: T.text,
 };
 
+// ── Trend metric helpers (STORY-070) ─────────────────────────────────────────
+
+function eqTrendColor(val: number | null): string {
+  if (val === null || val === undefined) return T.textDim;
+  if (val > 0.30) return '#16a34a';
+  if (val < -0.30) return '#ef4444';
+  return T.textMuted;
+}
+
+function eqTrendBadge(val: number | null): string {
+  if (val === null || val === undefined) return '—';
+  const formatted = val.toFixed(2);
+  return val > 0.30 ? `▲ ${formatted}` : val < -0.30 ? `▼ ${formatted}` : `· ${formatted}`;
+}
+
+function slopeIcon(val: number | null): string {
+  if (val === null || val === undefined) return '—';
+  const pp = (val * 100).toFixed(2);
+  if (val > 0.001) return `↑ ${pp}pp`;
+  if (val < -0.001) return `↓ ${pp}pp`;
+  return `→ ${pp}pp`;
+}
+
+function slopeColor(val: number | null): string {
+  if (val === null || val === undefined) return T.textDim;
+  if (val > 0.001) return '#16a34a';
+  if (val < -0.001) return '#ef4444';
+  return T.textMuted;
+}
+
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 
 type SortDir = 'asc' | 'desc';
@@ -83,6 +114,7 @@ type SortDir = 'asc' | 'desc';
 const SORTABLE_KEYS = new Set([
   'ticker', 'revenue_growth_fwd', 'eps_growth_fwd',
   'fcf_conversion', 'net_debt_to_ebitda', 'operating_margin',
+  'operating_margin_slope_4q', 'earnings_quality_trend_score', 'quarters_available',
 ]);
 
 function sortIcon(colKey: string, sort: string, dir: SortDir): string {
@@ -92,6 +124,15 @@ function sortIcon(colKey: string, sort: string, dir: SortDir): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// Which optional trend columns are visible — controlled by column chooser in parent
+export type TrendColumnKey = 'operating_margin_slope_4q' | 'earnings_quality_trend_score' | 'material_dilution_trend_flag' | 'quarters_available';
+export const ALL_TREND_COLUMNS: TrendColumnKey[] = [
+  'operating_margin_slope_4q',
+  'earnings_quality_trend_score',
+  'material_dilution_trend_flag',
+  'quarters_available',
+];
+
 interface StockTableProps {
   stocks: UniverseStockSummary[];
   sort?: string;
@@ -99,6 +140,8 @@ interface StockTableProps {
   onSort?: (colKey: string, dir: SortDir) => void;
   /** Called when user confirms removal dialog — parent handles the DELETE call */
   onRemoveConfirm?: (ticker: string) => void;
+  /** Trend columns to display (hidden by default; empty array or omit = no trend columns) */
+  visibleTrendColumns?: TrendColumnKey[];
 }
 
 export default function StockTable({
@@ -107,6 +150,7 @@ export default function StockTable({
   dir = 'desc',
   onSort,
   onRemoveConfirm,
+  visibleTrendColumns = [],
 }: StockTableProps) {
   const router = useRouter();
 
@@ -215,6 +259,40 @@ export default function StockTable({
             Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
           </th>
           <th scope="col" style={TH}>Zone</th>
+          {/* Trend metric columns (STORY-070) — hidden by default; shown when visibleTrendColumns includes key */}
+          {visibleTrendColumns.includes('operating_margin_slope_4q') && (
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'operating_margin_slope_4q' ? T.accent : T.textMuted }}
+              onClick={() => handleHeaderClick('operating_margin_slope_4q')}
+              aria-sort={sort === 'operating_margin_slope_4q' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              OpMgn Slope{onSort ? sortIcon('operating_margin_slope_4q', sort, dir) : ''}
+            </th>
+          )}
+          {visibleTrendColumns.includes('earnings_quality_trend_score') && (
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'earnings_quality_trend_score' ? T.accent : T.textMuted }}
+              onClick={() => handleHeaderClick('earnings_quality_trend_score')}
+              aria-sort={sort === 'earnings_quality_trend_score' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              EQ Trend{onSort ? sortIcon('earnings_quality_trend_score', sort, dir) : ''}
+            </th>
+          )}
+          {visibleTrendColumns.includes('material_dilution_trend_flag') && (
+            <th scope="col" style={TH}>Dilution</th>
+          )}
+          {visibleTrendColumns.includes('quarters_available') && (
+            <th
+              scope="col"
+              style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'quarters_available' ? T.accent : T.textMuted }}
+              onClick={() => handleHeaderClick('quarters_available')}
+              aria-sort={sort === 'quarters_available' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              Qtrs{onSort ? sortIcon('quarters_available', sort, dir) : ''}
+            </th>
+          )}
           {onRemoveConfirm && <th scope="col" style={{ ...TH, width: 32 }} />}
         </tr>
       </thead>
@@ -281,6 +359,27 @@ export default function StockTable({
                 {fmtPct(s.operating_margin)}
               </td>
               <td style={{ ...TD, color: T.textDim }}>—</td>
+              {/* Trend metric cells (STORY-070) */}
+              {visibleTrendColumns.includes('operating_margin_slope_4q') && (
+                <td style={{ ...TD, textAlign: 'right', color: slopeColor(s.trend?.operating_margin_slope_4q ?? null), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                  {slopeIcon(s.trend?.operating_margin_slope_4q ?? null)}
+                </td>
+              )}
+              {visibleTrendColumns.includes('earnings_quality_trend_score') && (
+                <td style={{ ...TD, textAlign: 'right', color: eqTrendColor(s.trend?.earnings_quality_trend_score ?? null), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                  {eqTrendBadge(s.trend?.earnings_quality_trend_score ?? null)}
+                </td>
+              )}
+              {visibleTrendColumns.includes('material_dilution_trend_flag') && (
+                <td style={{ ...TD, textAlign: 'center', color: s.trend?.material_dilution_trend_flag ? '#ef4444' : T.textDim }}>
+                  {s.trend === undefined ? '—' : (s.trend.material_dilution_trend_flag ? '⚑' : '·')}
+                </td>
+              )}
+              {visibleTrendColumns.includes('quarters_available') && (
+                <td style={{ ...TD, textAlign: 'right', color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                  {s.trend?.quarters_available ?? '—'}
+                </td>
+              )}
               {onRemoveConfirm && (
                 <td style={{ ...TD, padding: '4px 6px', textAlign: 'center' }}>
                   <button

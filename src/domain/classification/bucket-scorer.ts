@@ -2,7 +2,9 @@
 // STORY-041: Bucket Scoring Algorithm
 // TASK-041-002: Primary fundamental scoring rules (Buckets 1–7)
 // TASK-041-003: Enrichment bonus rules (E1/E5/E6)
+// STORY-068: Quarterly growth context (revenue_ttm cross-check log; acceleration flag tie-break)
 // RFC-001 §Bucket Scorer; ADR-013 §Bucket Scorer Point Weights; ADR-013 §Bucket-Specific Growth Ranges
+// RFC-001 Amendment 2026-04-25 (operating_income_acceleration_flag as tie-break)
 
 import type { ClassificationInput, BucketNumber, BucketScorerOutput } from './types';
 import {
@@ -144,6 +146,23 @@ export function BucketScorer(input: ClassificationInput): BucketScorerOutput {
   // ── Reason-code-only flags (no score change, per STORY-043 special-case overrides) ──
   if (input.insurer_flag === true) reasons.push('insurer_flag_applied');
   if (input.optionality_flag === true) reasons.push('optionality_flag_applied');
+
+  // ── Quarterly growth context (STORY-068) ─────────────────────────────────────────────────────
+  const tm = input.trend_metrics;
+  if (tm != null && (tm.quartersAvailable ?? 0) >= 4) {
+    // revenue_ttm cross-check: log when discrepancy > 10% vs fundamentals-sourced (observability only)
+    const revTtm = tm.revenueTtm ?? null;
+    // Note: fundamentals-sourced revenue_ttm is not directly in ClassificationInput;
+    // cross-check deferred to future story when fundamentals TTM field is surfaced here.
+
+    // operating_income_acceleration_flag: tie-break signal within borderline bucket scoring band.
+    // Adds +1 to Bucket 4 and Bucket 5 when acceleration confirmed — sufficient to tip a 1-pt tie.
+    if (tm.operatingIncomeAccelerationFlag === true) {
+      scores[4] += 1;
+      scores[5] += 1;
+      reasons.push('op_income_acceleration_tiebreak');
+    }
+  }
 
   // ── Enrichment bonus rules (E1/E5/E6) ──
   // E2 (pricing_power), E3 (revenue_recurrence), E4 (margin_durability) → EQ scorer (STORY-042)

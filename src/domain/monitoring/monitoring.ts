@@ -3,10 +3,20 @@
 // TASK-046-002: Domain functions — getMonitoringStatus, getUniverseStocks
 // STORY-048: Extended UniverseStockSummary with table columns (eps_growth_fwd, fcf_conversion, net_debt_to_ebitda)
 // STORY-049: Extended getUniverseStocks with filter/sort params; added getSectors
+// STORY-070: Extended UniverseStockSummary with optional trend metrics; getUniverseStocks includeTrend option
 // RFC-003 §Monitor List API (all-default-monitored, per-user deactivation); ADR-007
+// RFC-008 §Classifier-Facing Derived Fields; RFC-002 Amendment 2026-04-25
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/infrastructure/database/prisma';
+
+// Optional quarterly trend metrics (STORY-070) — present when ?include=trend
+export interface UniverseTrendMetrics {
+  operating_margin_slope_4q: number | null; // pp/quarter
+  earnings_quality_trend_score: number | null; // −1.0 to +1.0
+  material_dilution_trend_flag: boolean | null;
+  quarters_available: number | null;
+}
 
 export interface UniverseStockSummary {
   ticker: string;
@@ -22,6 +32,7 @@ export interface UniverseStockSummary {
   is_active: boolean;
   active_code: string | null;
   confidence_level: string | null;
+  trend?: UniverseTrendMetrics; // only present when includeTrend=true
 }
 
 export interface UniverseQueryOpts {
@@ -34,6 +45,12 @@ export interface UniverseQueryOpts {
   monitoring?: 'active' | 'inactive';
   sort?: string;
   dir?: 'asc' | 'desc';
+  includeTrend?: boolean;
+  // Trend metric filters (STORY-070) — only applied when includeTrend=true
+  eqTrendMin?: number;
+  eqTrendMax?: number;
+  dilutionFlagOnly?: boolean;
+  minQuartersAvailable?: number;
 }
 
 // Maps API sort param names to Prisma field names
@@ -56,6 +73,13 @@ const NUMERIC_SORT_FIELDS = {
   netDebtToEbitda: true,
 } as const;
 
+// Trend metric sort fields — sorted via derivedMetrics relation (STORY-070)
+const TREND_SORT_FIELDS = new Set([
+  'operating_margin_slope_4q',
+  'earnings_quality_trend_score',
+  'quarters_available',
+]);
+
 function buildOrderBy(sort: string, dir: 'asc' | 'desc'): Prisma.StockOrderByWithRelationInput[] {
   if (sort === 'ticker') {
     return [{ ticker: dir }];
@@ -67,7 +91,7 @@ function buildOrderBy(sort: string, dir: 'asc' | 'desc'): Prisma.StockOrderByWit
   return [{ [prismaField]: { sort: dir, nulls: 'last' } } as Prisma.StockOrderByWithRelationInput, { ticker: 'asc' }];
 }
 
-function makeStockSelect(userId: string) {
+function makeStockSelect(userId: string, includeTrend = false) {
   return {
     ticker: true,
     companyName: true,
@@ -82,6 +106,17 @@ function makeStockSelect(userId: string) {
     classificationState: { select: { suggestedCode: true, confidenceLevel: true } },
     userClassificationOverrides: { where: { userId }, select: { finalCode: true } },
     userDeactivatedStocks: { where: { userId }, select: { userId: true } },
+    // LEFT JOIN stock_derived_metrics when trend columns requested (STORY-070)
+    ...(includeTrend ? {
+      derivedMetrics: {
+        select: {
+          operatingMarginSlope4q: true,
+          earningsQualityTrendScore: true,
+          materialDilutionTrendFlag: true,
+          quartersAvailable: true,
+        },
+      },
+    } : {}),
   } as const;
 }
 
@@ -99,12 +134,19 @@ type StockSelectRow = {
   classificationState: { suggestedCode: string | null; confidenceLevel: string } | null;
   userClassificationOverrides: { finalCode: string }[];
   userDeactivatedStocks: { userId: string }[];
+  // Optional trend metrics (STORY-070)
+  derivedMetrics?: {
+    operatingMarginSlope4q: { toString(): string } | null;
+    earningsQualityTrendScore: { toString(): string } | null;
+    materialDilutionTrendFlag: boolean | null;
+    quartersAvailable: number | null;
+  } | null;
 };
 
 function mapRow(row: StockSelectRow): UniverseStockSummary {
   const systemCode = row.classificationState?.suggestedCode ?? null;
   const overrideCode = row.userClassificationOverrides[0]?.finalCode ?? null;
-  return {
+  const base: UniverseStockSummary = {
     ticker: row.ticker,
     company_name: row.companyName,
     sector: row.sector ?? null,
@@ -121,6 +163,16 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     active_code: overrideCode ?? systemCode,
     confidence_level: row.classificationState?.confidenceLevel ?? null,
   };
+  if (row.derivedMetrics !== undefined) {
+    const dm = row.derivedMetrics;
+    base.trend = {
+      operating_margin_slope_4q: dm?.operatingMarginSlope4q != null ? Number(dm.operatingMarginSlope4q) : null,
+      earnings_quality_trend_score: dm?.earningsQualityTrendScore != null ? Number(dm.earningsQualityTrendScore) : null,
+      material_dilution_trend_flag: dm?.materialDilutionTrendFlag ?? null,
+      quarters_available: dm?.quartersAvailable ?? null,
+    };
+  }
+  return base;
 }
 
 export async function getUniverseStock(
@@ -165,6 +217,11 @@ export async function getUniverseStocks(
     monitoring,
     sort = 'market_cap',
     dir = 'desc',
+    includeTrend = false,
+    eqTrendMin,
+    eqTrendMax,
+    dilutionFlagOnly,
+    minQuartersAvailable,
   } = opts;
 
   // Build AND conditions for DB-level filtering
@@ -205,15 +262,56 @@ export async function getUniverseStocks(
     andConditions.push({ NOT: { userDeactivatedStocks: { some: { userId } } } });
   }
 
+  // Trend metric DB-level filters (STORY-070) — applied via derivedMetrics relation
+  if (includeTrend) {
+    const trendConditions: Prisma.StockDerivedMetricsWhereInput = {};
+    if (eqTrendMin !== undefined) {
+      trendConditions.earningsQualityTrendScore = {
+        ...trendConditions.earningsQualityTrendScore as object,
+        gte: eqTrendMin,
+      };
+    }
+    if (eqTrendMax !== undefined) {
+      trendConditions.earningsQualityTrendScore = {
+        ...trendConditions.earningsQualityTrendScore as object,
+        lte: eqTrendMax,
+      };
+    }
+    if (dilutionFlagOnly === true) {
+      trendConditions.materialDilutionTrendFlag = true;
+    }
+    if (minQuartersAvailable !== undefined) {
+      trendConditions.quartersAvailable = { gte: minQuartersAvailable };
+    }
+    if (Object.keys(trendConditions).length > 0) {
+      andConditions.push({ derivedMetrics: { is: trendConditions } });
+    }
+  }
+
   const where: Prisma.StockWhereInput =
     andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
-  const orderBy = buildOrderBy(sort, dir);
+  // Build orderBy — trend sort fields use derivedMetrics relation with nulls: 'last'
+  let orderBy: Prisma.StockOrderByWithRelationInput[];
+  if (TREND_SORT_FIELDS.has(sort)) {
+    const prismaFieldMap: Record<string, string> = {
+      operating_margin_slope_4q: 'operatingMarginSlope4q',
+      earnings_quality_trend_score: 'earningsQualityTrendScore',
+      quarters_available: 'quartersAvailable',
+    };
+    const field = prismaFieldMap[sort];
+    orderBy = [
+      { derivedMetrics: { [field]: { sort: dir, nulls: 'last' } } } as Prisma.StockOrderByWithRelationInput,
+      { ticker: 'asc' },
+    ];
+  } else {
+    orderBy = buildOrderBy(sort, dir);
+  }
 
   // Fetch all DB-filtered rows — code filter is computed and applied in-memory
   const rows = await prisma.stock.findMany({
     where,
-    select: makeStockSelect(userId),
+    select: makeStockSelect(userId, includeTrend),
     orderBy,
   });
 

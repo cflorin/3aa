@@ -4,13 +4,14 @@
 // STORY-049: Added FilterBar, column sort, URL state round-trip
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-055: Added handleRemoveConfirm — optimistic stock removal + error revert
-// PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort
+// STORY-070: Added trend column chooser and trend filter state
+// PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort; RFC-008
 
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import StockTable from './StockTable';
+import StockTable, { type TrendColumnKey } from './StockTable';
 import PaginationControls from './PaginationControls';
 import FilterBar, { EMPTY_FILTERS, type FilterState } from './FilterBar';
 import AddStockModal from './AddStockModal';
@@ -26,7 +27,13 @@ interface UniverseResponse {
   limit: number;
 }
 
-function filtersToParams(f: FilterState, sort: string, dir: 'asc' | 'desc', page: number): string {
+function filtersToParams(
+  f: FilterState,
+  sort: string,
+  dir: 'asc' | 'desc',
+  page: number,
+  visibleTrendColumns: TrendColumnKey[],
+): string {
   const p = new URLSearchParams();
   if (f.search) p.set('search', f.search);
   if (f.sector.length > 0) p.set('sector', f.sector.join(','));
@@ -37,6 +44,14 @@ function filtersToParams(f: FilterState, sort: string, dir: 'asc' | 'desc', page
   p.set('dir', dir);
   p.set('page', String(page));
   p.set('limit', String(LIMIT));
+  // Trend params (STORY-070) — only include when trend columns visible
+  if (visibleTrendColumns.length > 0) {
+    p.set('include', 'trend');
+    if (f.eqTrendPreset === 'positive') { p.set('eq_trend_min', '0.3'); }
+    else if (f.eqTrendPreset === 'negative') { p.set('eq_trend_max', '-0.3'); }
+    if (f.dilutionFlagOnly) p.set('dilution_flag', 'true');
+    if (f.minQuarters) p.set('min_quarters', f.minQuarters);
+  }
   return p.toString();
 }
 
@@ -47,6 +62,9 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
     code: params.get('code') ?? '',
     confidence: params.get('confidence') ? params.get('confidence')!.split(',') : [],
     monitoring: (params.get('monitoring') as FilterState['monitoring']) ?? '',
+    eqTrendPreset: (params.get('eq_trend_min') === '0.3' ? 'positive' : params.get('eq_trend_max') === '-0.3' ? 'negative' : '') as FilterState['eqTrendPreset'],
+    dilutionFlagOnly: params.get('dilution_flag') === 'true',
+    minQuarters: (params.get('min_quarters') as FilterState['minQuarters']) ?? '',
   };
 }
 
@@ -66,6 +84,9 @@ export default function UniversePageClient() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Trend column chooser state (STORY-070) — hidden by default
+  const [visibleTrendColumns, setVisibleTrendColumns] = useState<TrendColumnKey[]>([]);
+  const [showTrendFilters, setShowTrendFilters] = useState(false);
 
   // Debounce search to avoid API call on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,7 +117,7 @@ export default function UniversePageClient() {
   // Fetch universe data
   const effectiveFilters = { ...filters, search: debouncedSearch };
   useEffect(() => {
-    const qs = filtersToParams(effectiveFilters, sort, dir, page);
+    const qs = filtersToParams(effectiveFilters, sort, dir, page, visibleTrendColumns);
     // Update URL without navigation (replace current entry)
     router.replace(`${pathname}?${qs}`, { scroll: false });
 
@@ -111,7 +132,9 @@ export default function UniversePageClient() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, filters.sector, filters.code, filters.confidence, filters.monitoring, sort, dir, page]);
+  }, [debouncedSearch, filters.sector, filters.code, filters.confidence, filters.monitoring,
+      filters.eqTrendPreset, filters.dilutionFlagOnly, filters.minQuarters,
+      sort, dir, page, visibleTrendColumns]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
 
@@ -139,6 +162,17 @@ export default function UniversePageClient() {
       stocks: [stock, ...prev.stocks],
       total: prev.total + 1,
     } : prev);
+  }, []);
+
+  const handleToggleTrendColumn = useCallback((col: string) => {
+    setVisibleTrendColumns(prev => {
+      const key = col as TrendColumnKey;
+      const next = prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key];
+      // When any trend column becomes visible, show trend filters; hide when all hidden
+      setShowTrendFilters(next.length > 0);
+      return next;
+    });
+    setPage(1);
   }, []);
 
   const handleRemoveConfirm = useCallback(async (ticker: string) => {
@@ -172,6 +206,9 @@ export default function UniversePageClient() {
         onChange={handleFiltersChange}
         onClear={handleClear}
         onAddStock={() => setShowAddModal(true)}
+        showTrendFilters={showTrendFilters}
+        visibleTrendColumns={visibleTrendColumns}
+        onToggleTrendColumn={handleToggleTrendColumn}
       />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
@@ -234,6 +271,7 @@ export default function UniversePageClient() {
               dir={dir}
               onSort={handleSort}
               onRemoveConfirm={handleRemoveConfirm}
+              visibleTrendColumns={visibleTrendColumns}
             />
           )
         )}

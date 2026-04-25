@@ -2,6 +2,7 @@
 // STORY-049: Universe Screen — Filters and Sort
 // TASK-049-004: FilterBar component — search, sector, code, confidence, monitoring filters
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
+// STORY-070: Added trend metric filters and column chooser toggle
 
 'use client';
 
@@ -14,6 +15,10 @@ export interface FilterState {
   code: string;
   confidence: string[];
   monitoring: '' | 'active' | 'inactive';
+  // Trend filters (STORY-070) — only active when trend columns visible
+  eqTrendPreset: '' | 'positive' | 'negative';
+  dilutionFlagOnly: boolean;
+  minQuarters: '' | '4' | '8';
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -22,6 +27,9 @@ export const EMPTY_FILTERS: FilterState = {
   code: '',
   confidence: [],
   monitoring: '',
+  eqTrendPreset: '',
+  dilutionFlagOnly: false,
+  minQuarters: '',
 };
 
 interface FilterBarProps {
@@ -31,6 +39,11 @@ interface FilterBarProps {
   onChange: (f: FilterState) => void;
   onClear: () => void;
   onAddStock?: () => void;
+  /** When true, show the trend filter section (STORY-070) */
+  showTrendFilters?: boolean;
+  /** Column chooser: which trend columns are currently visible */
+  visibleTrendColumns?: string[];
+  onToggleTrendColumn?: (col: string) => void;
 }
 
 function activeFilterCount(f: FilterState): number {
@@ -40,6 +53,9 @@ function activeFilterCount(f: FilterState): number {
   if (f.code) n++;
   if (f.confidence.length > 0) n++;
   if (f.monitoring) n++;
+  if (f.eqTrendPreset) n++;
+  if (f.dilutionFlagOnly) n++;
+  if (f.minQuarters) n++;
   return n;
 }
 
@@ -55,7 +71,7 @@ const ctrlStyle: React.CSSProperties = {
   height: 28,
 };
 
-export default function FilterBar({ filters, sectors, total, onChange, onClear, onAddStock }: FilterBarProps) {
+export default function FilterBar({ filters, sectors, total, onChange, onClear, onAddStock, showTrendFilters, visibleTrendColumns = [], onToggleTrendColumn }: FilterBarProps) {
   const count = activeFilterCount(filters);
 
   function set<K extends keyof FilterState>(key: K, value: FilterState[K]) {
@@ -184,6 +200,73 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
         >
           + Add Stock
         </button>
+      )}
+
+      {/* Trend filters (STORY-070) — only shown when showTrendFilters=true */}
+      {showTrendFilters && (
+        <>
+          <div style={{ width: '100%', height: 0 }} /> {/* line break */}
+          <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>Trend:</span>
+
+          <select
+            data-testid="filter-eq-trend"
+            value={filters.eqTrendPreset}
+            onChange={e => set('eqTrendPreset', e.target.value as FilterState['eqTrendPreset'])}
+            style={ctrlStyle}
+          >
+            <option value="">EQ trend: all</option>
+            <option value="positive">EQ positive (&gt;0.3)</option>
+            <option value="negative">EQ negative (&lt;-0.3)</option>
+          </select>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: T.text, cursor: 'pointer' }}>
+            <input
+              data-testid="filter-dilution-flag"
+              type="checkbox"
+              checked={filters.dilutionFlagOnly}
+              onChange={e => set('dilutionFlagOnly', e.target.checked)}
+              style={{ accentColor: T.accent }}
+            />
+            Dilution flagged
+          </label>
+
+          <select
+            data-testid="filter-min-quarters"
+            value={filters.minQuarters}
+            onChange={e => set('minQuarters', e.target.value as FilterState['minQuarters'])}
+            style={ctrlStyle}
+          >
+            <option value="">All quarters</option>
+            <option value="4">≥ 4 quarters</option>
+            <option value="8">≥ 8 quarters</option>
+          </select>
+
+          {/* Column chooser for trend columns */}
+          {onToggleTrendColumn && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: T.textMuted }}>Cols:</span>
+              {(['operating_margin_slope_4q', 'earnings_quality_trend_score', 'material_dilution_trend_flag', 'quarters_available'] as const).map(col => (
+                <button
+                  key={col}
+                  data-testid={`col-toggle-${col}`}
+                  onClick={() => onToggleTrendColumn(col)}
+                  style={{
+                    fontSize: 10, padding: '2px 6px', borderRadius: 3,
+                    border: `1px solid ${visibleTrendColumns.includes(col) ? T.accent : T.border}`,
+                    background: visibleTrendColumns.includes(col) ? `${T.accent}20` : 'transparent',
+                    color: visibleTrendColumns.includes(col) ? T.accent : T.textDim,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {col === 'operating_margin_slope_4q' ? 'OpSlope'
+                    : col === 'earnings_quality_trend_score' ? 'EQTrend'
+                    : col === 'material_dilution_trend_flag' ? 'Dilution'
+                    : 'Qtrs'}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

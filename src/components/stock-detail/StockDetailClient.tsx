@@ -97,6 +97,43 @@ interface HistoryRow {
   suggested_code: string | null;
 }
 
+// STORY-071: Quarterly financial history section
+interface QuarterRow {
+  ticker: string;
+  fiscal_year: number;
+  fiscal_quarter: number;
+  period_end_date: string | null;
+  revenue: number | null;
+  gross_profit: number | null;
+  operating_income: number | null;
+  net_income: number | null;
+  free_cash_flow: number | null;
+  cash_from_operations: number | null;
+  gross_margin: number | null;
+  operating_margin: number | null;
+  net_margin: number | null;
+}
+
+interface DerivedMetricsSummary {
+  quarters_available: number | null;
+  derived_as_of: string | null;
+  gross_margin_slope_4q: number | null;
+  operating_margin_slope_4q: number | null;
+  net_margin_slope_4q: number | null;
+  operating_margin_stability_score: number | null;
+  earnings_quality_trend_score: number | null;
+  deteriorating_cash_conversion_flag: boolean | null;
+  operating_leverage_emerging_flag: boolean | null;
+  material_dilution_trend_flag: boolean | null;
+  sbc_burden_score: number | null;
+  diluted_shares_outstanding_change_4q: number | null;
+}
+
+interface QuarterlyHistoryResponse {
+  quarters: QuarterRow[];
+  derived: DerivedMetricsSummary | null;
+}
+
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function fmtPct(val: number | null): string {
@@ -238,6 +275,11 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Quarterly history section (STORY-071) — collapsed by default, loaded on expand
+  const [qhExpanded, setQhExpanded] = useState(false);
+  const [qhData, setQhData] = useState<QuarterlyHistoryResponse | null>(null);
+  const [qhLoading, setQhLoading] = useState(false);
+
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -279,6 +321,17 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
       .catch(() => setHistory([]))
       .finally(() => setHistoryLoading(false));
   }, [activeTab, ticker, history]);
+
+  // Load quarterly history when section is first expanded (STORY-071)
+  useEffect(() => {
+    if (!qhExpanded || qhData !== null) return;
+    setQhLoading(true);
+    fetch(`/api/stocks/${ticker}/quarterly-history`)
+      .then(r => r.ok ? r.json() : { quarters: [], derived: null })
+      .then((data: QuarterlyHistoryResponse) => setQhData(data))
+      .catch(() => setQhData({ quarters: [], derived: null }))
+      .finally(() => setQhLoading(false));
+  }, [qhExpanded, ticker, qhData]);
 
   function handleOverrideChange(_t: string, newCode: string | null) {
     setActiveCodeOverlay(newCode);
@@ -991,6 +1044,119 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
         )}
       </div>
     </div>
+
+    {/* ── QUARTERLY FINANCIAL HISTORY SECTION (STORY-071) ─────────────── */}
+    {detail && (
+      <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 0 }}>
+        <button
+          data-testid="quarterly-history-toggle"
+          onClick={() => setQhExpanded(x => !x)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 16px',
+            background: T.tableHead,
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.textDim }}>
+            Quarterly Financial History
+          </span>
+          <span style={{ fontSize: 11, color: T.textDim }}>{qhExpanded ? '▲' : '▼'}</span>
+          {qhData?.derived?.quarters_available != null && (
+            <span style={{ fontSize: 10, color: T.textMuted, marginLeft: 4 }}>
+              {qhData.derived.quarters_available} quarters
+            </span>
+          )}
+        </button>
+
+        {qhExpanded && (
+          <div data-testid="quarterly-history-section">
+            {qhLoading && (
+              <div style={{ padding: '16px', color: T.textDim, fontSize: 12 }}>Loading quarterly history…</div>
+            )}
+
+            {!qhLoading && qhData && (
+              <>
+                {qhData.quarters.length === 0 ? (
+                  <div style={{ padding: '16px', color: T.textDim, fontSize: 12 }}>
+                    No quarterly history available yet.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          {['Quarter', 'Revenue', 'Gross Profit', 'Op. Income', 'Net Income', 'FCF', 'CFO', 'Gross Mgn', 'Op. Mgn', 'Net Mgn'].map(h => (
+                            <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Quarter' ? 'left' : 'right', fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', background: T.tableHead }}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {qhData.quarters.map((q, i) => (
+                          <tr key={`${q.fiscal_year}-${q.fiscal_quarter}`} style={{ background: i % 2 === 0 ? T.cardBg : T.sidebarBg }}>
+                            <td style={{ padding: '6px 10px', fontFamily: 'var(--font-dm-mono, monospace)', color: T.text, whiteSpace: 'nowrap' }}>
+                              Q{q.fiscal_quarter} {q.fiscal_year}
+                            </td>
+                            {[q.revenue, q.gross_profit, q.operating_income, q.net_income, q.free_cash_flow, q.cash_from_operations].map((v, j) => (
+                              <td key={j} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', color: v === null ? T.textDim : T.text }}>
+                                {v === null ? '—' : `${(v / 1_000_000).toFixed(0)}M`}
+                              </td>
+                            ))}
+                            {[q.gross_margin, q.operating_margin, q.net_margin].map((v, j) => (
+                              <td key={j} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', color: v === null ? T.textDim : opMarginColor(v) }}>
+                                {v === null ? '—' : `${(v * 100).toFixed(1)}%`}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Trend indicators panel */}
+                {qhData.derived && (
+                  <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.border}` }}>
+                    <div style={SECTION_HEADER}>Trend Indicators</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginTop: 10 }}>
+                      {[
+                        { label: 'Op Margin Slope 4Q', value: qhData.derived.operating_margin_slope_4q, format: (v: number | null) => v === null ? '—' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(2)}pp/q` },
+                        { label: 'EQ Trend Score', value: qhData.derived.earnings_quality_trend_score, format: (v: number | null) => v === null ? '—' : v.toFixed(2) },
+                        { label: 'Margin Stability', value: qhData.derived.operating_margin_stability_score, format: (v: number | null) => v === null ? '—' : v.toFixed(2) },
+                        { label: 'Dilution Flag', value: qhData.derived.material_dilution_trend_flag, format: (v: boolean | null) => v === null ? '—' : v ? 'Yes ⚑' : 'No' },
+                        { label: 'SBC Burden', value: qhData.derived.sbc_burden_score, format: (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(1)}%` },
+                        { label: 'Share Dilution 4Q', value: qhData.derived.diluted_shares_outstanding_change_4q, format: (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(2)}%` },
+                        { label: 'Quarters Available', value: qhData.derived.quarters_available, format: (v: number | null) => v === null ? '—' : String(v) },
+                      ].map(({ label, value, format }) => (
+                        <div key={label} style={{ padding: '8px 10px', background: T.sidebarBg, borderRadius: 4, border: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>{label}</div>
+                          <div style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: T.text }}>
+                            {(format as (v: typeof value) => string)(value)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {qhData.derived.derived_as_of && (
+                      <div style={{ marginTop: 8, fontSize: 10, color: T.textDim }}>
+                        Synced: {fmtDate(qhData.derived.derived_as_of)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    )}
 
     {/* Override modal (reuses STORY-051 ClassificationModal) */}
     {showOverrideModal && (

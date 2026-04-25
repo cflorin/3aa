@@ -147,10 +147,13 @@ function resolveTieBreaks(
 
 // ── Confidence computation ──────────────────────────────────────────────────
 // ADR-014 §Confidence Computation Rules (Steps 2–4; Step 1 handled in classifyStock)
+// STORY-069: Step 5 trajectory quality penalty inserted between old Steps 4 and 5 (now Step 6)
 function computeConfidence(
   margin: number,
   tieBreakCount: number,
   missingFieldCount: number,
+  trendMetrics?: ClassificationInput['trend_metrics'],
+  eq_grade?: 'A' | 'B' | 'C' | null,
 ): { confidence_level: ConfidenceBand; steps: ConfidenceStep[] } {
   const steps: ConfidenceStep[] = [];
 
@@ -181,8 +184,55 @@ function computeConfidence(
   }
   steps.push({ step: 4, label: 'missing-field penalty', note: `missing = ${missingFieldCount}`, band, missing: missingFieldCount });
 
-  // Step 5: final
-  steps.push({ step: 5, label: 'final', note: band, band });
+  // Step 5: trajectory quality penalty (STORY-069) — skipped entirely when trend_metrics absent
+  // RFC-001 Amendment 2026-04-25: quarterly history depth and stability signals degrade confidence
+  if (trendMetrics != null) {
+    const qa = trendMetrics.quartersAvailable ?? 0;
+    const conditionNotes: string[] = [];
+
+    if (qa < 4) {
+      // Force LOW — insufficient quarterly history to validate any confidence level
+      band = 'low';
+      conditionNotes.push(`quarters_available=${qa} < 4 → force LOW`);
+    } else {
+      // Cap at MEDIUM when 4–7 quarters (not enough history to confirm HIGH)
+      if (qa < 8 && band === 'high') {
+        band = 'medium';
+        conditionNotes.push(`quarters_available=${qa} < 8 → cap MEDIUM`);
+      }
+
+      // Volatile operating margins → degrade one level
+      const stabilityScore = trendMetrics.operatingMarginStabilityScore ?? null;
+      if (stabilityScore !== null && stabilityScore < 0.40) {
+        band = degradeOnce(band);
+        conditionNotes.push(`stability_score=${stabilityScore.toFixed(2)} < 0.40 → degrade`);
+      }
+
+      // Deteriorating CFO + seemingly good EQ grade is contradictory → degrade
+      if (trendMetrics.deterioratingCashConversionFlag === true && (eq_grade === 'A' || eq_grade === 'B')) {
+        band = degradeOnce(band);
+        conditionNotes.push(`deteriorating_cfo=true + eq_grade=${eq_grade} → degrade`);
+      }
+
+      // Severely negative EQ trend score → degrade
+      const eqTrend = trendMetrics.earningsQualityTrendScore ?? null;
+      if (eqTrend !== null && eqTrend < -0.50) {
+        band = degradeOnce(band);
+        conditionNotes.push(`eq_trend_score=${eqTrend.toFixed(2)} < -0.50 → degrade`);
+      }
+    }
+
+    steps.push({
+      step: 5,
+      label: 'trajectory quality penalty',
+      note: conditionNotes.length > 0 ? conditionNotes.join('; ') : 'no degradation',
+      band,
+    });
+  }
+
+  // Step 6 (or 5 when trend_metrics absent): final
+  const finalStepNumber = trendMetrics != null ? 6 : 5;
+  steps.push({ step: finalStepNumber, label: 'final', note: band, band });
 
   return { confidence_level: band, steps };
 }
@@ -251,11 +301,13 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
   const eq_grade = finalBucket === 8 ? null : (eqResult.winner ?? null);
   const bs_grade = finalBucket === 8 ? null : (bsResult.winner ?? null);
 
-  // Step 5: Confidence computation (steps 2–5)
+  // Step 5: Confidence computation (steps 2–5/6; Step 5 trajectory penalty when trend_metrics present)
   const { confidence_level, steps } = computeConfidence(
     bucketResult.margin,
     tieBreaksFired.length,
     missing,
+    input.trend_metrics,
+    eq_grade,
   );
   const confidenceSteps: ConfidenceStep[] = [
     { step: 1, label: 'null-suggestion gate', note: 'passed — sufficient data', band: confidence_level },

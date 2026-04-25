@@ -1,7 +1,9 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-042: Earnings Quality and Balance Sheet Quality Scoring
 // TASK-042-002: EarningsQualityScorer implementation
+// STORY-066: Quarterly-driven EQ signals when quarters_available >= 4
 // ADR-013 §Earnings Quality Scorer Point Weights; RFC-001 §Earnings Quality Scorer
+// RFC-001 Amendment 2026-04-25 (quarterly EQ signal branching)
 
 // [BUG-CE-002] pricing_power_score, revenue_recurrence_score, margin_durability_score (E2/E3/E4)
 // were missing from this scorer — implemented below. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
@@ -16,6 +18,8 @@ import {
   EQ_RECURRENCE_STRONG, EQ_RECURRENCE_MODERATE, EQ_RECURRENCE_WEAK,
   EQ_MARGIN_DUR_STRONG, EQ_MARGIN_DUR_MODERATE, EQ_MARGIN_DUR_WEAK,
   EQ_EPS_DECLINING, EQ_EPS_REV_SPREAD_MODERATE, EQ_EPS_REV_SPREAD_SEVERE,
+  EQ_QUARTERLY_TREND_POSITIVE, EQ_QUARTERLY_TREND_NEGATIVE,
+  EQ_DETERIORATING_CFO, EQ_OPLEVERAGE_EMERGING,
 } from './scoring-weights';
 
 // Primary EQ fundamental fields tracked for missing_field_count (enrichment scores excluded)
@@ -110,27 +114,58 @@ export function EarningsQualityScorer(input: ClassificationInput): GradeScorerOu
     }
   }
 
-  // Earnings volatility signals (ADR-013 amendment 2026-04-25)
-  // Proxy for "clockwork" earnings: negative EPS CAGR or severe EPS-vs-revenue spread → C.
-  // Spread signals are mutually exclusive; EQ_EPS_DECLINING stacks with whichever fires.
-  if (input.eps_growth_3y !== null && input.eps_growth_3y !== undefined) {
-    if (input.eps_growth_3y < 0) {
-      scores.C += EQ_EPS_DECLINING;
-      reason_codes.push('eps_declining');
-    }
-  }
+  // ── Earnings quality signals: quarterly-derived (primary) vs proxy (fallback) ──────────────
+  // STORY-066: when quarters_available >= 4, use quarterly-derived signals.
+  // Proxy signals (eps_declining, spread) retained as fallback when quarterly data absent.
+  const tm = input.trend_metrics;
+  const useQuarterly = tm != null && (tm.quartersAvailable ?? 0) >= 4;
 
-  if (
-    input.eps_growth_3y !== null && input.eps_growth_3y !== undefined &&
-    input.revenue_growth_3y !== null && input.revenue_growth_3y !== undefined
-  ) {
-    const spread = input.eps_growth_3y - input.revenue_growth_3y;
-    if (spread < -0.20) {
-      scores.C += EQ_EPS_REV_SPREAD_SEVERE;
-      reason_codes.push('eps_rev_spread_severe');
-    } else if (spread < -0.10) {
-      scores.C += EQ_EPS_REV_SPREAD_MODERATE;
-      reason_codes.push('eps_rev_spread_moderate');
+  if (useQuarterly) {
+    // Quarterly path: earningsQualityTrendScore drives EQ quality signal
+    const eqScore = tm!.earningsQualityTrendScore ?? null;
+    if (eqScore !== null) {
+      if (eqScore > 0.30) {
+        scores.A += EQ_QUARTERLY_TREND_POSITIVE;
+        reason_codes.push('eq_trend_positive');
+      } else if (eqScore < -0.30) {
+        scores.C += EQ_QUARTERLY_TREND_NEGATIVE;
+        reason_codes.push('eq_trend_negative');
+      }
+    }
+
+    // Deteriorating cash conversion → negative EQ flag
+    if (tm!.deterioratingCashConversionFlag === true) {
+      scores.C += EQ_DETERIORATING_CFO;
+      reason_codes.push('deteriorating_cash_conversion');
+    }
+
+    // Operating leverage emerging → positive EQ complement
+    if (tm!.operatingLeverageEmergingFlag === true) {
+      scores.A += EQ_OPLEVERAGE_EMERGING;
+      scores.B += EQ_OPLEVERAGE_EMERGING;
+      reason_codes.push('operating_leverage_emerging');
+    }
+  } else {
+    // Proxy path: ADR-013 interim earnings volatility signals (fallback when < 4 quarters)
+    if (input.eps_growth_3y !== null && input.eps_growth_3y !== undefined) {
+      if (input.eps_growth_3y < 0) {
+        scores.C += EQ_EPS_DECLINING;
+        reason_codes.push('eps_declining');
+      }
+    }
+
+    if (
+      input.eps_growth_3y !== null && input.eps_growth_3y !== undefined &&
+      input.revenue_growth_3y !== null && input.revenue_growth_3y !== undefined
+    ) {
+      const spread = input.eps_growth_3y - input.revenue_growth_3y;
+      if (spread < -0.20) {
+        scores.C += EQ_EPS_REV_SPREAD_SEVERE;
+        reason_codes.push('eps_rev_spread_severe');
+      } else if (spread < -0.10) {
+        scores.C += EQ_EPS_REV_SPREAD_MODERATE;
+        reason_codes.push('eps_rev_spread_moderate');
+      }
     }
   }
 

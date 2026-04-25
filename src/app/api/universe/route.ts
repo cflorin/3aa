@@ -2,7 +2,9 @@
 // STORY-046: User Monitoring Preferences API
 // TASK-046-004: GET /api/universe — all in-universe stocks with per-user monitoring status
 // STORY-049: Extended with filter/sort query params
+// STORY-070: Extended with ?include=trend; trend filter/sort params
 // RFC-003 §Monitor List API; RFC-003 §Filtering and Sort; ADR-007; ADR-006 (session auth)
+// RFC-008 §Classifier-Facing Derived Fields
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/modules/auth/auth.service';
@@ -19,6 +21,10 @@ const ALLOWED_SORT_FIELDS = new Set([
   'operating_margin',
   'fcf_conversion',
   'net_debt_to_ebitda',
+  // Trend metric sort fields (STORY-070)
+  'operating_margin_slope_4q',
+  'earnings_quality_trend_score',
+  'quarters_available',
 ]);
 
 export async function GET(req: NextRequest) {
@@ -50,6 +56,16 @@ export async function GET(req: NextRequest) {
   const dirRaw = searchParams.get('dir') ?? 'desc';
   const dir: 'asc' | 'desc' = dirRaw === 'asc' ? 'asc' : 'desc';
 
+  // Trend params (STORY-070) — only active when include=trend
+  const includeTrend = searchParams.get('include') === 'trend';
+  const eqTrendMinRaw = searchParams.get('eq_trend_min');
+  const eqTrendMaxRaw = searchParams.get('eq_trend_max');
+  const eqTrendMin = eqTrendMinRaw !== null ? parseFloat(eqTrendMinRaw) : undefined;
+  const eqTrendMax = eqTrendMaxRaw !== null ? parseFloat(eqTrendMaxRaw) : undefined;
+  const dilutionFlagOnly = searchParams.get('dilution_flag') === 'true';
+  const minQRaw = searchParams.get('min_quarters');
+  const minQuartersAvailable = minQRaw !== null ? parseInt(minQRaw, 10) : undefined;
+
   const { stocks, total } = await getUniverseStocks(user.userId, {
     page,
     limit,
@@ -60,6 +76,11 @@ export async function GET(req: NextRequest) {
     monitoring,
     sort,
     dir,
+    includeTrend,
+    eqTrendMin: !isNaN(eqTrendMin!) ? eqTrendMin : undefined,
+    eqTrendMax: !isNaN(eqTrendMax!) ? eqTrendMax : undefined,
+    dilutionFlagOnly: dilutionFlagOnly || undefined,
+    minQuartersAvailable: minQuartersAvailable !== undefined && !isNaN(minQuartersAvailable) ? minQuartersAvailable : undefined,
   });
 
   return NextResponse.json({ stocks, total, page, limit });
