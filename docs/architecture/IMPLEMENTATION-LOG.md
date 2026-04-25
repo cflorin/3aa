@@ -3291,3 +3291,35 @@ Key implementation decisions:
 **Baseline Impact:** NO (new API endpoints; system valuation_state never mutated by override routes)
 
 **Next Action:** Execute STORY-079 — Stock Detail Page: Valuation Tab
+
+---
+
+### [2026-04-25] EPIC-005/STORY-079 — Stock Detail Page: Valuation Tab
+
+**Timestamp:** 2026-04-25T22:30:00Z
+
+**Epic/Story/Task:** EPIC-005 / STORY-079 / TASK-079-001 through TASK-079-003
+
+**Action Taken:**
+- Created ValuationTab.tsx: zone badge (6 zones with colors), threshold gauge with 20% right-margin auto-scaling, TSR hurdle row (base + adjusted + reason codes), secondary adjustment badges, valuation history section (last 10 rows), collapsible override panel with threshold fields + metric selector + notes textarea + holding-company earnings field
+- Created GET /api/stocks/[ticker]/valuation/history: returns last 10 zone transitions
+- Replaced valuation placeholder in StockDetailClient.tsx with ValuationTab component
+- 13 component unit tests: zone badges, gauge, null gauge state, TSR hurdle, status messages, override panel visibility
+
+**Files Changed:**
+- `src/components/stock-detail/ValuationTab.tsx` — new; full valuation tab component
+- `src/app/api/stocks/[ticker]/valuation/history/route.ts` — new; zone history endpoint
+- `src/components/stock-detail/StockDetailClient.tsx` — replaced placeholder with ValuationTab
+- `tests/unit/components/ValuationTab.test.tsx` — new; 13 unit tests
+
+**Tests Added/Updated:** 13 new component tests; 252/252 total passing
+
+**Result/Status:** STORY-079 DONE ✅
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (new UI component; existing tabs unaffected)
+
+**Next Action:** Execute STORY-080 — Universe Screen: Valuation Zone Columns & Filters

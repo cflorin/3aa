@@ -415,7 +415,7 @@
 - **Status:** in_progress
 - **Dependencies:** EPIC-004 (classification state, all quarterly history stories complete)
 - **Stories:** STORY-075 through STORY-081 (decomposed 2026-04-25)
-- **Active Story:** STORY-078 — User Valuation Override API (done ✅)
+- **Active Story:** STORY-079 — Stock Detail Page: Valuation Tab (done ✅)
 - **Integration Checkpoint:** Valuation engine running, zones displayed
 - **Deployment Milestone:** Users can view valuation zones
 
@@ -444,8 +444,10 @@
 - **Evidence:** 239/239 unit tests passing; GET/PUT/DELETE endpoints; schema migration already applied in STORY-076
 
 #### STORY-079 — Stock Detail Page: Valuation Tab
-- **Status:** ready
+- **Status:** done
 - **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-079-stock-detail-valuation-tab.md
+- **Tasks:** TASK-079-001 through TASK-079-003 (all done)
+- **Evidence:** 252/252 unit tests passing; ValuationTab component + valuation history endpoint
 
 #### STORY-080 — Universe Screen: Valuation Zone Columns & Filters
 - **Status:** ready

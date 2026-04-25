@@ -20,6 +20,7 @@ import FlagPill from './FlagPill';
 import StarRating from './StarRating';
 import type { ConfidenceStep, TieBreakRecord } from '@/domain/classification/types';
 import { T } from '@/lib/theme';
+import ValuationTab from './ValuationTab';
 
 // ── Response shape from GET /api/stocks/[ticker]/detail ──────────────────────
 
@@ -121,12 +122,21 @@ interface DerivedMetricsSummary {
   operating_margin_slope_4q: number | null;
   net_margin_slope_4q: number | null;
   operating_margin_stability_score: number | null;
+  gross_margin_stability_score: number | null;
   earnings_quality_trend_score: number | null;
   deteriorating_cash_conversion_flag: boolean | null;
   operating_leverage_emerging_flag: boolean | null;
   material_dilution_trend_flag: boolean | null;
   sbc_burden_score: number | null;
+  sbc_as_pct_revenue_ttm: number | null;
   diluted_shares_outstanding_change_4q: number | null;
+  diluted_shares_outstanding_change_8q: number | null;
+  revenue_ttm: number | null;
+  operating_income_ttm: number | null;
+  net_income_ttm: number | null;
+  free_cash_flow_ttm: number | null;
+  operating_margin_ttm: number | null;
+  fcf_margin_ttm: number | null;
 }
 
 interface QuarterlyHistoryResponse {
@@ -238,11 +248,11 @@ const SECTION_HEADER: React.CSSProperties = {
 
 // ── MetricRow ─────────────────────────────────────────────────────────────────
 
-function MetricRow({ label, value, color }: { label: string; value: string; color?: string }) {
+function MetricRow({ label, value, color, testId }: { label: string; value: string; color?: string; testId?: string }) {
   return (
     <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.borderFaint}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span style={{ fontSize: 11, color: T.textDim }}>{label}</span>
-      <span style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: color ?? T.text }}>{value}</span>
+      <span data-testid={testId} style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: color ?? T.text }}>{value}</span>
     </div>
   );
 }
@@ -253,7 +263,7 @@ interface StockDetailClientProps {
   ticker: string;
 }
 
-type Tab = 'classification' | 'fundamentals' | 'valuation' | 'history';
+type Tab = 'classification' | 'quarterly' | 'annual' | 'valuation' | 'history';
 
 export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const router = useRouter();
@@ -275,10 +285,9 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Quarterly history section (STORY-071) — collapsed by default, loaded on expand
-  const [qhExpanded, setQhExpanded] = useState(false);
+  // Quarterly history — loaded eagerly on stock open (BUG-001: all data loads on stock open)
   const [qhData, setQhData] = useState<QuarterlyHistoryResponse | null>(null);
-  const [qhLoading, setQhLoading] = useState(false);
+  const [qhLoading, setQhLoading] = useState(true);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -304,13 +313,30 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
       }
       const data: DetailResponse = await res.json();
       setDetail(data);
-      setActiveCodeOverlay(undefined); // clear any overlay on fresh load
+      setActiveCodeOverlay(undefined);
     } finally {
       setLoading(false);
     }
   }, [ticker]);
 
+  // Fetch quarterly history eagerly on mount — all stock data available immediately
+  const fetchQuarterlyHistory = useCallback(async () => {
+    setQhLoading(true);
+    try {
+      const res = await fetch(`/api/stocks/${ticker}/quarterly-history`);
+      const data: QuarterlyHistoryResponse = res.ok
+        ? await res.json()
+        : { quarters: [], derived: null };
+      setQhData(data);
+    } catch {
+      setQhData({ quarters: [], derived: null });
+    } finally {
+      setQhLoading(false);
+    }
+  }, [ticker]);
+
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
+  useEffect(() => { fetchQuarterlyHistory(); }, [fetchQuarterlyHistory]);
 
   useEffect(() => {
     if (activeTab !== 'history' || history !== null) return;
@@ -321,17 +347,6 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
       .catch(() => setHistory([]))
       .finally(() => setHistoryLoading(false));
   }, [activeTab, ticker, history]);
-
-  // Load quarterly history when section is first expanded (STORY-071)
-  useEffect(() => {
-    if (!qhExpanded || qhData !== null) return;
-    setQhLoading(true);
-    fetch(`/api/stocks/${ticker}/quarterly-history`)
-      .then(r => r.ok ? r.json() : { quarters: [], derived: null })
-      .then((data: QuarterlyHistoryResponse) => setQhData(data))
-      .catch(() => setQhData({ quarters: [], derived: null }))
-      .finally(() => setQhLoading(false));
-  }, [qhExpanded, ticker, qhData]);
 
   function handleOverrideChange(_t: string, newCode: string | null) {
     setActiveCodeOverlay(newCode);
@@ -456,7 +471,8 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'classification', label: 'Classification' },
-    { id: 'fundamentals', label: 'Fundamentals' },
+    { id: 'quarterly', label: 'Quarterly' },
+    { id: 'annual', label: 'Annual & Inferred' },
     { id: 'valuation', label: 'Valuation' },
     { id: 'history', label: 'History' },
   ];
@@ -875,8 +891,131 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
           </div>
         )}
 
-        {/* ── FUNDAMENTALS TAB ───────────────────────────────────────────── */}
-        {activeTab === 'fundamentals' && (
+        {/* ── QUARTERLY TAB (STORY-073) ───────────────────────────────────── */}
+        {activeTab === 'quarterly' && (
+          <div data-testid="quarterly-tab">
+            {qhLoading && (
+              <div data-testid="quarterly-loading" style={{ padding: '24px', color: T.textDim, fontSize: 12 }}>Loading quarterly data…</div>
+            )}
+            {!qhLoading && (!qhData || qhData.quarters.length === 0) && (
+              <div data-testid="quarterly-empty-state" style={{ padding: '32px 24px' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 8 }}>
+                  No quarterly history data
+                </div>
+                <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 12 }}>
+                  The quarterly sync job has not yet run for this stock.
+                </div>
+                <div style={{ fontSize: 11, color: T.textDim, fontFamily: 'var(--font-dm-mono, monospace)', background: T.tableHead, display: 'inline-block', padding: '4px 10px', borderRadius: 4, border: `1px solid ${T.border}` }}>
+                  POST /api/cron/quarterly-history
+                </div>
+              </div>
+            )}
+            {!qhLoading && qhData && qhData.quarters.length > 0 && (
+              <>
+                {/* 8-quarter raw financials table */}
+                <div style={{ overflowX: 'auto', borderBottom: `1px solid ${T.border}` }}>
+                    <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          {['Quarter', 'Revenue', 'Gross Profit', 'Op. Income', 'Net Income', 'FCF', 'CFO', 'Gross Mgn', 'Op. Mgn', 'Net Mgn'].map(h => (
+                            <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Quarter' ? 'left' : 'right', fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', background: T.tableHead }}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {qhData.quarters.map((q, i) => {
+                          const key = `${q.fiscal_year}-${q.fiscal_quarter}`;
+                          const fmtM = (v: number | null) => v === null ? '—' : `$${(v / 1_000_000).toFixed(0)}M`;
+                          const fmtMgn = (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(1)}%`;
+                          const rowBg = i % 2 === 0 ? 'transparent' : T.tableHead;
+                          return (
+                            <tr key={key} data-testid={`qrow-${key}`} style={{ background: rowBg }}>
+                              <td style={{ padding: '5px 10px', fontWeight: 600, color: T.text, whiteSpace: 'nowrap' }}>Q{q.fiscal_quarter} {q.fiscal_year}</td>
+                              <td data-testid={`qcell-${key}-revenue`} style={{ padding: '5px 10px', textAlign: 'right', color: T.text }}>{fmtM(q.revenue)}</td>
+                              <td data-testid={`qcell-${key}-gross_profit`} style={{ padding: '5px 10px', textAlign: 'right', color: T.text }}>{fmtM(q.gross_profit)}</td>
+                              <td data-testid={`qcell-${key}-operating_income`} style={{ padding: '5px 10px', textAlign: 'right', color: q.operating_income !== null && q.operating_income < 0 ? '#ef4444' : T.text }}>{fmtM(q.operating_income)}</td>
+                              <td data-testid={`qcell-${key}-net_income`} style={{ padding: '5px 10px', textAlign: 'right', color: q.net_income !== null && q.net_income < 0 ? '#ef4444' : T.text }}>{fmtM(q.net_income)}</td>
+                              <td data-testid={`qcell-${key}-free_cash_flow`} style={{ padding: '5px 10px', textAlign: 'right', color: q.free_cash_flow !== null && q.free_cash_flow < 0 ? '#ef4444' : T.text }}>{fmtM(q.free_cash_flow)}</td>
+                              <td data-testid={`qcell-${key}-cfo`} style={{ padding: '5px 10px', textAlign: 'right', color: T.text }}>{fmtM(q.cash_from_operations)}</td>
+                              <td data-testid={`qcell-${key}-gross_margin`} style={{ padding: '5px 10px', textAlign: 'right', color: grossMarginColor(q.gross_margin) }}>{fmtMgn(q.gross_margin)}</td>
+                              <td data-testid={`qcell-${key}-operating_margin`} style={{ padding: '5px 10px', textAlign: 'right', color: opMarginColor(q.operating_margin) }}>{fmtMgn(q.operating_margin)}</td>
+                              <td data-testid={`qcell-${key}-net_margin`} style={{ padding: '5px 10px', textAlign: 'right', color: opMarginColor(q.net_margin) }}>{fmtMgn(q.net_margin)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                {/* Derived trend metrics */}
+                {qhData.derived && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+
+                    <div style={{ borderRight: `1px solid ${T.border}` }}>
+                      <div style={SECTION_HEADER}>TTM Rollups</div>
+                      <MetricRow label="Revenue TTM" testId="derived-revenue-ttm" value={qhData.derived.revenue_ttm !== null ? `$${(qhData.derived.revenue_ttm / 1_000_000_000).toFixed(2)}B` : '—'} />
+                      <MetricRow label="Op. Income TTM" value={qhData.derived.operating_income_ttm !== null ? `$${(qhData.derived.operating_income_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.operating_income_ttm !== null && qhData.derived.operating_income_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="Net Income TTM" value={qhData.derived.net_income_ttm !== null ? `$${(qhData.derived.net_income_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.net_income_ttm !== null && qhData.derived.net_income_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="FCF TTM" value={qhData.derived.free_cash_flow_ttm !== null ? `$${(qhData.derived.free_cash_flow_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.free_cash_flow_ttm !== null && qhData.derived.free_cash_flow_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="Op. Margin TTM" testId="derived-op-margin-ttm" value={fmtPct(qhData.derived.operating_margin_ttm)} color={opMarginColor(qhData.derived.operating_margin_ttm)} />
+                      <MetricRow label="FCF Margin TTM" value={fmtPct(qhData.derived.fcf_margin_ttm)} color={fcfMarginColor(qhData.derived.fcf_margin_ttm)} />
+
+                      <div style={SECTION_HEADER}>Margin Slopes (4Q, pp/quarter)</div>
+                      {([
+                        ['Gross Margin Slope', qhData.derived.gross_margin_slope_4q],
+                        ['Op. Margin Slope', qhData.derived.operating_margin_slope_4q],
+                        ['Net Margin Slope', qhData.derived.net_margin_slope_4q],
+                      ] as [string, number | null][]).map(([label, val]) => {
+                        const icon = val === null ? '' : val > 0.001 ? ' ▲' : val < -0.001 ? ' ▼' : ' —';
+                        const color = val === null ? T.textDim : val > 0.001 ? '#16a34a' : val < -0.001 ? '#ef4444' : T.textMuted;
+                        return <MetricRow key={label} label={label} value={val !== null ? `${(val * 100).toFixed(2)}pp${icon}` : '—'} color={color} />;
+                      })}
+
+                      <div style={SECTION_HEADER}>Stability</div>
+                      <MetricRow label="Op. Margin Stability" value={qhData.derived.operating_margin_stability_score !== null ? qhData.derived.operating_margin_stability_score.toFixed(2) : '—'} color={qhData.derived.operating_margin_stability_score !== null ? (qhData.derived.operating_margin_stability_score >= 0.7 ? '#16a34a' : qhData.derived.operating_margin_stability_score >= 0.4 ? '#eab308' : '#ef4444') : undefined} />
+                      <MetricRow label="Gross Margin Stability" value={qhData.derived.gross_margin_stability_score !== null ? qhData.derived.gross_margin_stability_score.toFixed(2) : '—'} color={qhData.derived.gross_margin_stability_score !== null ? (qhData.derived.gross_margin_stability_score >= 0.7 ? '#16a34a' : qhData.derived.gross_margin_stability_score >= 0.4 ? '#eab308' : '#ef4444') : undefined} />
+                    </div>
+
+                    <div style={{ borderRight: `1px solid ${T.border}` }}>
+                      <div style={SECTION_HEADER}>Earnings Quality</div>
+                      <MetricRow
+                        label="EQ Trend Score"
+                        testId="derived-eq-trend-score"
+                        value={qhData.derived.earnings_quality_trend_score !== null ? qhData.derived.earnings_quality_trend_score.toFixed(2) : '—'}
+                        color={qhData.derived.earnings_quality_trend_score !== null
+                          ? qhData.derived.earnings_quality_trend_score >= 0.3 ? '#16a34a'
+                          : qhData.derived.earnings_quality_trend_score <= -0.3 ? '#ef4444'
+                          : '#eab308'
+                          : undefined}
+                      />
+                      <MetricRow label="Deteriorating Cash Conv." value={qhData.derived.deteriorating_cash_conversion_flag === null ? '—' : qhData.derived.deteriorating_cash_conversion_flag ? 'Yes' : 'No'} color={qhData.derived.deteriorating_cash_conversion_flag === true ? '#ef4444' : undefined} />
+                      <MetricRow label="Op. Leverage Emerging" value={qhData.derived.operating_leverage_emerging_flag === null ? '—' : qhData.derived.operating_leverage_emerging_flag ? 'Yes' : 'No'} color={qhData.derived.operating_leverage_emerging_flag === true ? '#16a34a' : undefined} />
+
+                      <div style={SECTION_HEADER}>Dilution & SBC</div>
+                      <MetricRow label="Material Dilution Flag" value={qhData.derived.material_dilution_trend_flag === null ? '—' : qhData.derived.material_dilution_trend_flag ? 'Yes' : 'No'} color={qhData.derived.material_dilution_trend_flag === true ? '#ef4444' : undefined} />
+                      <MetricRow label="Shares Change 4Q" value={fmtPct(qhData.derived.diluted_shares_outstanding_change_4q)} color={qhData.derived.diluted_shares_outstanding_change_4q !== null && qhData.derived.diluted_shares_outstanding_change_4q > 0.02 ? '#ef4444' : undefined} />
+                      <MetricRow label="Shares Change 8Q" value={fmtPct(qhData.derived.diluted_shares_outstanding_change_8q)} color={qhData.derived.diluted_shares_outstanding_change_8q !== null && qhData.derived.diluted_shares_outstanding_change_8q > 0.04 ? '#ef4444' : undefined} />
+                      <MetricRow label="SBC Burden Score" value={qhData.derived.sbc_burden_score !== null ? qhData.derived.sbc_burden_score.toFixed(2) : '—'} color={qhData.derived.sbc_burden_score !== null && qhData.derived.sbc_burden_score > 0.5 ? '#ef4444' : undefined} />
+                      <MetricRow label="SBC as % Rev (TTM)" value={fmtPct(qhData.derived.sbc_as_pct_revenue_ttm)} color={qhData.derived.sbc_as_pct_revenue_ttm !== null && qhData.derived.sbc_as_pct_revenue_ttm > 0.1 ? '#ef4444' : undefined} />
+
+                      <div style={SECTION_HEADER}>Data Coverage</div>
+                      <MetricRow label="Quarters Available" testId="derived-quarters-available" value={qhData.derived.quarters_available !== null ? String(qhData.derived.quarters_available) : '—'} />
+                      <MetricRow label="Derived As Of" value={qhData.derived.derived_as_of ? new Date(qhData.derived.derived_as_of).toLocaleDateString() : '—'} />
+                    </div>
+                  </div>
+                )}
+                {!qhData.derived && qhData.quarters.length > 0 && (
+                  <div style={{ padding: '12px 16px', color: T.textDim, fontSize: 11 }}>Derived trend metrics not yet computed.</div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── ANNUAL & INFERRED TAB (STORY-073) ──────────────────────────── */}
+        {activeTab === 'annual' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
 
             <div style={{ borderRight: `1px solid ${T.border}` }}>
@@ -888,40 +1027,18 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <MetricRow label="Gross Profit Growth" value={fmtPct(detail.gross_profit_growth)} color={growthColor(detail.gross_profit_growth)} />
 
               <div style={SECTION_HEADER}>EPS Reconciliation (GAAP / Non-GAAP)</div>
-              <MetricRow
-                label="EPS TTM (GAAP)"
-                value={detail.eps_ttm_gaap !== null ? `$${detail.eps_ttm_gaap.toFixed(2)}` : '—'}
-              />
-              <MetricRow
-                label="EPS last FY (Non-GAAP)"
-                value={detail.non_gaap_eps_fy !== null ? `$${detail.non_gaap_eps_fy.toFixed(2)}` : '—'}
-                color={T.textDim}
-              />
-              <MetricRow
-                label="EPS last FY (GAAP)"
-                value={detail.gaap_eps_fy !== null ? `$${detail.gaap_eps_fy.toFixed(2)}` : '—'}
-              />
+              <MetricRow label="EPS TTM (GAAP)" value={detail.eps_ttm_gaap !== null ? `$${detail.eps_ttm_gaap.toFixed(2)}` : '—'} />
+              <MetricRow label="EPS last FY (Non-GAAP)" value={detail.non_gaap_eps_fy !== null ? `$${detail.non_gaap_eps_fy.toFixed(2)}` : '—'} color={T.textDim} />
+              <MetricRow label="EPS last FY (GAAP)" value={detail.gaap_eps_fy !== null ? `$${detail.gaap_eps_fy.toFixed(2)}` : '—'} />
               <MetricRow
                 label="GAAP Adj Factor"
                 value={detail.gaap_adjustment_factor !== null ? detail.gaap_adjustment_factor.toFixed(4) : '—'}
-                color={
-                  detail.gaap_adjustment_factor === null ? T.textDim
-                    : detail.gaap_adjustment_factor < 0.85 ? '#ef4444'
-                    : detail.gaap_adjustment_factor > 1.05 ? '#eab308'
-                    : '#16a34a'
-                }
+                color={detail.gaap_adjustment_factor === null ? T.textDim : detail.gaap_adjustment_factor < 0.85 ? '#ef4444' : detail.gaap_adjustment_factor > 1.05 ? '#eab308' : '#16a34a'}
               />
-              <MetricRow
-                label="EPS NTM (Non-GAAP, raw)"
-                value={detail.eps_ntm_non_gaap !== null ? `$${detail.eps_ntm_non_gaap.toFixed(2)}` : '—'}
-                color={T.textDim}
-              />
-              <MetricRow
-                label="EPS NTM (GAAP-equiv)"
-                value={detail.eps_ntm_gaap_equiv !== null ? `$${detail.eps_ntm_gaap_equiv.toFixed(2)}` : '—'}
-              />
+              <MetricRow label="EPS NTM (Non-GAAP, raw)" value={detail.eps_ntm_non_gaap !== null ? `$${detail.eps_ntm_non_gaap.toFixed(2)}` : '—'} color={T.textDim} />
+              <MetricRow label="EPS NTM (GAAP-equiv)" value={detail.eps_ntm_gaap_equiv !== null ? `$${detail.eps_ntm_gaap_equiv.toFixed(2)}` : '—'} />
 
-              <div style={SECTION_HEADER}>Margins</div>
+              <div style={SECTION_HEADER}>Margins (Snapshot)</div>
               <MetricRow label="Gross Margin" value={fmtPct(detail.gross_margin)} color={grossMarginColor(detail.gross_margin)} />
               <MetricRow label="Operating Margin" value={fmtPct(detail.operating_margin)} color={opMarginColor(detail.operating_margin)} />
               <MetricRow label="FCF Margin" value={fmtPct(detail.fcf_margin)} color={fcfMarginColor(detail.fcf_margin)} />
@@ -944,6 +1061,14 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               <MetricRow label="Price" value={detail.price !== null ? `$${detail.price.toFixed(2)}` : '—'} />
               <MetricRow label="P/E Ratio" value={detail.pe_ratio !== null ? `${detail.pe_ratio.toFixed(1)}×` : '—'} />
               <MetricRow label="EV/EBIT" value={detail.ev_ebit !== null ? `${detail.ev_ebit.toFixed(1)}×` : '—'} />
+
+              <div style={SECTION_HEADER}>Qualitative Enrichment (E1–E6)</div>
+              <MetricRow label="E1 Moat Strength" value={detail.e1_moat_strength !== null ? detail.e1_moat_strength.toFixed(2) : '—'} color={detail.e1_moat_strength !== null ? (detail.e1_moat_strength >= 0.6 ? '#16a34a' : detail.e1_moat_strength >= 0.3 ? '#eab308' : '#ef4444') : undefined} />
+              <MetricRow label="E2 Pricing Power" value={detail.e2_pricing_power !== null ? detail.e2_pricing_power.toFixed(2) : '—'} color={detail.e2_pricing_power !== null ? (detail.e2_pricing_power >= 0.6 ? '#16a34a' : detail.e2_pricing_power >= 0.3 ? '#eab308' : '#ef4444') : undefined} />
+              <MetricRow label="E3 Revenue Recurrence" value={detail.e3_revenue_recurrence !== null ? detail.e3_revenue_recurrence.toFixed(2) : '—'} color={detail.e3_revenue_recurrence !== null ? (detail.e3_revenue_recurrence >= 0.6 ? '#16a34a' : detail.e3_revenue_recurrence >= 0.3 ? '#eab308' : '#ef4444') : undefined} />
+              <MetricRow label="E4 Margin Durability" value={detail.e4_margin_durability !== null ? detail.e4_margin_durability.toFixed(2) : '—'} color={detail.e4_margin_durability !== null ? (detail.e4_margin_durability >= 0.6 ? '#16a34a' : detail.e4_margin_durability >= 0.3 ? '#eab308' : '#ef4444') : undefined} />
+              <MetricRow label="E5 Capital Intensity" value={detail.e5_capital_intensity !== null ? detail.e5_capital_intensity.toFixed(2) : '—'} color={detail.e5_capital_intensity !== null ? (detail.e5_capital_intensity >= 0.6 ? '#16a34a' : detail.e5_capital_intensity >= 0.3 ? '#eab308' : '#ef4444') : undefined} />
+              <MetricRow label="E6 Qualitative Cyclicality" value={detail.e6_qualitative_cyclicality !== null ? detail.e6_qualitative_cyclicality.toFixed(2) : '—'} color={detail.e6_qualitative_cyclicality !== null ? (detail.e6_qualitative_cyclicality <= 0.3 ? '#16a34a' : detail.e6_qualitative_cyclicality <= 0.6 ? '#eab308' : '#ef4444') : undefined} />
             </div>
 
             <div>
@@ -969,11 +1094,11 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
         {/* ── VALUATION TAB ──────────────────────────────────────────────── */}
         {activeTab === 'valuation' && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: T.textDim }}
-            data-testid="valuation-placeholder"
-          >
-            Valuation thresholds and TSR hurdles are available in a future update.
-          </div>
+          <ValuationTab
+            ticker={ticker}
+            holdingCompanyFlag={detail.holding_company_flag === true}
+            insurerFlag={detail.insurer_flag === true}
+          />
         )}
 
         {/* ── HISTORY TAB ────────────────────────────────────────────────── */}
@@ -1044,119 +1169,6 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
         )}
       </div>
     </div>
-
-    {/* ── QUARTERLY FINANCIAL HISTORY SECTION (STORY-071) ─────────────── */}
-    {detail && (
-      <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 0 }}>
-        <button
-          data-testid="quarterly-history-toggle"
-          onClick={() => setQhExpanded(x => !x)}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 16px',
-            background: T.tableHead,
-            border: 'none',
-            cursor: 'pointer',
-            textAlign: 'left',
-            fontFamily: 'inherit',
-          }}
-        >
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.textDim }}>
-            Quarterly Financial History
-          </span>
-          <span style={{ fontSize: 11, color: T.textDim }}>{qhExpanded ? '▲' : '▼'}</span>
-          {qhData?.derived?.quarters_available != null && (
-            <span style={{ fontSize: 10, color: T.textMuted, marginLeft: 4 }}>
-              {qhData.derived.quarters_available} quarters
-            </span>
-          )}
-        </button>
-
-        {qhExpanded && (
-          <div data-testid="quarterly-history-section">
-            {qhLoading && (
-              <div style={{ padding: '16px', color: T.textDim, fontSize: 12 }}>Loading quarterly history…</div>
-            )}
-
-            {!qhLoading && qhData && (
-              <>
-                {qhData.quarters.length === 0 ? (
-                  <div style={{ padding: '16px', color: T.textDim, fontSize: 12 }}>
-                    No quarterly history available yet.
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11 }}>
-                      <thead>
-                        <tr>
-                          {['Quarter', 'Revenue', 'Gross Profit', 'Op. Income', 'Net Income', 'FCF', 'CFO', 'Gross Mgn', 'Op. Mgn', 'Net Mgn'].map(h => (
-                            <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Quarter' ? 'left' : 'right', fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', background: T.tableHead }}>
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {qhData.quarters.map((q, i) => (
-                          <tr key={`${q.fiscal_year}-${q.fiscal_quarter}`} style={{ background: i % 2 === 0 ? T.cardBg : T.sidebarBg }}>
-                            <td style={{ padding: '6px 10px', fontFamily: 'var(--font-dm-mono, monospace)', color: T.text, whiteSpace: 'nowrap' }}>
-                              Q{q.fiscal_quarter} {q.fiscal_year}
-                            </td>
-                            {[q.revenue, q.gross_profit, q.operating_income, q.net_income, q.free_cash_flow, q.cash_from_operations].map((v, j) => (
-                              <td key={j} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', color: v === null ? T.textDim : T.text }}>
-                                {v === null ? '—' : `${(v / 1_000_000).toFixed(0)}M`}
-                              </td>
-                            ))}
-                            {[q.gross_margin, q.operating_margin, q.net_margin].map((v, j) => (
-                              <td key={j} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', color: v === null ? T.textDim : opMarginColor(v) }}>
-                                {v === null ? '—' : `${(v * 100).toFixed(1)}%`}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Trend indicators panel */}
-                {qhData.derived && (
-                  <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.border}` }}>
-                    <div style={SECTION_HEADER}>Trend Indicators</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginTop: 10 }}>
-                      {[
-                        { label: 'Op Margin Slope 4Q', value: qhData.derived.operating_margin_slope_4q, format: (v: number | null) => v === null ? '—' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(2)}pp/q` },
-                        { label: 'EQ Trend Score', value: qhData.derived.earnings_quality_trend_score, format: (v: number | null) => v === null ? '—' : v.toFixed(2) },
-                        { label: 'Margin Stability', value: qhData.derived.operating_margin_stability_score, format: (v: number | null) => v === null ? '—' : v.toFixed(2) },
-                        { label: 'Dilution Flag', value: qhData.derived.material_dilution_trend_flag, format: (v: boolean | null) => v === null ? '—' : v ? 'Yes ⚑' : 'No' },
-                        { label: 'SBC Burden', value: qhData.derived.sbc_burden_score, format: (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(1)}%` },
-                        { label: 'Share Dilution 4Q', value: qhData.derived.diluted_shares_outstanding_change_4q, format: (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(2)}%` },
-                        { label: 'Quarters Available', value: qhData.derived.quarters_available, format: (v: number | null) => v === null ? '—' : String(v) },
-                      ].map(({ label, value, format }) => (
-                        <div key={label} style={{ padding: '8px 10px', background: T.sidebarBg, borderRadius: 4, border: `1px solid ${T.border}` }}>
-                          <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>{label}</div>
-                          <div style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: T.text }}>
-                            {(format as (v: typeof value) => string)(value)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {qhData.derived.derived_as_of && (
-                      <div style={{ marginTop: 8, fontSize: 10, color: T.textDim }}>
-                        Synced: {fmtDate(qhData.derived.derived_as_of)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    )}
 
     {/* Override modal (reuses STORY-051 ClassificationModal) */}
     {showOverrideModal && (
