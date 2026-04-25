@@ -8,6 +8,39 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-25 — EPIC-005/STORY-080: Universe Screen Valuation Zone Columns & Filters — complete
+
+**Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+**Story:** STORY-080 — Universe Screen: Valuation Zone Columns & Filters
+**Tasks:** TASK-080-001 (domain + API), TASK-080-002 (StockTable + FilterBar + client), TASK-080-003 (tests)
+
+**Action:** Extended the Universe Screen to display valuation zone data (Zone badge, Multiple, TSR Hurdle) and added a valuation zone filter dropdown.
+
+TASK-080-001: Extended `UniverseStockSummary` with 5 new fields: `valuationZone`, `currentMultiple`, `currentMultipleBasis`, `adjustedTsrHurdle`, `valuationStateStatus`. Extended `UniverseQueryOpts` with `valuationZone?: string[]`. Extended `makeStockSelect` to LEFT JOIN `valuationState` relation. Updated `StockSelectRow` type and `mapRow`. Added `ZONE_SORT_ORDER` for in-memory zone sort (steal_zone→1 through not_computed→7). Added `valuationZone` filter in `getUniverseStocks` — `not_computed` mapped to `valuationState: { is: null }`, real zones to `{ in: realZones }`. Added in-memory sort branch for `sort === 'valuationZone'`. Extended `/api/universe` GET route: added `valuationZone` to `ALLOWED_SORT_FIELDS`; added `valuationZone` query param parsing; passes to `getUniverseStocks`.
+
+TASK-080-002: Extended `StockTable` with `ValuationZoneBadge` component (ZONE_COLORS + ZONE_LABELS for 6 zones), `BASIS_LABELS` mapping, Zone column header (sortable via `valuationZone`), Multiple column header, TSR Hurdle column header. Added `valuationZone` to `SORTABLE_KEYS`. Zone cell renders `<ValuationZoneBadge>`, Multiple cell renders `19.5× fwd P/E` format, TSR Hurdle cell renders `11.0%` format. Extended `FilterBar.tsx`: added `valuationZone: string[]` to `FilterState`, updated `EMPTY_FILTERS`, added count in `activeFilterCount`, added `filter-valuation-zone` select dropdown with all 7 zone options (incl. not_computed). Extended `UniversePageClient.tsx`: added `valuationZone` to `filtersToParams` (comma-joined), `readFiltersFromParams`, `useEffect` deps (`JSON.stringify` to avoid unstable array ref).
+
+TASK-080-003: Added `tests/unit/components/story-080-valuation-zone-columns.test.tsx` (16 tests: ValuationZoneBadge renders steal_zone/comfortable_zone/above_max labels, null → "—", Multiple cell format, Multiple null → "—", TSR Hurdle format, TSR null → "—", Zone header present, Zone header sort callback, Multiple/TSR headers present, FilterBar zone dropdown present, default "All zones", onChange with zone array, onChange clear to [], filter count badge, not_computed option present). Updated `StockTable.test.tsx`: added valuation fields to `makeStock`; updated column header test from 12→15 columns (added Multiple, TSR Hurdle assertions); updated Zone null test description. Updated `StockDetail.test.tsx`: replaced stale `valuation-placeholder` test with `valuation-not-computed` check. Updated `story-056-add-stock.test.ts`: added mocks for `syncShareCount`, `syncQuarterlyHistory`, `computeDerivedMetricsBatch`, `computeTrendMetricsBatch`, `runValuationBatch`; updated 8-stage test to 11-stage; added `valuation` stage and `runValuationBatch` assertion.
+
+**Files Changed:**
+- `src/domain/monitoring/monitoring.ts` (modified — UniverseStockSummary fields, UniverseQueryOpts, makeStockSelect, StockSelectRow, mapRow, ZONE_SORT_ORDER, valuationZone filter + sort)
+- `src/app/api/universe/route.ts` (modified — valuationZone sort field + filter param)
+- `src/components/universe/StockTable.tsx` (modified — ValuationZoneBadge, BASIS_LABELS, SORTABLE_KEYS, Zone/Multiple/TSR columns)
+- `src/components/universe/FilterBar.tsx` (modified — valuationZone in FilterState/EMPTY_FILTERS/count/JSX)
+- `src/components/universe/UniversePageClient.tsx` (modified — valuationZone in filtersToParams/readFiltersFromParams/useEffect deps)
+- `tests/unit/components/story-080-valuation-zone-columns.test.tsx` (created — 16 tests)
+- `tests/unit/components/StockTable.test.tsx` (modified — makeStock valuation fields; 12→15 column header test; Zone null test updated)
+- `tests/unit/components/StockDetail.test.tsx` (modified — valuation-placeholder → valuation-not-computed)
+- `tests/unit/api/story-056-add-stock.test.ts` (modified — 4 new service mocks; 8-stage→11-stage; valuation stage assertion)
+
+**Tests Added/Updated:** +16 new tests; 4 tests updated
+**Result/Status:** ✅ DONE — 1337/1337 unit tests passing; zero regressions
+**Blockers/Issues:** None
+**Baseline Impact:** NO
+**Next Action:** STORY-081 — EPIC-005 Regression & Integration Tests
+
+---
+
 ## 2026-04-25 — EPIC-004/STORY-066–072: Quarterly History Classification Engine Integration — complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen

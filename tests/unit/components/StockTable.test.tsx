@@ -35,6 +35,12 @@ function makeStock(overrides: Partial<UniverseStockSummary> = {}): UniverseStock
     is_active: true,
     active_code: '3AA',
     confidence_level: 'high',
+    // Valuation fields (STORY-080) — null by default
+    valuationZone: null,
+    currentMultiple: null,
+    currentMultipleBasis: null,
+    adjustedTsrHurdle: null,
+    valuationStateStatus: null,
     ...overrides,
   };
 }
@@ -61,7 +67,7 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     expect(screen.getByText(/no stocks in universe/i)).toBeInTheDocument();
   });
 
-  it('renders all 12 column headers per spec', () => {
+  it('renders all 15 column headers per spec', () => {
     render(<StockTable stocks={[makeStock()]} />);
     expect(screen.getByText('Ticker')).toBeInTheDocument();
     expect(screen.getByText('Company')).toBeInTheDocument();
@@ -75,6 +81,8 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     expect(screen.getByText('ND/EBITDA')).toBeInTheDocument();
     expect(screen.getByText('Op Margin')).toBeInTheDocument();
     expect(screen.getByText('Zone')).toBeInTheDocument();
+    expect(screen.getByText('Multiple')).toBeInTheDocument();
+    expect(screen.getByText('TSR Hurdle')).toBeInTheDocument();
     expect(screen.queryByText('Market Cap')).not.toBeInTheDocument();
   });
 
@@ -102,11 +110,11 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     expect(mockPush).toHaveBeenCalledWith('/stocks/MSFT');
   });
 
-  it('Zone column shows "—" for all rows', () => {
-    render(<StockTable stocks={[makeStock(), makeStock({ ticker: 'ADBE' })]} />);
-    // Multiple "—" cells expected (Zone + any null metrics)
+  it('Zone/Multiple/TSR show "—" when valuation fields are null', () => {
+    render(<StockTable stocks={[makeStock()]} />);
+    // null valuationZone → "—" badge; null currentMultiple → "—"; null adjustedTsrHurdle → "—"
     const dashes = screen.getAllByText('—');
-    expect(dashes.length).toBeGreaterThanOrEqual(2);
+    expect(dashes.length).toBeGreaterThanOrEqual(3);
   });
 
   // ── STORY-050: Inactive row muting ─────────────────────────────────────────

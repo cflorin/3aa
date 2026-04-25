@@ -3,6 +3,8 @@
 // TASK-046-004: GET /api/universe — all in-universe stocks with per-user monitoring status
 // STORY-049: Extended with filter/sort query params
 // STORY-070: Extended with ?include=trend; trend filter/sort params
+// EPIC-005: Valuation Threshold Engine & Enhanced Universe
+// STORY-080: Extended with valuation zone columns; valuationZone filter + sort
 // RFC-003 §Monitor List API; RFC-003 §Filtering and Sort; ADR-007; ADR-006 (session auth)
 // RFC-008 §Classifier-Facing Derived Fields
 
@@ -25,6 +27,8 @@ const ALLOWED_SORT_FIELDS = new Set([
   'operating_margin_slope_4q',
   'earnings_quality_trend_score',
   'quarters_available',
+  // Valuation sort field (STORY-080)
+  'valuationZone',
 ]);
 
 export async function GET(req: NextRequest) {
@@ -66,6 +70,10 @@ export async function GET(req: NextRequest) {
   const minQRaw = searchParams.get('min_quarters');
   const minQuartersAvailable = minQRaw !== null ? parseInt(minQRaw, 10) : undefined;
 
+  // Valuation zone filter (STORY-080) — comma-separated; 'not_computed' is a valid value
+  const valuationZoneRaw = searchParams.get('valuationZone');
+  const valuationZone = valuationZoneRaw ? valuationZoneRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
   const { stocks, total } = await getUniverseStocks(user.userId, {
     page,
     limit,
@@ -81,6 +89,7 @@ export async function GET(req: NextRequest) {
     eqTrendMax: !isNaN(eqTrendMax!) ? eqTrendMax : undefined,
     dilutionFlagOnly: dilutionFlagOnly || undefined,
     minQuartersAvailable: minQuartersAvailable !== undefined && !isNaN(minQuartersAvailable) ? minQuartersAvailable : undefined,
+    valuationZone,
   });
 
   return NextResponse.json({ stocks, total, page, limit });

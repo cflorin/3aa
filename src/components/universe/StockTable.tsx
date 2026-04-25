@@ -54,6 +54,46 @@ function fmtRatio(val: number | null): string {
   return val.toFixed(1) + '×';
 }
 
+// STORY-080: Valuation zone badge helpers
+const ZONE_COLORS: Record<string, string> = {
+  steal_zone: '#34d399',
+  very_good_zone: '#4ade80',
+  comfortable_zone: '#facc15',
+  max_zone: '#fb923c',
+  above_max: '#f87171',
+  not_applicable: '#71717a',
+};
+const ZONE_LABELS: Record<string, string> = {
+  steal_zone: 'Steal',
+  very_good_zone: 'Very Good',
+  comfortable_zone: 'Comfortable',
+  max_zone: 'At Max',
+  above_max: 'Above Max',
+  not_applicable: 'N/A',
+};
+function ValuationZoneBadge({ zone }: { zone: string | null }) {
+  if (!zone) return <span style={{ color: '#52525b' }}>—</span>;
+  const color = ZONE_COLORS[zone] ?? '#71717a';
+  return (
+    <span style={{
+      display: 'inline-block', padding: '1px 6px', borderRadius: 3,
+      fontSize: 10, fontWeight: 700, color,
+      background: color + '20', border: `1px solid ${color}50`,
+    }}>
+      {ZONE_LABELS[zone] ?? zone}
+    </span>
+  );
+}
+
+const BASIS_LABELS: Record<string, string> = {
+  forward_pe: 'fwd P/E',
+  forward_ev_ebit: 'EV/EBIT',
+  ev_sales: 'EV/S',
+  trailing_fallback: 'trail. P/E',
+  manual: 'manual',
+  spot: '',
+};
+
 // ── Column header styles ──────────────────────────────────────────────────────
 
 const TH: React.CSSProperties = {
@@ -115,6 +155,7 @@ const SORTABLE_KEYS = new Set([
   'ticker', 'revenue_growth_fwd', 'eps_growth_fwd',
   'fcf_conversion', 'net_debt_to_ebitda', 'operating_margin',
   'operating_margin_slope_4q', 'earnings_quality_trend_score', 'quarters_available',
+  'valuationZone',
 ]);
 
 function sortIcon(colKey: string, sort: string, dir: SortDir): string {
@@ -258,7 +299,16 @@ export default function StockTable({
           >
             Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
           </th>
-          <th scope="col" style={TH}>Zone</th>
+          <th
+            scope="col"
+            style={{ ...TH, cursor: onSort ? 'pointer' : 'default', color: sort === 'valuationZone' ? T.accent : T.textMuted }}
+            onClick={() => handleHeaderClick('valuationZone')}
+            aria-sort={sort === 'valuationZone' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+          >
+            Zone{onSort ? sortIcon('valuationZone', sort, dir) : ''}
+          </th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>Multiple</th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>TSR Hurdle</th>
           {/* Trend metric columns (STORY-070) — hidden by default; shown when visibleTrendColumns includes key */}
           {visibleTrendColumns.includes('operating_margin_slope_4q') && (
             <th
@@ -358,7 +408,17 @@ export default function StockTable({
               <td style={{ ...TD, textAlign: 'right', color: growthColor(s.operating_margin), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtPct(s.operating_margin)}
               </td>
-              <td style={{ ...TD, color: T.textDim }}>—</td>
+              <td style={TD}>
+                <ValuationZoneBadge zone={s.valuationZone ?? null} />
+              </td>
+              <td style={{ ...TD, textAlign: 'right', fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                {s.currentMultiple != null
+                  ? `${s.currentMultiple.toFixed(1)}× ${BASIS_LABELS[s.currentMultipleBasis ?? ''] ?? ''}`
+                  : '—'}
+              </td>
+              <td style={{ ...TD, textAlign: 'right', fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                {s.adjustedTsrHurdle != null ? `${s.adjustedTsrHurdle.toFixed(1)}%` : '—'}
+              </td>
               {/* Trend metric cells (STORY-070) */}
               {visibleTrendColumns.includes('operating_margin_slope_4q') && (
                 <td style={{ ...TD, textAlign: 'right', color: slopeColor(s.trend?.operating_margin_slope_4q ?? null), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>

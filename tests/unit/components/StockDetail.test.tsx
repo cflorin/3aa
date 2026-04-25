@@ -101,8 +101,47 @@ const BASE_DETAIL = {
   material_dilution_flag: false,
 };
 
-function mockFetchSuccess(data = BASE_DETAIL) {
+// Quarterly history fixtures (BUG-001 tests)
+const QH_EMPTY = { quarters: [], derived: null };
+
+const QH_TWO_QUARTERS = {
+  quarters: [
+    {
+      ticker: 'MSFT', fiscal_year: 2024, fiscal_quarter: 2,
+      period_end_date: '2023-12-31T00:00:00.000Z', reported_date: null,
+      revenue: 62020000000, gross_profit: 43200000000,
+      operating_income: 27030000000, net_income: 21870000000,
+      free_cash_flow: 19770000000, cash_from_operations: 23500000000,
+      gross_margin: 0.6965, operating_margin: 0.4358, net_margin: 0.3527,
+    },
+    {
+      ticker: 'MSFT', fiscal_year: 2024, fiscal_quarter: 1,
+      period_end_date: '2023-09-30T00:00:00.000Z', reported_date: null,
+      revenue: 56517000000, gross_profit: 38848000000,
+      operating_income: 26895000000, net_income: 22291000000,
+      free_cash_flow: 20673000000, cash_from_operations: 24000000000,
+      gross_margin: 0.6873, operating_margin: 0.4758, net_margin: 0.3944,
+    },
+  ],
+  derived: {
+    quarters_available: 2, derived_as_of: '2026-04-25T00:00:00.000Z',
+    gross_margin_slope_4q: 0.0023, operating_margin_slope_4q: -0.0015, net_margin_slope_4q: 0.0008,
+    gross_margin_stability_score: 0.82, operating_margin_stability_score: 0.75,
+    earnings_quality_trend_score: 0.42, deteriorating_cash_conversion_flag: false,
+    operating_leverage_emerging_flag: true, material_dilution_trend_flag: false,
+    sbc_burden_score: 0.22, sbc_as_pct_revenue_ttm: 0.04,
+    diluted_shares_outstanding_change_4q: -0.005, diluted_shares_outstanding_change_8q: -0.011,
+    revenue_ttm: 227000000000, operating_income_ttm: 109000000000,
+    net_income_ttm: 88000000000, free_cash_flow_ttm: 79000000000,
+    operating_margin_ttm: 0.4478, fcf_margin_ttm: 0.3700,
+  },
+};
+
+function mockFetchSuccess(data = BASE_DETAIL, qhData = QH_EMPTY) {
   (global.fetch as jest.Mock).mockImplementation((url: string) => {
+    if (url.includes('/quarterly-history')) {
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(qhData) });
+    }
     if (url.includes('/detail')) {
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
     }
@@ -281,12 +320,13 @@ describe('EPIC-004/STORY-053/TASK-053-004: StockDetailClient', () => {
     expect(screen.getByText('Microsoft Corporation')).toBeInTheDocument();
   });
 
-  it('renders 4 tab buttons', async () => {
+  it('renders 5 tab buttons (STORY-073: Quarterly + Annual & Inferred replace Fundamentals)', async () => {
     mockFetchSuccess();
     render(<StockDetailClient ticker="MSFT" />);
     await waitFor(() => screen.getByTestId('tab-classification'));
     expect(screen.getByTestId('tab-classification')).toBeInTheDocument();
-    expect(screen.getByTestId('tab-fundamentals')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-quarterly')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-annual')).toBeInTheDocument();
     expect(screen.getByTestId('tab-valuation')).toBeInTheDocument();
     expect(screen.getByTestId('tab-history')).toBeInTheDocument();
   });
@@ -341,11 +381,11 @@ describe('EPIC-004/STORY-053/TASK-053-004: StockDetailClient', () => {
     expect(screen.getByTestId('no-classification-message')).toBeInTheDocument();
   });
 
-  it('Fundamentals tab: renders all flag pills', async () => {
+  it('Annual & Inferred tab: renders all flag pills (STORY-073)', async () => {
     mockFetchSuccess();
     render(<StockDetailClient ticker="MSFT" />);
-    await waitFor(() => screen.getByTestId('tab-fundamentals'));
-    fireEvent.click(screen.getByTestId('tab-fundamentals'));
+    await waitFor(() => screen.getByTestId('tab-annual'));
+    fireEvent.click(screen.getByTestId('tab-annual'));
     await waitFor(() => screen.getByTestId('flag-pill-binary_flag'));
     expect(screen.getByTestId('flag-pill-holding_company_flag')).toBeInTheDocument();
     expect(screen.getByTestId('flag-pill-material_dilution_flag')).toBeInTheDocument();
@@ -354,13 +394,12 @@ describe('EPIC-004/STORY-053/TASK-053-004: StockDetailClient', () => {
     expect(flagCount).toBe(7);
   });
 
-  it('Valuation tab: placeholder text rendered', async () => {
+  it('Valuation tab: ValuationTab component rendered (not-computed state when API returns {})', async () => {
     mockFetchSuccess();
     render(<StockDetailClient ticker="MSFT" />);
     await waitFor(() => screen.getByTestId('tab-valuation'));
     fireEvent.click(screen.getByTestId('tab-valuation'));
-    await waitFor(() => screen.getByTestId('valuation-placeholder'));
-    expect(screen.getByTestId('valuation-placeholder')).toHaveTextContent(/future update/i);
+    await waitFor(() => screen.getByTestId('valuation-not-computed'));
   });
 
   it('History tab: empty state shown when no history', async () => {
@@ -395,5 +434,205 @@ describe('EPIC-004/STORY-053/TASK-053-004: StockDetailClient', () => {
     render(<StockDetailClient ticker="MSFT" />);
     await waitFor(() => screen.getByTestId('clear-override-btn'));
     expect(screen.getByTestId('clear-override-btn')).toBeInTheDocument();
+  });
+});
+
+// ── Quarterly Tab (BUG-001 / STORY-073) ──────────────────────────────────────
+
+describe('EPIC-004/STORY-073/BUG-001: Quarterly tab rendering', () => {
+  beforeEach(() => { jest.clearAllMocks(); });
+
+  // ── Loading state ───────────────────────────────────────────────────────────
+
+  it('shows loading indicator while quarterly data is in flight', async () => {
+    // Never resolves — keeps loading state active
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/quarterly-history')) return new Promise(() => {});
+      if (url.includes('/detail')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BASE_DETAIL) });
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    });
+    render(<StockDetailClient ticker="MSFT" />);
+    const tab = await screen.findByTestId('tab-quarterly');
+    fireEvent.click(tab);
+    await waitFor(() => expect(screen.getByTestId('quarterly-loading')).toBeInTheDocument());
+  });
+
+  // ── Empty / no-data state ───────────────────────────────────────────────────
+
+  it('shows prominent empty-state message when DB has no quarterly rows', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_EMPTY);
+    render(<StockDetailClient ticker="MSFT" />);
+    const tab = await screen.findByTestId('tab-quarterly');
+    fireEvent.click(tab);
+    await waitFor(() => expect(screen.getByTestId('quarterly-empty-state')).toBeInTheDocument());
+    expect(screen.getByTestId('quarterly-empty-state')).toHaveTextContent(/no quarterly history data/i);
+    expect(screen.getByTestId('quarterly-empty-state')).toHaveTextContent(/quarterly sync job/i);
+  });
+
+  it('empty state names the cron endpoint so admin knows what to run', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_EMPTY);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('quarterly-empty-state'));
+    expect(screen.getByTestId('quarterly-empty-state')).toHaveTextContent(/\/api\/cron\/quarterly-history/i);
+  });
+
+  it('shows empty state when fetch fails (network error)', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/quarterly-history')) return Promise.reject(new Error('Network error'));
+      if (url.includes('/detail')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BASE_DETAIL) });
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    });
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('quarterly-empty-state'));
+    expect(screen.getByTestId('quarterly-empty-state')).toBeInTheDocument();
+  });
+
+  it('shows empty state when API returns non-200', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/quarterly-history')) return Promise.resolve({ ok: false, status: 401 });
+      if (url.includes('/detail')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BASE_DETAIL) });
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    });
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('quarterly-empty-state'));
+    expect(screen.getByTestId('quarterly-empty-state')).toBeInTheDocument();
+  });
+
+  // ── Quarter table ───────────────────────────────────────────────────────────
+
+  it('renders one row per quarter', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('quarterly-tab'));
+    expect(screen.getAllByTestId(/^qrow-/)).toHaveLength(2);
+  });
+
+  it('renders quarter label as Q{n} {year}', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qrow-2024-2'));
+    expect(screen.getByTestId('qrow-2024-2')).toHaveTextContent('Q2 2024');
+    expect(screen.getByTestId('qrow-2024-1')).toHaveTextContent('Q1 2024');
+  });
+
+  it('formats revenue in $M with no decimal', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qrow-2024-2'));
+    // $62020M
+    expect(screen.getByTestId('qcell-2024-2-revenue')).toHaveTextContent('$62020M');
+  });
+
+  it('formats gross margin as XX.X%', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qcell-2024-2-gross_margin'));
+    expect(screen.getByTestId('qcell-2024-2-gross_margin')).toHaveTextContent('69.7%');
+  });
+
+  it('formats operating margin as XX.X%', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qcell-2024-2-operating_margin'));
+    expect(screen.getByTestId('qcell-2024-2-operating_margin')).toHaveTextContent('43.6%');
+  });
+
+  it('renders — for null monetary values', async () => {
+    const qhNullFields = {
+      quarters: [{ ...QH_TWO_QUARTERS.quarters[0], free_cash_flow: null }],
+      derived: null,
+    };
+    mockFetchSuccess(BASE_DETAIL, qhNullFields);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qcell-2024-2-free_cash_flow'));
+    expect(screen.getByTestId('qcell-2024-2-free_cash_flow')).toHaveTextContent('—');
+  });
+
+  it('renders — for null margin values', async () => {
+    const qhNullMargin = {
+      quarters: [{ ...QH_TWO_QUARTERS.quarters[0], operating_margin: null }],
+      derived: null,
+    };
+    mockFetchSuccess(BASE_DETAIL, qhNullMargin);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qcell-2024-2-operating_margin'));
+    expect(screen.getByTestId('qcell-2024-2-operating_margin')).toHaveTextContent('—');
+  });
+
+  // ── Derived metrics panel ───────────────────────────────────────────────────
+
+  it('renders TTM rollups when derived is present', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-revenue-ttm'));
+    expect(screen.getByTestId('derived-revenue-ttm')).toHaveTextContent('$227.00B');
+  });
+
+  it('renders operating margin TTM as percentage', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-op-margin-ttm'));
+    expect(screen.getByTestId('derived-op-margin-ttm')).toHaveTextContent('44.8%');
+  });
+
+  it('renders EQ trend score with value', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-eq-trend-score'));
+    expect(screen.getByTestId('derived-eq-trend-score')).toHaveTextContent('0.42');
+  });
+
+  it('renders quarters available count', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-quarters-available'));
+    expect(screen.getByTestId('derived-quarters-available')).toHaveTextContent('2');
+  });
+
+  it('does not render derived panel when derived is null', async () => {
+    mockFetchSuccess(BASE_DETAIL, { quarters: QH_TWO_QUARTERS.quarters, derived: null });
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qrow-2024-2'));
+    expect(screen.queryByTestId('derived-revenue-ttm')).not.toBeInTheDocument();
+  });
+
+  // ── Eager load ──────────────────────────────────────────────────────────────
+
+  it('fetches quarterly-history on mount, before Quarterly tab is clicked', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    // Wait for detail to load (default tab)
+    await screen.findByTestId('tab-classification');
+    // Quarterly fetch should have already been called
+    const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+    expect(calls.some((u: string) => u.includes('/quarterly-history'))).toBe(true);
+  });
+
+  it('does not re-fetch when switching away and back to Quarterly tab', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    await screen.findByTestId('tab-quarterly');
+    fireEvent.click(screen.getByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qrow-2024-2'));
+    fireEvent.click(screen.getByTestId('tab-classification'));
+    fireEvent.click(screen.getByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qrow-2024-2'));
+    const qhCalls = (global.fetch as jest.Mock).mock.calls.filter(([url]: [string]) => url.includes('/quarterly-history'));
+    expect(qhCalls).toHaveLength(1);
   });
 });

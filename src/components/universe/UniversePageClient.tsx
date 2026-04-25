@@ -5,6 +5,7 @@
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-055: Added handleRemoveConfirm — optimistic stock removal + error revert
 // STORY-070: Added trend column chooser and trend filter state
+// EPIC-005/STORY-080: Added valuationZone filter wiring
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort; RFC-008
 
 'use client';
@@ -40,6 +41,7 @@ function filtersToParams(
   if (f.code) p.set('code', f.code);
   if (f.confidence.length > 0) p.set('confidence', f.confidence.join(','));
   if (f.monitoring) p.set('monitoring', f.monitoring);
+  if (f.valuationZone.length > 0) p.set('valuationZone', f.valuationZone.join(','));
   p.set('sort', sort);
   p.set('dir', dir);
   p.set('page', String(page));
@@ -65,6 +67,7 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
     eqTrendPreset: (params.get('eq_trend_min') === '0.3' ? 'positive' : params.get('eq_trend_max') === '-0.3' ? 'negative' : '') as FilterState['eqTrendPreset'],
     dilutionFlagOnly: params.get('dilution_flag') === 'true',
     minQuarters: (params.get('min_quarters') as FilterState['minQuarters']) ?? '',
+    valuationZone: params.get('valuationZone') ? params.get('valuationZone')!.split(',') : [],
   };
 }
 
@@ -134,6 +137,8 @@ export default function UniversePageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, filters.sector, filters.code, filters.confidence, filters.monitoring,
       filters.eqTrendPreset, filters.dilutionFlagOnly, filters.minQuarters,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(filters.valuationZone),
       sort, dir, page, visibleTrendColumns]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;

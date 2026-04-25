@@ -50,6 +50,10 @@ jest.mock('@/modules/classification-batch/classification-batch.service', () => (
   runClassificationBatch: jest.fn().mockResolvedValue({ processed: 1, recomputed: 1 }),
 }));
 
+jest.mock('@/modules/valuation/valuation-batch.service', () => ({
+  runValuationBatch: jest.fn().mockResolvedValue({ total: 1, updated: 1, skipped: 0, errors: 0, duration_ms: 10 }),
+}));
+
 jest.mock('@/modules/data-ingestion/adapters/tiingo.adapter', () => ({
   TiingoAdapter: jest.fn().mockImplementation(() => ({})),
 }));
@@ -64,6 +68,22 @@ jest.mock('@/modules/classification-enrichment/providers/claude.provider', () =>
   ClaudeProvider: { fromEnv: jest.fn().mockReturnValue({}) },
 }));
 
+jest.mock('@/modules/data-ingestion/jobs/share-count-sync.service', () => ({
+  syncShareCount: jest.fn().mockResolvedValue({ stocks_updated: 1 }),
+}));
+
+jest.mock('@/modules/data-ingestion/jobs/quarterly-history-sync.service', () => ({
+  syncQuarterlyHistory: jest.fn().mockResolvedValue({ stocks_updated: 1 }),
+}));
+
+jest.mock('@/modules/data-ingestion/jobs/derived-metrics-computation.service', () => ({
+  computeDerivedMetricsBatch: jest.fn().mockResolvedValue({ processed: 1 }),
+}));
+
+jest.mock('@/modules/data-ingestion/jobs/trend-metrics-computation.service', () => ({
+  computeTrendMetricsBatch: jest.fn().mockResolvedValue({ processed: 1 }),
+}));
+
 import { POST } from '@/app/api/universe/stocks/route';
 import { GET, DELETE } from '@/app/api/universe/stocks/[ticker]/route';
 import { validateSession } from '@/modules/auth/auth.service';
@@ -73,6 +93,7 @@ import { syncFundamentals } from '@/modules/data-ingestion/jobs/fundamentals-syn
 import { syncDeterministicClassificationFlags } from '@/modules/data-ingestion/jobs/deterministic-classification-sync.service';
 import { runClassificationBatch } from '@/modules/classification-batch/classification-batch.service';
 import { syncClassificationEnrichment } from '@/modules/classification-enrichment/jobs/classification-enrichment-sync.service';
+import { runValuationBatch } from '@/modules/valuation/valuation-batch.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,7 +191,7 @@ describe('EPIC-004/STORY-056: POST /api/universe/stocks', () => {
     expect(body.ticker).toBe('TSLA');
   });
 
-  it('streams SSE events for all 8 stages + done on success (new stock)', async () => {
+  it('streams SSE events for all 11 stages + done on success (new stock)', async () => {
     const res = await POST(makePostReq({ ticker: 'TSLA' }));
     expect(res.headers.get('content-type')).toContain('text/event-stream');
 
@@ -182,9 +203,12 @@ describe('EPIC-004/STORY-056: POST /api/universe/stocks', () => {
     expect(stages).toContain('fundamentals');
     expect(stages).toContain('estimates');
     expect(stages).toContain('metrics');
+    expect(stages).toContain('share_count');
+    expect(stages).toContain('quarterly_history');
     expect(stages).toContain('flags');
     expect(stages).toContain('enrichment');
     expect(stages).toContain('classification');
+    expect(stages).toContain('valuation');
     expect(stages).toContain('done');
 
     const doneEvent = events.find((e: object) => (e as { stage: string }).stage === 'done') as { result: typeof MOCK_STOCK };
@@ -204,6 +228,7 @@ describe('EPIC-004/STORY-056: POST /api/universe/stocks', () => {
       expect.objectContaining({ tickerFilter: 'TSLA', mode: 'full' }),
     );
     expect(runClassificationBatch).toHaveBeenCalledWith({ tickerFilter: 'TSLA' });
+    expect(runValuationBatch).toHaveBeenCalledWith({ tickerFilter: 'TSLA' });
   });
 
   it('re-add path: updates inUniverse=true instead of creating when stock exists with inUniverse=false', async () => {

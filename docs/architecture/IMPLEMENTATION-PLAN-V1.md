@@ -415,7 +415,7 @@
 - **Status:** in_progress
 - **Dependencies:** EPIC-004 (classification state, all quarterly history stories complete)
 - **Stories:** STORY-075 through STORY-081 (decomposed 2026-04-25)
-- **Active Story:** STORY-079 — Stock Detail Page: Valuation Tab (done ✅)
+- **Active Story:** STORY-081 — EPIC-005 Regression & Integration Tests
 - **Integration Checkpoint:** Valuation engine running, zones displayed
 - **Deployment Milestone:** Users can view valuation zones
 
@@ -450,8 +450,10 @@
 - **Evidence:** 252/252 unit tests passing; ValuationTab component + valuation history endpoint
 
 #### STORY-080 — Universe Screen: Valuation Zone Columns & Filters
-- **Status:** ready
+- **Status:** done ✅
 - **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-080-universe-screen-valuation-columns.md
+- **Tasks:** TASK-080-001 through TASK-080-003 (all done)
+- **Evidence:** 1337/1337 unit tests passing; Zone/Multiple/TSR Hurdle columns in StockTable; valuationZone filter in FilterBar; zone sort wired via SORTABLE_KEYS; domain + API + client all updated
 
 #### STORY-081 — EPIC-005 Regression & Integration Tests
 - **Status:** ready

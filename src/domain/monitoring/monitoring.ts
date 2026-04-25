@@ -4,6 +4,7 @@
 // STORY-048: Extended UniverseStockSummary with table columns (eps_growth_fwd, fcf_conversion, net_debt_to_ebitda)
 // STORY-049: Extended getUniverseStocks with filter/sort params; added getSectors
 // STORY-070: Extended UniverseStockSummary with optional trend metrics; getUniverseStocks includeTrend option
+// STORY-080: Extended UniverseStockSummary with valuation fields; valuationZone filter/sort
 // RFC-003 §Monitor List API (all-default-monitored, per-user deactivation); ADR-007
 // RFC-008 §Classifier-Facing Derived Fields; RFC-002 Amendment 2026-04-25
 
@@ -33,6 +34,12 @@ export interface UniverseStockSummary {
   active_code: string | null;
   confidence_level: string | null;
   trend?: UniverseTrendMetrics; // only present when includeTrend=true
+  // Valuation fields (STORY-080) — always present; null when no valuation_state row
+  valuationZone: string | null;
+  currentMultiple: number | null;
+  currentMultipleBasis: string | null;
+  adjustedTsrHurdle: number | null;
+  valuationStateStatus: string | null;
 }
 
 export interface UniverseQueryOpts {
@@ -51,6 +58,8 @@ export interface UniverseQueryOpts {
   eqTrendMax?: number;
   dilutionFlagOnly?: boolean;
   minQuartersAvailable?: number;
+  // Valuation zone filter (STORY-080) — multi-select; 'not_computed' = no valuation_state row
+  valuationZone?: string[];
 }
 
 // Maps API sort param names to Prisma field names
@@ -80,6 +89,16 @@ const TREND_SORT_FIELDS = new Set([
   'quarters_available',
 ]);
 
+// Zone quality ordering for sort (STORY-080): steal_zone (best) → not_computed (worst)
+const ZONE_SORT_ORDER: Record<string, number> = {
+  steal_zone: 1,
+  very_good_zone: 2,
+  comfortable_zone: 3,
+  max_zone: 4,
+  above_max: 5,
+  not_applicable: 6,
+};
+
 function buildOrderBy(sort: string, dir: 'asc' | 'desc'): Prisma.StockOrderByWithRelationInput[] {
   if (sort === 'ticker') {
     return [{ ticker: dir }];
@@ -106,6 +125,16 @@ function makeStockSelect(userId: string, includeTrend = false) {
     classificationState: { select: { suggestedCode: true, confidenceLevel: true } },
     userClassificationOverrides: { where: { userId }, select: { finalCode: true } },
     userDeactivatedStocks: { where: { userId }, select: { userId: true } },
+    // LEFT JOIN valuation_state (STORY-080) — always included
+    valuationState: {
+      select: {
+        valuationZone: true,
+        currentMultiple: true,
+        currentMultipleBasis: true,
+        adjustedTsrHurdle: true,
+        valuationStateStatus: true,
+      },
+    },
     // LEFT JOIN stock_derived_metrics when trend columns requested (STORY-070)
     ...(includeTrend ? {
       derivedMetrics: {
@@ -134,6 +163,14 @@ type StockSelectRow = {
   classificationState: { suggestedCode: string | null; confidenceLevel: string } | null;
   userClassificationOverrides: { finalCode: string }[];
   userDeactivatedStocks: { userId: string }[];
+  // Valuation state (STORY-080) — always present; null when no row
+  valuationState: {
+    valuationZone: string;
+    currentMultiple: { toString(): string } | null;
+    currentMultipleBasis: string;
+    adjustedTsrHurdle: { toString(): string } | null;
+    valuationStateStatus: string;
+  } | null;
   // Optional trend metrics (STORY-070)
   derivedMetrics?: {
     operatingMarginSlope4q: { toString(): string } | null;
@@ -162,6 +199,11 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     is_active: row.userDeactivatedStocks.length === 0,
     active_code: overrideCode ?? systemCode,
     confidence_level: row.classificationState?.confidenceLevel ?? null,
+    valuationZone: row.valuationState?.valuationZone ?? null,
+    currentMultiple: row.valuationState?.currentMultiple != null ? Number(row.valuationState.currentMultiple) : null,
+    currentMultipleBasis: row.valuationState?.currentMultipleBasis ?? null,
+    adjustedTsrHurdle: row.valuationState?.adjustedTsrHurdle != null ? Number(row.valuationState.adjustedTsrHurdle) : null,
+    valuationStateStatus: row.valuationState?.valuationStateStatus ?? null,
   };
   if (row.derivedMetrics !== undefined) {
     const dm = row.derivedMetrics;
@@ -222,6 +264,7 @@ export async function getUniverseStocks(
     eqTrendMax,
     dilutionFlagOnly,
     minQuartersAvailable,
+    valuationZone,
   } = opts;
 
   // Build AND conditions for DB-level filtering
@@ -288,6 +331,22 @@ export async function getUniverseStocks(
     }
   }
 
+  // Valuation zone filter (STORY-080)
+  if (valuationZone && valuationZone.length > 0) {
+    const hasNotComputed = valuationZone.includes('not_computed');
+    const realZones = valuationZone.filter(z => z !== 'not_computed');
+    const zoneOrs: Prisma.StockWhereInput[] = [];
+    if (hasNotComputed) {
+      zoneOrs.push({ valuationState: { is: null } });
+    }
+    if (realZones.length > 0) {
+      zoneOrs.push({ valuationState: { is: { valuationZone: { in: realZones } } } });
+    }
+    if (zoneOrs.length > 0) {
+      andConditions.push({ OR: zoneOrs });
+    }
+  }
+
   const where: Prisma.StockWhereInput =
     andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
@@ -318,10 +377,21 @@ export async function getUniverseStocks(
   const allStocks = rows.map(mapRow);
 
   // In-memory code prefix filter (active_code is computed — cannot be a Prisma WHERE)
-  const filtered =
+  let filtered =
     code
       ? allStocks.filter(s => s.active_code?.toUpperCase().startsWith(code.toUpperCase()) ?? false)
       : allStocks;
+
+  // In-memory zone sort (STORY-080) — Prisma cannot order by relation fields with custom ordering
+  if (sort === 'valuationZone') {
+    filtered = [...filtered].sort((a, b) => {
+      const orderA = a.valuationZone ? (ZONE_SORT_ORDER[a.valuationZone] ?? 7) : 7;
+      const orderB = b.valuationZone ? (ZONE_SORT_ORDER[b.valuationZone] ?? 7) : 7;
+      const multiplier = dir === 'asc' ? 1 : -1;
+      if (orderA !== orderB) return multiplier * (orderA - orderB);
+      return a.ticker.localeCompare(b.ticker);
+    });
+  }
 
   const total = filtered.length;
   const skip = (page - 1) * limit;

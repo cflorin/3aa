@@ -3,6 +3,7 @@
 // TASK-049-004: FilterBar component — search, sector, code, confidence, monitoring filters
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-070: Added trend metric filters and column chooser toggle
+// EPIC-005/STORY-080: Added valuationZone multi-select filter
 
 'use client';
 
@@ -19,6 +20,8 @@ export interface FilterState {
   eqTrendPreset: '' | 'positive' | 'negative';
   dilutionFlagOnly: boolean;
   minQuarters: '' | '4' | '8';
+  // Valuation zone filter (STORY-080)
+  valuationZone: string[];
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -30,6 +33,7 @@ export const EMPTY_FILTERS: FilterState = {
   eqTrendPreset: '',
   dilutionFlagOnly: false,
   minQuarters: '',
+  valuationZone: [],
 };
 
 interface FilterBarProps {
@@ -56,6 +60,7 @@ function activeFilterCount(f: FilterState): number {
   if (f.eqTrendPreset) n++;
   if (f.dilutionFlagOnly) n++;
   if (f.minQuarters) n++;
+  if (f.valuationZone.length > 0) n++;
   return n;
 }
 
@@ -81,6 +86,7 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
   const sectorValue = filters.sector.length === 1 ? filters.sector[0] : 'All';
   const confidenceValue = filters.confidence.length === 1 ? filters.confidence[0] : 'All';
   const monitoringValue = filters.monitoring === '' ? 'All' : filters.monitoring;
+  const valuationZoneValue = filters.valuationZone.length === 1 ? filters.valuationZone[0] : 'All';
 
   return (
     <div
@@ -172,6 +178,25 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
         <option value="All">All</option>
         <option value="active">Active</option>
         <option value="inactive">Inactive</option>
+      </select>
+
+      <select
+        data-testid="filter-valuation-zone"
+        value={valuationZoneValue}
+        onChange={e => {
+          const v = e.target.value;
+          set('valuationZone', v === 'All' ? [] : [v]);
+        }}
+        style={ctrlStyle}
+      >
+        <option value="All">All zones</option>
+        <option value="steal_zone">Steal Zone</option>
+        <option value="very_good_zone">Very Good</option>
+        <option value="comfortable_zone">Comfortable</option>
+        <option value="max_zone">Max Zone</option>
+        <option value="above_max">Above Max</option>
+        <option value="not_applicable">N/A</option>
+        <option value="not_computed">Not Computed</option>
       </select>
 
       {count > 0 && (
