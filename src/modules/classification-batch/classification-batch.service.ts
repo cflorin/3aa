@@ -20,7 +20,7 @@ export interface BatchSummary {
 
 const DURATION_WARN_MS = 45_000;
 
-export async function runClassificationBatch(opts: { tickerFilter?: string } = {}): Promise<BatchSummary> {
+export async function runClassificationBatch(opts: { tickerFilter?: string; force?: boolean } = {}): Promise<BatchSummary> {
   const start = Date.now();
   let recomputed = 0;
   let skipped = 0;
@@ -38,7 +38,7 @@ export async function runClassificationBatch(opts: { tickerFilter?: string } = {
       const state = await getClassificationState(stock.ticker);
       const previous = (state?.input_snapshot as ClassificationInput | null | undefined) ?? null;
 
-      if (shouldRecompute(current, previous)) {
+      if (opts.force || shouldRecompute(current, previous)) {
         const result = classifyStock(current);
         await persistClassification(stock.ticker, result, current);
         recomputed++;

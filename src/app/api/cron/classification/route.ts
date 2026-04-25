@@ -16,7 +16,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const summary = await runClassificationBatch();
+    const force = req.nextUrl.searchParams.get('force') === 'true';
+    const summary = await runClassificationBatch({ force });
     return NextResponse.json(summary, { status: 200 });
   } catch (err) {
     console.error(JSON.stringify({
