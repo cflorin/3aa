@@ -3223,3 +3223,38 @@ Key implementation decisions:
 **Baseline Impact:** NO (new module; schema extension advanced from STORY-078 scope with no downstream breakage)
 
 **Next Action:** Execute STORY-077 — Valuation Recompute Batch Job
+
+---
+
+### [2026-04-25] EPIC-005/STORY-077 — Valuation Recompute Batch Job
+
+**Timestamp:** 2026-04-25T21:30:00Z
+
+**Epic/Story/Task:** EPIC-005 / STORY-077 / TASK-077-001 through TASK-077-004
+
+**Action Taken:**
+- Created `runValuationBatch(opts?)` service: fetches all inUniverse stocks (optionally filtered by ticker), calls persistValuationState for each, accumulates summary, logs start/complete events, errors in single ticker do not abort batch
+- Replaced `/api/cron/valuation` placeholder with real implementation: OIDC-verified, parses force/ticker query params, returns summary JSON; 500 on unexpected batch failure
+- Updated add-stock pipeline: Stage 11 (valuation) added after Stage 10 (classification); TOTAL_STAGES 8→11 in route.ts and AddStockModal.tsx
+- Updated barrel export in `src/modules/valuation/index.ts`
+
+**Files Changed:**
+- `src/modules/valuation/valuation-batch.service.ts` — new; runValuationBatch()
+- `src/modules/valuation/index.ts` — added runValuationBatch export
+- `src/app/api/cron/valuation/route.ts` — replaced placeholder with real implementation
+- `src/app/api/universe/stocks/route.ts` — TOTAL_STAGES 10→11; Stage 11 valuation added
+- `src/components/universe/AddStockModal.tsx` — TOTAL_STAGES 8→11
+- `tests/unit/valuation/story-077-valuation-batch.test.ts` — new; 6 unit tests
+- `tests/unit/api/cron/valuation.test.ts` — new; 5 route unit tests
+
+**Tests Added/Updated:** 11 new unit tests; 225/225 total valuation tests passing
+
+**Result/Status:** STORY-077 DONE ✅
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (batch job + add-stock pipeline extension)
+
+**Next Action:** Execute STORY-078 — User Valuation Override API

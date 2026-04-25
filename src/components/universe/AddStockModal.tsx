@@ -25,7 +25,7 @@ interface StageEvent {
 }
 
 const TICKER_RE = /^[A-Z0-9.]{1,10}$/i;
-const TOTAL_STAGES = 8;
+const TOTAL_STAGES = 11;
 
 export default function AddStockModal({ onClose, onAdded }: Props) {
   const [ticker, setTicker] = useState('');

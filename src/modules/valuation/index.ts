@@ -14,3 +14,6 @@ export type {
   PersistStatus,
   PersonalizedValuationResult,
 } from './valuation-persistence.service';
+
+export { runValuationBatch } from './valuation-batch.service';
+export type { ValuationBatchOpts, ValuationBatchSummary } from './valuation-batch.service';
