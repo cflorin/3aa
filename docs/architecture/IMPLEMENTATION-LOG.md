@@ -3039,3 +3039,42 @@ Key implementation decisions:
 **Baseline Impact:** NO (bug fixes within existing architecture; new bugs require ADR amendment before fix)
 
 **Next Action:** Decide whether to fix BUG-CE-004/005 now or accept remaining divergences as user-overrideable expected deviations and proceed with the rest of EPIC-004
+
+---
+
+### 2026-04-25T — EPIC-004/STORY-042 — BUG-CE-004 Fix: EQ scorer volatility signals + EQ_FCF_STRONG weight reduction
+
+**Epic/Story/Task:** EPIC-004 / STORY-042 / BUG-CE-004
+
+**Action:** Fixed EQ scorer producing EQ-A for low-quality earnings companies (TSLA, CVX). Two root causes identified and fixed: (1) EQ_FCF_STRONG=3 created too strong an A anchor — all stocks with FCF conversion > 0.80 got +3A before enrichment signals fired, making it impossible for moderate enrichment to win. (2) EQ scorer had no earnings-volatility signal — clockwork compounders and cyclical/deteriorating businesses scored identically when their enrichment profiles happened to tie.
+
+**ADR amendment:** ADR-013 amended 2026-04-25. `EQ_FCF_STRONG` lowered 3→2. Three new EQ-C volatility constants added: `EQ_EPS_DECLINING=1` (eps_growth_3y < 0), `EQ_EPS_REV_SPREAD_MODERATE=1` (spread [−20%, −10%)), `EQ_EPS_REV_SPREAD_SEVERE=3` (spread < −20%). Spread = eps_growth_3y − revenue_growth_3y; negative = margin compression. SEVERE weight=3 is analogous to BS_DEBT_HIGH=3 — ensures severe margin collapse overrides strong FCF signal.
+
+**Files Changed:**
+- `docs/adr/ADR-013-classification-scoring-algorithm-weights.md` — EQ table updated; two amendment blocks added (EQ_FCF_STRONG and volatility signals)
+- `src/domain/classification/scoring-weights.ts` — EQ_FCF_STRONG: 3→2; 3 new constants added
+- `src/domain/classification/eq-scorer.ts` — imported 3 new constants; added EPS_DECLINING rule block; added EPS_REV_SPREAD rule block (mutually exclusive SEVERE/MODERATE)
+- `tests/unit/classification/story-042-eq-bs-scorer.test.ts` — 3 stale FCF_STRONG assertions updated (3→2); UBER comment updated; 10 new volatility signal tests added (describe block e3)
+- `tests/unit/classification/fixtures/eq-bs-scorer-golden.ts` — MSFT_EQ and UNH_EQ golden A scores: 6→5
+- `docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md` — BUG-CE-004 marked FIXED; fix detail added; UNH expected deviation note updated
+
+**Tests Added/Updated:** 84/84 passing in story-042-eq-bs-scorer.test.ts (10 new volatility tests + 3 updated assertions)
+
+**Post-fix EQ grades (live DB):**
+
+| Stock | EQ grade | A | B | C | Notes |
+|-------|----------|---|---|---|-------|
+| MSFT  | A | 9 | 3 | 0 | Clockwork compounder ✓ |
+| ADBE  | A | 11 | 1 | 0 | Strong enrichment across all dimensions ✓ |
+| UNH   | A | 7 | 3 | 4 | Strong moat/recurrence override decline — expected deviation |
+| VZ    | A | 5 | 4 | 1 | Recurring revenue drives it — borderline A/B |
+| TSLA  | **C** | 3 | 4 | 5 | Margin collapse + declining EPS ✓ FIXED |
+| CVX   | **C** | 3 | 3 | 6 | Commodity cyclical collapse ✓ FIXED |
+
+**Result/Status:** BUG-CE-004 FIXED ✅ — 859/859 unit tests passing
+
+**Blockers/Issues:** BUG-CE-005 (TSLA bucket 3 vs 5) still OPEN
+
+**Baseline Impact:** YES — ADR-013 amended (EQ weight change + new volatility signals). Amendment documented inline in ADR-013 with date and rationale.
+
+**Next Action:** Re-run classification batch to update live EQ grades; then continue with BUG-CE-005 or proceed to STORY-049

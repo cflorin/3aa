@@ -233,7 +233,9 @@
   - TASK-042-003 ✅: BalanceSheetQualityScorer (6 rules + net-cash bonus, null-safe)
   - TASK-042-004 ✅: 62 unit tests (groups a–k: per-rule, winner, boundary, null, contract, golden-set, determinism)
   - TASK-042-005 ✅: 6 integration tests; golden-set fixtures; tracking updated; git commit
-- **Evidence:** 612/612 unit tests + 13 integration tests passing
+  - BUG-CE-004 ✅ (2026-04-25): EQ_FCF_STRONG lowered 3→2; 3 new EQ-C volatility signals added (EPS_DECLINING, EPS_REV_SPREAD_MODERATE/SEVERE); ADR-013 amended; 10 new tests; golden fixtures updated; 859/859 passing
+  - BS_DEBT_HIGH ✅ (2026-04-25): raised 2→3 (high-debt tie-break fix); ADR-013 amended; golden UNH_BS C:4→5
+- **Evidence:** 859/859 unit tests passing (post BUG-CE-004 + BS_DEBT_HIGH fixes)
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-042-earnings-and-balance-sheet-quality-scoring.md`
 
 #### STORY-043 — Classification Result Assembly (Tie-Break, Confidence, Special Cases)

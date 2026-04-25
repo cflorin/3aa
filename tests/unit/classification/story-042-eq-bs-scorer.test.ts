@@ -31,9 +31,9 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
   // ─── EQ Scorer ────────────────────────────────────────────────────────────
 
   describe('(a) EQ per-rule tests', () => {
-    it('fcf_conversion=0.90 → scores.A includes EQ_FCF_STRONG (3)', () => {
+    it('fcf_conversion=0.90 → scores.A includes EQ_FCF_STRONG (2)', () => {
       const r = EarningsQualityScorer(makeInput({ fcf_conversion: 0.90 }));
-      expect(r.scores.A).toBeGreaterThanOrEqual(3);
+      expect(r.scores.A).toBeGreaterThanOrEqual(2);
       expect(r.reason_codes).toContain('high_fcf_conversion');
     });
 
@@ -86,7 +86,7 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
     it('MSFT-like input → winner=A', () => {
       const r = EarningsQualityScorer(makeInput({ fcf_conversion: 1.43, moat_strength_score: 5.0, net_income_positive: true }));
       expect(r.winner).toBe('A');
-      expect(r.scores.A).toBe(6); // FCF_STRONG(3) + MOAT_STRONG(2) + NI(1)
+      expect(r.scores.A).toBe(5); // FCF_STRONG(2) + MOAT_STRONG(2) + NI(1)  [ADR-013 amendment 2026-04-25]
       expect(r.scores.B).toBe(1); // NI(1)
       expect(r.scores.C).toBe(0);
     });
@@ -117,9 +117,9 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.reason_codes).not.toContain('high_fcf_conversion');
     });
 
-    it('fcf_conversion=0.8001 → fires Strong (A += 3), NOT Moderate', () => {
+    it('fcf_conversion=0.8001 → fires Strong (A += 2), NOT Moderate', () => {
       const r = EarningsQualityScorer(makeInput({ fcf_conversion: 0.8001 }));
-      expect(r.scores.A).toBe(3);
+      expect(r.scores.A).toBe(2);
       expect(r.scores.B).toBe(0);
     });
 
@@ -293,8 +293,9 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.reason_codes).toContain('moderate_margin_durability');
     });
 
-    it('[BUG-CE-002] UBER-like input → winner=B (weak FCF context + moderate enrichment signals)', () => {
-      // UBER: fcf_conversion=0.97→A(+3), moat=3.5→B(+1), NI→A(+1)B(+1), pricing=3.0→B(+1), recurrence=2.5→B(+1), margin_dur=3.0→B(+1)
+    it('[BUG-CE-002] UBER-like input → winner=B (moderate enrichment signals outweigh FCF_STRONG)', () => {
+      // UBER: fcf_conversion=0.97→A(+2), moat=3.5→B(+1), NI→A(+1)B(+1), pricing=3.0→B(+1), recurrence=2.5→B(+1), margin_dur=3.0→B(+1)
+      // A:3, B:5 → winner=B  [ADR-013 amendment 2026-04-25: FCF_STRONG lowered 3→2]
       const r = EarningsQualityScorer(makeInput({
         fcf_conversion: 0.97,
         moat_strength_score: 3.5,
@@ -311,6 +312,101 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.reason_codes).not.toContain('strong_pricing_power');
       expect(r.reason_codes).not.toContain('moderate_pricing_power');
       expect(r.reason_codes).not.toContain('weak_pricing_power');
+    });
+  });
+
+  // ─── EQ Earnings Volatility signals (ADR-013 amendment 2026-04-25) ────────
+
+  describe('(e3) EQ earnings-volatility signals', () => {
+    it('eps_growth_3y=-0.20 (negative) → scores.C += EQ_EPS_DECLINING(1), reason eps_declining', () => {
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: -0.20 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('eps_declining');
+    });
+
+    it('eps_growth_3y=0.05 (positive) → EQ_EPS_DECLINING does NOT fire', () => {
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: 0.05 }));
+      expect(r.reason_codes).not.toContain('eps_declining');
+    });
+
+    it('spread < -0.20 (severe) → scores.C += EQ_EPS_REV_SPREAD_SEVERE(3), reason eps_rev_spread_severe', () => {
+      // eps_growth_3y=-0.30, revenue_growth_3y=0.04 → spread=-0.34 < -0.20
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: -0.30, revenue_growth_3y: 0.04 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(3);
+      expect(r.reason_codes).toContain('eps_rev_spread_severe');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_moderate');
+    });
+
+    it('spread in [-0.20, -0.10) (moderate) → scores.C += EQ_EPS_REV_SPREAD_MODERATE(1)', () => {
+      // eps_growth_3y=-0.15, revenue_growth_3y=0.00 → spread=-0.15
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: -0.15, revenue_growth_3y: 0.00 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(1);
+      expect(r.reason_codes).toContain('eps_rev_spread_moderate');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_severe');
+    });
+
+    it('spread >= -0.10 (mild or positive) → no spread signal fires', () => {
+      // eps_growth_3y=0.21, revenue_growth_3y=0.14 → spread=+0.07 (clockwork company)
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: 0.21, revenue_growth_3y: 0.14 }));
+      expect(r.reason_codes).not.toContain('eps_rev_spread_severe');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_moderate');
+      expect(r.reason_codes).not.toContain('eps_declining');
+    });
+
+    it('EQ_EPS_DECLINING and SPREAD_SEVERE stack: eps=-0.32, rev=0.04 → C >= 4', () => {
+      // EPS_DECLINING(1) + SPREAD_SEVERE(3) = 4 to C
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: -0.32, revenue_growth_3y: 0.04 }));
+      expect(r.scores.C).toBeGreaterThanOrEqual(4);
+      expect(r.reason_codes).toContain('eps_declining');
+      expect(r.reason_codes).toContain('eps_rev_spread_severe');
+    });
+
+    it('eps_growth_3y=null → EPS_DECLINING and spread signals do not fire', () => {
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: null, revenue_growth_3y: 0.10 }));
+      expect(r.reason_codes).not.toContain('eps_declining');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_severe');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_moderate');
+    });
+
+    it('revenue_growth_3y=null → spread signals do not fire (eps_declining may still fire)', () => {
+      const r = EarningsQualityScorer(makeInput({ eps_growth_3y: -0.30, revenue_growth_3y: null }));
+      expect(r.reason_codes).toContain('eps_declining');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_severe');
+      expect(r.reason_codes).not.toContain('eps_rev_spread_moderate');
+    });
+
+    it('TSLA-like: eps_3y=-0.3166, rev_3y=0.0439, moderate moat/enrichment → winner=C', () => {
+      // A: FCF_STRONG(2)+NI(1)=3  B: moat_mod(1)+pricing_mod(1)+margin_dur_mod(1)+NI(1)=4
+      // C: recurrence_weak(1)+EPS_DECLINING(1)+SPREAD_SEVERE(3)=5  → winner=C
+      const r = EarningsQualityScorer(makeInput({
+        fcf_conversion: 1.81,
+        net_income_positive: true,
+        moat_strength_score: 3.5,
+        pricing_power_score: 2.5,
+        revenue_recurrence_score: 2.0,
+        margin_durability_score: 2.5,
+        eps_growth_3y: -0.3166,
+        revenue_growth_3y: 0.0439,
+      }));
+      expect(r.winner).toBe('C');
+      expect(r.scores.C).toBeGreaterThan(r.scores.A);
+      expect(r.scores.C).toBeGreaterThan(r.scores.B);
+    });
+
+    it('clockwork company (MSFT-like with growth data) → no C signals fire', () => {
+      // MSFT: eps_3y=+21%, rev_3y=+14% → spread=+7pp → no volatility signals
+      const r = EarningsQualityScorer(makeInput({
+        fcf_conversion: 0.65,
+        moat_strength_score: 5.0,
+        net_income_positive: true,
+        pricing_power_score: 4.5,
+        revenue_recurrence_score: 4.5,
+        margin_durability_score: 5.0,
+        eps_growth_3y: 0.2118,
+        revenue_growth_3y: 0.1439,
+      }));
+      expect(r.scores.C).toBe(0);
+      expect(r.winner).toBe('A');
     });
   });
 

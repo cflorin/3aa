@@ -14,7 +14,10 @@ export const FLAG_PRIMARY = 2;          // pre_operating_leverage_flag → Bucke
 export const ENRICHMENT_BONUS = 1;      // E1/E5/E6 enrichment bonus (threshold ≥ 4.0)
 
 // EQ scorer weights (STORY-042)
-export const EQ_FCF_STRONG = 3;     // fcf_conversion > 0.80 → +3 to A
+// [ADR-013 amendment 2026-04-25] lowered 3→2: FCF_STRONG at 3 created a 3-pt A anchor that
+// moderate enrichment signals (1pt each) could not overcome; TSLA (3 moderate + 1 weak enrichment)
+// tied A:4=B:4 and resolved to EQ-A via tie-break — incorrect for a low-margin cyclical.
+export const EQ_FCF_STRONG = 2;     // fcf_conversion > 0.80 → +2 to A
 export const EQ_FCF_MODERATE = 2;   // fcf_conversion [0.50, 0.80] → +2 to B
 export const EQ_FCF_WEAK = 2;       // fcf_conversion < 0.50 or fcf_positive=false → +2 to C
 export const EQ_MOAT_STRONG = 2;    // moat_strength_score ≥ 4.0 → +2 to A
@@ -31,6 +34,13 @@ export const EQ_RECURRENCE_WEAK = 1;    // revenue_recurrence_score < 2.5 → +1
 export const EQ_MARGIN_DUR_STRONG = 2;  // margin_durability_score ≥ 4.0 → +2 to A
 export const EQ_MARGIN_DUR_MODERATE = 1;// margin_durability_score [2.5, 4.0) → +1 to B
 export const EQ_MARGIN_DUR_WEAK = 1;    // margin_durability_score < 2.5 → +1 to C
+
+// EQ earnings-volatility signals (ADR-013 amendment 2026-04-25)
+// Proxy for "clockwork" earnings: stable compounder (MSFT/ADBE) vs cyclical collapse (TSLA/CVX).
+// Spread = eps_growth_3y − revenue_growth_3y; negative spread = margin compression.
+export const EQ_EPS_DECLINING = 1;           // eps_growth_3y < 0 → +1 to C
+export const EQ_EPS_REV_SPREAD_MODERATE = 1; // spread in [−0.20, −0.10) → +1 to C
+export const EQ_EPS_REV_SPREAD_SEVERE = 3;   // spread < −0.20 → +3 to C (analogous to BS_DEBT_HIGH)
 
 // BS scorer weights (STORY-042)
 export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda < 1.0 strict → +3 to A

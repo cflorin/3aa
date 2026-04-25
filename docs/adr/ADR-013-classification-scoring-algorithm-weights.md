@@ -55,13 +55,18 @@ Point weights must satisfy four constraints:
 
 | Weight Constant | Value | Fires When |
 |---|---|---|
-| `EQ_FCF_STRONG` | **3** | `fcf_conversion > 0.80` → contributes to EQ-A |
+| `EQ_FCF_STRONG` | ~~3~~ → **2** | `fcf_conversion > 0.80` → contributes to EQ-A |
 | `EQ_FCF_MODERATE` | **2** | `fcf_conversion` in `[0.50, 0.80]` → contributes to EQ-B |
 | `EQ_FCF_WEAK` | **2** | `fcf_conversion < 0.50` or `fcf_positive = false` → contributes to EQ-C |
 | `EQ_MOAT_STRONG` | **2** | `moat_strength_score ≥ 4.0` → contributes to EQ-A |
 | `EQ_MOAT_MODERATE` | **1** | `moat_strength_score` in `[2.5, 4.0)` → contributes to EQ-B |
 | `EQ_MOAT_WEAK` | **1** | `moat_strength_score < 2.5` → contributes to EQ-C |
 | `EQ_NI_POSITIVE` | **1** | `net_income_positive = true` → contributes to EQ-A and EQ-B |
+| `EQ_EPS_DECLINING` | **1** | `eps_growth_3y < 0` → contributes to EQ-C |
+| `EQ_EPS_REV_SPREAD_MODERATE` | **1** | `(eps_growth_3y − revenue_growth_3y)` in `[−0.20, −0.10)` → contributes to EQ-C |
+| `EQ_EPS_REV_SPREAD_SEVERE` | **3** | `(eps_growth_3y − revenue_growth_3y) < −0.20` → contributes to EQ-C |
+
+`EQ_EPS_REV_SPREAD_MODERATE` and `EQ_EPS_REV_SPREAD_SEVERE` are mutually exclusive. `EQ_EPS_DECLINING` stacks with whichever spread signal fires. If either `eps_growth_3y` or `revenue_growth_3y` is null the spread signals do not fire; `EQ_EPS_DECLINING` requires only `eps_growth_3y`.
 
 **EQ-A/B boundary at FCF conversion 80%:** `fcf_conversion == 0.80` is classified as moderate (`EQ_FCF_MODERATE`). The strong threshold is strictly `> 0.80`.
 
@@ -78,6 +83,24 @@ Point weights must satisfy four constraints:
 | `BS_CAPITAL_INTENSITY` | **1** | `capital_intensity_score ≥ 4.0` → contributes to BS-C direction |
 
 **Net-cash position (`net_debt_to_ebitda ≤ 0`):** Treated as even stronger than `< 1.0`; add additional +1 to BS-A score. Net-cash is better than BS-A threshold.
+
+> **Amendment 2026-04-25 — `EQ_FCF_STRONG` lowered from 3 → 2; EQ volatility signals added**
+>
+> With `EQ_FCF_STRONG = 3` and `EQ_NI_POSITIVE = 1`, any stock with FCF conversion > 0.80 (common
+> for most profitable companies) entered EQ scoring with A:4 before any enrichment signals fired.
+> Three moderate enrichment signals (+1 each to B) plus NI (+1 to B) produced B:4 — a tie resolved
+> to **EQ-A** by the A > B > C tie-break. TSLA (6% operating margin, −31.7% 3y EPS CAGR) was
+> incorrectly grading as EQ-A. Lowering `EQ_FCF_STRONG` to 2 reduces the A anchor to 3, allowing
+> B to win when three or more moderate enrichment signals are present.
+>
+> Additionally, the EQ scorer had no signal for earnings volatility — the key differentiator between
+> a "clockwork" earnings compounder and a cyclical/deteriorating business. Three new C-direction
+> signals capture this using data already in the DB: `EQ_EPS_DECLINING` fires when 3y EPS CAGR is
+> negative; `EQ_EPS_REV_SPREAD_SEVERE` (weight=3, analogous to `BS_DEBT_HIGH`) fires when EPS
+> growth has lagged revenue growth by more than 20 percentage points, indicating severe margin
+> compression. Together these signals correctly grade TSLA and CVX as EQ-C.
+>
+> The full corrected outcome matrix is verified in `tests/unit/classification/story-042-eq-bs-scorer.test.ts`.
 
 > **Amendment 2026-04-25 — `BS_DEBT_HIGH` raised from 2 → 3**
 >

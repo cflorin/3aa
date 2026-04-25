@@ -15,6 +15,7 @@ import {
   EQ_PRICING_STRONG, EQ_PRICING_MODERATE, EQ_PRICING_WEAK,
   EQ_RECURRENCE_STRONG, EQ_RECURRENCE_MODERATE, EQ_RECURRENCE_WEAK,
   EQ_MARGIN_DUR_STRONG, EQ_MARGIN_DUR_MODERATE, EQ_MARGIN_DUR_WEAK,
+  EQ_EPS_DECLINING, EQ_EPS_REV_SPREAD_MODERATE, EQ_EPS_REV_SPREAD_SEVERE,
 } from './scoring-weights';
 
 // Primary EQ fundamental fields tracked for missing_field_count (enrichment scores excluded)
@@ -106,6 +107,30 @@ export function EarningsQualityScorer(input: ClassificationInput): GradeScorerOu
     } else {
       scores.C += EQ_MARGIN_DUR_WEAK;
       reason_codes.push('weak_margin_durability');
+    }
+  }
+
+  // Earnings volatility signals (ADR-013 amendment 2026-04-25)
+  // Proxy for "clockwork" earnings: negative EPS CAGR or severe EPS-vs-revenue spread → C.
+  // Spread signals are mutually exclusive; EQ_EPS_DECLINING stacks with whichever fires.
+  if (input.eps_growth_3y !== null && input.eps_growth_3y !== undefined) {
+    if (input.eps_growth_3y < 0) {
+      scores.C += EQ_EPS_DECLINING;
+      reason_codes.push('eps_declining');
+    }
+  }
+
+  if (
+    input.eps_growth_3y !== null && input.eps_growth_3y !== undefined &&
+    input.revenue_growth_3y !== null && input.revenue_growth_3y !== undefined
+  ) {
+    const spread = input.eps_growth_3y - input.revenue_growth_3y;
+    if (spread < -0.20) {
+      scores.C += EQ_EPS_REV_SPREAD_SEVERE;
+      reason_codes.push('eps_rev_spread_severe');
+    } else if (spread < -0.10) {
+      scores.C += EQ_EPS_REV_SPREAD_MODERATE;
+      reason_codes.push('eps_rev_spread_moderate');
     }
   }
 
