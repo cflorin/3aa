@@ -415,7 +415,7 @@
 - **Status:** in_progress
 - **Dependencies:** EPIC-004 (classification state, all quarterly history stories complete)
 - **Stories:** STORY-075 through STORY-081 (decomposed 2026-04-25)
-- **Active Story:** STORY-075 — Valuation Engine Domain Layer (done ✅)
+- **Active Story:** STORY-076 — Valuation State Persistence & History (done ✅)
 - **Integration Checkpoint:** Valuation engine running, zones displayed
 - **Deployment Milestone:** Users can view valuation zones
 
@@ -426,8 +426,10 @@
 - **Evidence:** 195/195 unit tests passing; zero regressions in pre-existing suite
 
 #### STORY-076 — Valuation State Persistence & History
-- **Status:** ready
+- **Status:** done
 - **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-076-valuation-state-persistence.md
+- **Tasks:** TASK-076-001 through TASK-076-005 (all done)
+- **Evidence:** 214/214 unit tests passing; migration applied; UserValuationOverride extended
 
 #### STORY-077 — Valuation Recompute Batch Job
 - **Status:** ready

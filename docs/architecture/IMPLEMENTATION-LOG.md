@@ -3183,3 +3183,43 @@ Key implementation decisions:
 **Baseline Impact:** NO (new domain module, no changes to existing code)
 
 **Next Action:** Execute STORY-076 — Valuation State Persistence & History
+
+---
+
+### [2026-04-25] EPIC-005/STORY-076 — Valuation State Persistence & History
+
+**Timestamp:** 2026-04-25T21:00:00Z
+
+**Epic/Story/Task:** EPIC-005 / STORY-076 / TASK-076-001 through TASK-076-005
+
+**Action Taken:**
+- Implemented `loadValuationInput(ticker, activeCode)` — queries DB (stock, anchors, hurdles), maps fields including shareCountGrowth3y÷100 and grossMargin as fraction
+- Implemented `persistValuationState(ticker, opts?)` — classification→activeCode→compute→shouldRecompute diff→upsert+history in transaction; logs to JSON
+- Implemented `getPersonalizedValuation(ticker, userId)` — userClassificationOverride (final_code) → active code selection; userValuationOverride → threshold/metric merge; in-memory recompute (never mutates shared state)
+- Implemented `getValuationState(ticker)` and `getValuationHistory(ticker, limit)` — read models
+- Extended `UserValuationOverride` schema: added `primaryMetricOverride`, `forwardOperatingEarningsExExcessCash`, `notes` columns (advancing from STORY-078 scope to satisfy STORY-076 dependency)
+- Applied migration: `20260425200540_add_valuation_override_fields`
+- Fixed `trailingEps` removal: removed stale `trailingEps` field from `ValuationInput` (not in DB), changed trailing P/E fallback guard to `trailingPe > 0`; updated stale unit test
+- Fixed test fixture: threshold override test had wrong zone expectation (steal vs comfortable); adjusted stealThreshold to 15.0 so forwardPe=20 correctly lands in comfortable_zone
+
+**Files Changed:**
+- `src/modules/valuation/valuation-persistence.service.ts` — new; full persistence service
+- `src/modules/valuation/index.ts` — new; barrel export
+- `src/domain/valuation/types.ts` — removed trailingEps from ValuationInput
+- `src/domain/valuation/compute-valuation.ts` — changed trailing fallback guard from trailingEps>0 to trailingPe>0
+- `prisma/schema.prisma` — UserValuationOverride extended with 3 new columns
+- `prisma/migrations/20260425200540_add_valuation_override_fields/migration.sql` — new
+- `tests/unit/valuation-persistence/story-076-valuation-persistence.test.ts` — new; 19 unit tests
+- `tests/unit/valuation/compute-valuation.test.ts` — updated stale trailingEps test case
+
+**Tests Added/Updated:** 19 new persistence tests; 1 stale test updated; 214/214 total valuation tests passing
+
+**Result/Status:** STORY-076 DONE ✅
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (new module; schema extension advanced from STORY-078 scope with no downstream breakage)
+
+**Next Action:** Execute STORY-077 — Valuation Recompute Batch Job

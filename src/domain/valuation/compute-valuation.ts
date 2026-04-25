@@ -139,11 +139,10 @@ function resolveCurrentMultiple(
       if (input.forwardPe != null) {
         return { currentMultiple: input.forwardPe, currentMultipleBasis: 'spot', metricSource: 'forward_pe', status: 'ok' };
       }
-      // Fallback to trailing P/E if not cyclical and trailing EPS > 0
+      // Fallback to trailing P/E if not cyclical and trailing P/E is positive (implies positive EPS)
       if (
         !input.cyclicalityFlag &&
-        input.trailingEps != null && input.trailingEps > 0 &&
-        input.trailingPe != null
+        input.trailingPe != null && input.trailingPe > 0
       ) {
         return {
           currentMultiple: input.trailingPe,

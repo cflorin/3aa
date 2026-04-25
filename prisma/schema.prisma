@@ -249,11 +249,136 @@ model Stock {
   userMonitoringHistory       UserMonitoringHistory[]
   alerts                      Alert[]
   alertHistory                AlertHistory[]
+  // EPIC-003/STORY-057: quarterly history data layer (RFC-008, ADR-015)
+  quarterlyHistory            StockQuarterlyHistory[]
+  // EPIC-003/STORY-058: derived metrics projection (RFC-008, ADR-015)
+  derivedMetrics              StockDerivedMetrics?
 
   @@index([sector], name: "idx_stocks_sector")
   @@index([dataFreshnessStatus], name: "idx_stocks_data_freshness")
   // Partial indexes (WHERE in_universe = TRUE / WHERE zone IN ...) added via raw SQL migration
   @@map("stocks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DERIVED METRICS PROJECTION (RFC-008, ADR-015)
+// EPIC-003/STORY-058: one row per stock; classifier-facing trend fields
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StockDerivedMetrics {
+  // EPIC-003: STORY-058 — stock_derived_metrics table
+  // RFC-008 §Classifier-Facing Derived Fields; ADR-015 §Schema
+  ticker            String    @id @db.VarChar(10)
+
+  // Computation metadata
+  derivedAsOf       DateTime  @default(now()) @db.Timestamptz(6) @map("derived_as_of")
+  quartersAvailable Int       @default(0) @map("quarters_available")
+  provenance        Json      @default("{}") @map("provenance")
+
+  // ── TTM rollups (sum of latest 4 quarters) ────────────────────────────────
+  revenueTtm                    Decimal? @db.Decimal(20, 2) @map("revenue_ttm")
+  grossProfitTtm                Decimal? @db.Decimal(20, 2) @map("gross_profit_ttm")
+  operatingIncomeTtm            Decimal? @db.Decimal(20, 2) @map("operating_income_ttm")
+  netIncomeTtm                  Decimal? @db.Decimal(20, 2) @map("net_income_ttm")
+  capexTtm                      Decimal? @db.Decimal(20, 2) @map("capex_ttm")
+  cashFromOperationsTtm         Decimal? @db.Decimal(20, 2) @map("cash_from_operations_ttm")
+  freeCashFlowTtm               Decimal? @db.Decimal(20, 2) @map("free_cash_flow_ttm")
+  shareBasedCompensationTtm     Decimal? @db.Decimal(20, 2) @map("share_based_compensation_ttm")
+  depreciationAndAmortizationTtm Decimal? @db.Decimal(20, 2) @map("depreciation_and_amortization_ttm")
+
+  // ── TTM-level margin ratios ───────────────────────────────────────────────
+  grossMarginTtm          Decimal? @db.Decimal(8, 6) @map("gross_margin_ttm")
+  operatingMarginTtm      Decimal? @db.Decimal(8, 6) @map("operating_margin_ttm")
+  netMarginTtm            Decimal? @db.Decimal(8, 6) @map("net_margin_ttm")
+  fcfMarginTtm            Decimal? @db.Decimal(8, 6) @map("fcf_margin_ttm")
+  sbcAsPctRevenueTtm      Decimal? @db.Decimal(8, 6) @map("sbc_as_pct_revenue_ttm")
+  cfoToNetIncomeRatioTtm  Decimal? @db.Decimal(8, 6) @map("cfo_to_net_income_ratio_ttm")
+
+  // ── Margin trajectory slopes (pp change per quarter) ─────────────────────
+  grossMarginSlope4q      Decimal? @db.Decimal(10, 6) @map("gross_margin_slope_4q")
+  operatingMarginSlope4q  Decimal? @db.Decimal(10, 6) @map("operating_margin_slope_4q")
+  netMarginSlope4q        Decimal? @db.Decimal(10, 6) @map("net_margin_slope_4q")
+  grossMarginSlope8q      Decimal? @db.Decimal(10, 6) @map("gross_margin_slope_8q")
+  operatingMarginSlope8q  Decimal? @db.Decimal(10, 6) @map("operating_margin_slope_8q")
+  netMarginSlope8q        Decimal? @db.Decimal(10, 6) @map("net_margin_slope_8q")
+
+  // ── Margin stability scores (0.0–1.0; null when < 4 quarters) ────────────
+  operatingMarginStabilityScore Decimal? @db.Decimal(4, 3) @map("operating_margin_stability_score")
+  grossMarginStabilityScore     Decimal? @db.Decimal(4, 3) @map("gross_margin_stability_score")
+  netMarginStabilityScore       Decimal? @db.Decimal(4, 3) @map("net_margin_stability_score")
+
+  // ── Operating leverage ────────────────────────────────────────────────────
+  operatingLeverageRatio          Decimal? @db.Decimal(10, 4) @map("operating_leverage_ratio")
+  operatingIncomeAccelerationFlag Boolean? @map("operating_income_acceleration_flag")
+  operatingLeverageEmergingFlag   Boolean? @map("operating_leverage_emerging_flag")
+
+  // ── Earnings quality ──────────────────────────────────────────────────────
+  earningsQualityTrendScore       Decimal? @db.Decimal(4, 3) @map("earnings_quality_trend_score")
+  deterioratingCashConversionFlag Boolean? @map("deteriorating_cash_conversion_flag")
+
+  // ── Dilution & SBC ────────────────────────────────────────────────────────
+  dilutedSharesOutstandingChange4q Decimal? @db.Decimal(8, 4) @map("diluted_shares_outstanding_change_4q")
+  dilutedSharesOutstandingChange8q Decimal? @db.Decimal(8, 4) @map("diluted_shares_outstanding_change_8q")
+  materialDilutionTrendFlag        Boolean? @map("material_dilution_trend_flag")
+  sbcBurdenScore                   Decimal? @db.Decimal(4, 3) @map("sbc_burden_score")
+
+  // ── Capital intensity ─────────────────────────────────────────────────────
+  capexToRevenueRatioAvg4q     Decimal? @db.Decimal(8, 4) @map("capex_to_revenue_ratio_avg_4q")
+  capexIntensityIncreasingFlag Boolean? @map("capex_intensity_increasing_flag")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@map("stock_derived_metrics")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUARTERLY FINANCIAL HISTORY (RFC-008, ADR-015)
+// EPIC-003/STORY-057: raw per-quarter financials from Tiingo
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StockQuarterlyHistory {
+  // EPIC-003: STORY-057 — stock_quarterly_history table
+  // RFC-008 §Data Collected; ADR-015 §Schema
+  id                          BigInt    @id @default(autoincrement())
+  ticker                      String    @db.VarChar(10)
+
+  // Period metadata
+  fiscalYear                  Int       @map("fiscal_year")
+  fiscalQuarter               Int       @map("fiscal_quarter")
+  fiscalPeriodEndDate         DateTime? @db.Date @map("fiscal_period_end_date")
+  reportedDate                DateTime? @db.Date @map("reported_date")
+  calendarYear                Int?      @map("calendar_year")
+  calendarQuarter             Int?      @map("calendar_quarter")
+  sourceProvider              String    @db.VarChar(50) @map("source_provider")
+  sourceStatementType         String?   @db.VarChar(50) @map("source_statement_type")
+  syncedAt                    DateTime  @default(now()) @db.Timestamptz(6) @map("synced_at")
+
+  // Raw financial fields — all nullable: NULL = DataCode absent, not zero (ADR-015)
+  revenue                     Decimal?  @db.Decimal(20, 2)
+  grossProfit                 Decimal?  @db.Decimal(20, 2) @map("gross_profit")
+  operatingIncome             Decimal?  @db.Decimal(20, 2) @map("operating_income")
+  netIncome                   Decimal?  @db.Decimal(20, 2) @map("net_income")
+  capex                       Decimal?  @db.Decimal(20, 2)
+  cashFromOperations          Decimal?  @db.Decimal(20, 2) @map("cash_from_operations")
+  freeCashFlow                Decimal?  @db.Decimal(20, 2) @map("free_cash_flow")
+  shareBasedCompensation      Decimal?  @db.Decimal(20, 2) @map("share_based_compensation")
+  depreciationAndAmortization Decimal?  @db.Decimal(20, 2) @map("depreciation_and_amortization")
+  dilutedSharesOutstanding    Decimal?  @db.Decimal(20, 0) @map("diluted_shares_outstanding")
+
+  // Per-quarter derived margins — computed inline by sync service (STORY-060)
+  grossMargin         Decimal?  @db.Decimal(8, 6) @map("gross_margin")
+  operatingMargin     Decimal?  @db.Decimal(8, 6) @map("operating_margin")
+  netMargin           Decimal?  @db.Decimal(8, 6) @map("net_margin")
+  cfoToNetIncomeRatio Decimal?  @db.Decimal(8, 6) @map("cfo_to_net_income_ratio")
+  fcfMargin           Decimal?  @db.Decimal(8, 6) @map("fcf_margin")
+  sbcAsPctRevenue     Decimal?  @db.Decimal(8, 6) @map("sbc_as_pct_revenue")
+  dilutionYoy         Decimal?  @db.Decimal(8, 6) @map("dilution_yoy")
+
+  stock Stock @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+
+  @@unique([ticker, fiscalYear, fiscalQuarter, sourceProvider], name: "uq_sqh_ticker_period_provider")
+  @@index([ticker, fiscalYear(sort: Desc), fiscalQuarter(sort: Desc)], name: "idx_sqh_ticker_period")
+  @@map("stock_quarterly_history")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -414,6 +539,7 @@ model UserClassificationOverride {
   @@map("user_classification_overrides")
 }
 
+// EPIC-005/STORY-076: added primaryMetricOverride, forwardOperatingEarningsExExcessCash, notes
 model UserValuationOverride {
   userId               String    @db.Uuid @map("user_id")
   ticker               String    @db.VarChar(10)
@@ -421,6 +547,9 @@ model UserValuationOverride {
   comfortableThreshold Decimal?  @db.Decimal(10, 2) @map("comfortable_threshold")
   veryGoodThreshold    Decimal?  @db.Decimal(10, 2) @map("very_good_threshold")
   stealThreshold       Decimal?  @db.Decimal(10, 2) @map("steal_threshold")
+  primaryMetricOverride                String?   @db.VarChar(50) @map("primary_metric_override")
+  forwardOperatingEarningsExExcessCash Decimal?  @db.Decimal(15, 4) @map("forward_operating_earnings_ex_excess_cash")
+  notes                                String?   @db.Text
   overrideReason       String?   @db.Text @map("override_reason")
   overriddenAt         DateTime  @default(now()) @db.Timestamptz(6) @map("overridden_at")
   createdAt            DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")

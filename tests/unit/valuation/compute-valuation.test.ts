@@ -193,12 +193,11 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       expect(result.valuationStateStatus).toBe('ready');
     });
 
-    it('forwardPe=null, trailingPe=20, trailingEps=0 → not used (eps must be > 0)', () => {
+    it('forwardPe=null, trailingPe=0 → not used (trailingPe must be > 0)', () => {
       const result = computeValuation(makeInput({
         activeCode: '4AA',
         forwardPe: null,
-        trailingPe: 20,
-        trailingEps: 0,
+        trailingPe: 0,
         cyclicalityFlag: false,
       }));
       expect(result.valuationStateStatus).toBe('manual_required');
@@ -209,7 +208,6 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
         activeCode: '4AA',
         forwardPe: null,
         trailingPe: null,
-        trailingEps: 5.0,
         cyclicalityFlag: false,
       }));
       expect(result.valuationStateStatus).toBe('manual_required');

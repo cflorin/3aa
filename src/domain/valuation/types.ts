@@ -71,7 +71,6 @@ export interface ValuationInput {
   shareCountGrowth3y?: number | null; // decimal (0.05 = 5%)
   materialDilutionFlag?: boolean;
   trailingPe?: number | null;
-  trailingEps?: number | null;
   trailingEvEbit?: number | null;
   epsGrowthFwd?: number | null;       // decimal
 
