@@ -2,7 +2,7 @@
 
 Complete index of all epics and stories for the 3AA Monitoring Product V1.
 
-**Last updated:** 2026-04-23 (EPIC-004 revised after UI analysis: STORY-053 added; STORY-041–052 updated)
+**Last updated:** 2026-04-25 (Quarterly history spec frozen; STORY-057–064 added to EPIC-003; STORY-065–072 added to EPIC-004)
 
 ---
 
@@ -12,9 +12,9 @@ Complete index of all epics and stories for the 3AA Monitoring Product V1.
 |------|-------|--------|---------|
 | EPIC-001 | Platform Foundation & Deployment | ✅ done | STORY-001–009 (9 stories) |
 | EPIC-002 | Authentication & User Management | ✅ done | STORY-010–014 (5 stories) |
-| EPIC-003 | Data Ingestion & Universe Management | ✅ done | STORY-015–033 (19 stories) |
+| EPIC-003 | Data Ingestion & Universe Management | in_progress | STORY-015–033 ✅; STORY-057–064 ready |
 | EPIC-003.1 | Classification LLM Enrichment | ✅ done | STORY-034–040 (7 stories) |
-| EPIC-004 | Classification Engine & Universe Screen | ✅ done | STORY-041–053 (13 stories) |
+| EPIC-004 | Classification Engine & Universe Screen | in_progress | STORY-041–056 ✅; STORY-065–072 ready |
 | EPIC-005 | Valuation Threshold Engine & Enhanced Universe | planned | TBD |
 | EPIC-006 | Monitoring & Alerts Engine with Alerts UI | planned | TBD |
 | EPIC-007 | User Preferences & Settings | planned | TBD |
@@ -74,6 +74,14 @@ Specs: `stories/epics/` (no file; see implementation plan)
 | STORY-031 | GAAP / Non-GAAP EPS Reconciliation Factor | ✅ done |
 | STORY-032 | Share Count Growth (3-Year CAGR) | ✅ done |
 | STORY-033 | Deterministic Classification Flags | ✅ done |
+| STORY-057 | `stock_quarterly_history` Table Migration | ready |
+| STORY-058 | `stock_derived_metrics` Table Migration | ready |
+| STORY-059 | `TiingoAdapter.fetchQuarterlyStatements` Method | ready |
+| STORY-060 | Quarterly History Sync Service | ready |
+| STORY-061 | Derived Metrics Computation Service (Per-Quarter Margins & TTM Rollups) | ready |
+| STORY-062 | Trend & Trajectory Metrics Computation Service | ready |
+| STORY-063 | Quarterly History Cron Route & Cloud Scheduler Job | ready |
+| STORY-064 | Quarterly History Pipeline Integration & Regression Tests | ready |
 
 Story specs: `stories/tasks/EPIC-003-data-ingestion/`
 
@@ -101,7 +109,7 @@ Story specs: `stories/tasks/EPIC-003.1-classification-llm-enrichment/`
 
 ## EPIC-004 — Classification Engine & Universe Screen
 
-**Status:** in_progress — 13 stories complete; 2 new stories added 2026-04-24
+**Status:** in_progress — 16 stories complete (STORY-041–056); 8 quarterly history stories added ready (STORY-065–072)
 
 **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
 
@@ -125,6 +133,16 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-054 | UI Theme Compliance — Dark Terminal Theme | ✅ done |
 | STORY-055 | Remove Stock from Universe | ✅ done |
 | STORY-056 | Add Stock to Universe (API-first, SSE progress, full pipeline) | ✅ done |
+| STORY-065 | Classification Trend Metrics Integration (ClassificationTrendMetrics, toClassificationInput, shouldRecompute) | ready |
+| STORY-066 | EQ Scorer v2: Quarterly-Driven Earnings Quality Signals | ready |
+| STORY-067 | BS Scorer Dilution Trend Enhancement (material_dilution_trend_flag, sbc_burden_score) | ready |
+| STORY-068 | Bucket Scorer Quarterly Growth Context (Revenue TTM, Operating Leverage Tie-break) | ready |
+| STORY-069 | Confidence Step 5: Trajectory Quality Penalty | ready |
+| STORY-070 | Universe Screen: Quarterly Trend Metrics Columns & Filters | ready |
+| STORY-071 | Stock Detail Page: Quarterly Financial History Section | ready |
+| STORY-072 | Quarterly History Classification Engine Regression & Coherence Tests | ready |
+| STORY-073 | Stock Detail: Quarterly Tab + Annual & Inferred Tab (full data display) | ✅ done |
+| STORY-074 | Bulk Stock Import via CSV (async job queue, progress table, retry) | ready — implement after STORY-077 (bulk worker calls runValuationBatch per ticker) |
 
 **Evidence:** 855/855 tests passing (2026-04-24)
 
@@ -132,9 +150,21 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 
 ## EPIC-005 — Valuation Threshold Engine & Enhanced Universe
 
-**Status:** planned — stories not yet decomposed
+**Status:** planned — stories decomposed 2026-04-25
 
 **Dependencies:** EPIC-004
+
+Story specs: `stories/tasks/EPIC-005-valuation-threshold-engine/`
+
+| Story | Title | Status |
+|-------|-------|--------|
+| STORY-075 | Valuation Engine Domain Layer (MetricSelector, ThresholdAssigner, TsrHurdleCalculator, SecondaryAdjustments, ZoneAssigner, computeValuation) | ready |
+| STORY-076 | Valuation State Persistence & History (persistValuationState, loadValuationInput, getValuationState/History) | ready |
+| STORY-077 | Valuation Recompute Batch Job (runValuationBatch, /api/cron/valuation) | ready |
+| STORY-078 | User Valuation Override API (schema migration + GET/PUT/DELETE /api/stocks/[ticker]/valuation/override) | ready |
+| STORY-079 | Stock Detail Page: Valuation Tab (zone badge, threshold gauge, TSR hurdle, override panel) | ready |
+| STORY-080 | Universe Screen: Valuation Zone Column & Filters | ready |
+| STORY-081 | EPIC-005 Regression & Integration Tests (golden-set, BDD acceptance, cross-epic, schema contract) | ready |
 
 ---
 
@@ -159,9 +189,11 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 Stories are numbered sequentially across epics (not reset per epic):
 - EPIC-001: STORY-001–009
 - EPIC-002: STORY-010–014
-- EPIC-003: STORY-015–033
+- EPIC-003: STORY-015–033; STORY-057–064 (quarterly history additions 2026-04-25)
 - EPIC-003.1: STORY-034–040
-- EPIC-004: STORY-041–053
-- EPIC-005: STORY-054+ (TBD)
+- EPIC-004: STORY-041–056; STORY-065–072 (quarterly history classification additions 2026-04-25)
+- EPIC-005: STORY-073+ (TBD)
+
+Note: STORY-054–056 are EPIC-004 stories (theme, remove/add stock); STORY-057–064 are EPIC-003 quarterly history stories added 2026-04-25; STORY-065–072 are EPIC-004 quarterly history classification stories added 2026-04-25.
 
 Tasks follow `TASK-{story}-{seq}` format, e.g. `TASK-034-001`.

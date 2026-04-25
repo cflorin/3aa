@@ -3,17 +3,18 @@
 ## Baseline Reference
 - **Version:** V1.0 (frozen 2026-04-19; amendments below)
 - **PRD:** /docs/prd/PRD.md
-- **RFCs:** RFC-001 through RFC-007 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21)
-- **ADRs:** ADR-001 through ADR-014 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23)
-- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅
-- **Validated Stories:** STORY-001 through STORY-053 all complete
+- **RFCs:** RFC-001 through RFC-008 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25; RFC-001/002/004 amended again 2026-04-25)
+- **ADRs:** ADR-001 through ADR-016 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23; ADR-013/ADR-014 amended 2026-04-25; ADR-015/ADR-016 added 2026-04-25; ADR-001/ADR-002 amended 2026-04-25)
+- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in_progress — quarterly history additions pending)
+- **Validated Stories:** STORY-001 through STORY-056 complete; STORY-057–072 ready (quarterly history data layer)
 
 ## Status Summary
-- **Current Phase:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe (story decomposition required)
-- **Active Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe (planned)
-- **Active Story:** None — EPIC-005 needs story decomposition before any coding
-- **Overall Progress:** 5/8 epics complete (EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅)
-- **Baseline Status:** RFC-001, RFC-002, RFC-004 amended 2026-04-21; RFC-007 and ADR-012 added 2026-04-21; ADR-013 and ADR-014 added 2026-04-23
+- **Current Phase:** EPIC-003 Quarterly History Additions + EPIC-004 Quarterly History Classification
+- **Active Epic:** EPIC-003 (quarterly history additions); then EPIC-004 (quarterly history classification)
+- **Active Story:** STORY-057 — `stock_quarterly_history` Table Migration (first to execute)
+- **Overall Progress:** 4 epics fully done; EPIC-004 in_progress; 16 new stories (STORY-057–072) ready for execution
+- **Baseline Status:** RFC-008 added 2026-04-25 (quarterly history); ADR-015/016 added 2026-04-25; RFC-001/002/004/ADR-001/002/013/014 amended 2026-04-25
+- **Unit Tests at Start:** 855/855 passing (2026-04-24 baseline)
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -155,6 +156,52 @@
 - **Tasks:** TASK-033-001 ✅ (computeDeterministicFlags), TASK-033-002 ✅ (sync job), TASK-033-003 ✅ (admin route), TASK-033-004 ✅ (23/23 unit tests passing)
 - **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-033-deterministic-classification-flags.md
 
+### EPIC-003 Quarterly History Additions (2026-04-25)
+- **Status:** ready — all 8 stories decomposed and validated against RFC-008, ADR-015, ADR-016
+- **Baseline:** RFC-008 (new), ADR-015 (new), ADR-016 (new); RFC-002/004/ADR-001/002 amended 2026-04-25
+- **Execution order:** STORY-057 → 058 → 059 → 060 → 061 → 062 → 063 → 064
+- **Integration Checkpoint:** Full quarterly history pipeline running (sync → TTM → trends → cron); `stock_derived_metrics` rows populated for all in-universe stocks
+
+#### STORY-057 — `stock_quarterly_history` Table Migration
+- **Status:** ready
+- **Dependencies:** STORY-004 (Prisma/migration pattern), `stocks` table exists
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-057-stock-quarterly-history-table-migration.md
+
+#### STORY-058 — `stock_derived_metrics` Table Migration
+- **Status:** ready
+- **Dependencies:** STORY-057 (ordering; can be same or sequential migration)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-058-stock-derived-metrics-table-migration.md
+
+#### STORY-059 — `TiingoAdapter.fetchQuarterlyStatements` Method
+- **Status:** ready
+- **Dependencies:** STORY-016 (TiingoAdapter established)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-059-tiingo-fetch-quarterly-statements.md
+
+#### STORY-060 — Quarterly History Sync Service
+- **Status:** ready
+- **Dependencies:** STORY-057 (table), STORY-059 (adapter method)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-060-quarterly-history-sync-service.md
+
+#### STORY-061 — Derived Metrics Computation Service (TTM Rollups)
+- **Status:** ready
+- **Dependencies:** STORY-057, STORY-058, STORY-060
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-061-derived-metrics-computation-service.md
+
+#### STORY-062 — Trend & Trajectory Metrics Computation Service
+- **Status:** ready
+- **Dependencies:** STORY-057, STORY-058, STORY-061
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-062-trend-trajectory-metrics-computation.md
+
+#### STORY-063 — Quarterly History Cron Route & Cloud Scheduler Job
+- **Status:** ready
+- **Dependencies:** STORY-060, STORY-061, STORY-062, STORY-003 (Cloud Scheduler pattern)
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-063-quarterly-history-cron-route.md
+
+#### STORY-064 — Quarterly History Pipeline Integration & Regression Tests
+- **Status:** ready
+- **Dependencies:** STORY-057–063 all complete
+- **Spec:** /stories/tasks/EPIC-003-data-ingestion/STORY-064-quarterly-history-integration-tests.md
+
 ### EPIC-003.1 — Classification LLM Enrichment
 - **Status:** done ✅ (2026-04-21 — all 7 stories complete, 489/489 unit tests passing)
 - **Dependencies:** EPIC-003 ✅ (complete 2026-04-21); ADR-012 (accepted); RFC-007 (accepted)
@@ -286,12 +333,12 @@
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-048-universe-screen-stock-table.md`
 
 #### STORY-049 — Universe Screen: Filters and Sort
-- **Status:** planned
+- **Status:** done ✅
 - **Dependencies:** STORY-048
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-049-universe-screen-filters-and-sort.md`
 
 #### STORY-050 — Monitoring: Deactivate/Reactivate UI
-- **Status:** planned
+- **Status:** done ✅
 - **Dependencies:** STORY-048, STORY-046
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-050-monitoring-deactivate-reactivate-ui.md`
 
@@ -317,12 +364,90 @@
 - **V1 data gaps (documented):** net_margin → fcf_margin; enterprise_value/ev_ebitda → forward_ev_ebit
 - **Spec:** `stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-053-stock-detail-page.md`
 
+### EPIC-004 Quarterly History Additions (2026-04-25)
+- **Status:** ready — all 8 stories decomposed and validated against RFC-001/RFC-008, ADR-013/014/015/016
+- **Baseline:** RFC-001/008 amended/added 2026-04-25; ADR-013/014 amended 2026-04-25; ADR-015/016 added 2026-04-25
+- **Execution order:** STORY-065 → 066 → 067 → 068 → 069 → 070 → 071 → 072
+- **Dependency:** All EPIC-003 quarterly history stories (STORY-057–064) must be complete first
+- **Integration Checkpoint:** Classification engine uses quarterly trend data; universe screen and stock detail page expose quarterly metrics
+
+#### STORY-065 — Classification Trend Metrics Integration
+- **Status:** ready
+- **Dependencies:** STORY-058 (stock_derived_metrics), STORY-062 (trend fields populated), STORY-044, STORY-047
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-065-classification-trend-metrics-integration.md
+
+#### STORY-066 — EQ Scorer v2: Quarterly-Driven Signals
+- **Status:** ready
+- **Dependencies:** STORY-065 (ClassificationTrendMetrics wired)
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-066-eq-scorer-v2-quarterly-signals.md
+
+#### STORY-067 — BS Scorer Dilution Trend Enhancement
+- **Status:** ready
+- **Dependencies:** STORY-065 (ClassificationTrendMetrics wired)
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-067-bs-scorer-dilution-trend-enhancement.md
+
+#### STORY-068 — Bucket Scorer Quarterly Growth Context
+- **Status:** ready
+- **Dependencies:** STORY-065 (ClassificationTrendMetrics wired)
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-068-bucket-scorer-quarterly-growth-context.md
+
+#### STORY-069 — Confidence Step 5: Trajectory Quality Penalty
+- **Status:** ready
+- **Dependencies:** STORY-065 (ClassificationTrendMetrics wired), STORY-043
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-069-confidence-trajectory-quality-penalty.md
+
+#### STORY-070 — Universe Screen: Quarterly Trend Metrics Columns & Filters
+- **Status:** ready
+- **Dependencies:** STORY-048, STORY-049, STORY-058, STORY-062
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-070-universe-screen-quarterly-trend-metrics.md
+
+#### STORY-071 — Stock Detail Page: Quarterly Financial History Section
+- **Status:** ready
+- **Dependencies:** STORY-053, STORY-057, STORY-058, STORY-062
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-071-stock-detail-quarterly-history-section.md
+
+#### STORY-072 — Quarterly History Classification Engine Regression & Coherence Tests
+- **Status:** ready
+- **Dependencies:** STORY-065–071 all complete
+- **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-072-quarterly-history-classification-regression-tests.md
+
 ### EPIC-005 — Valuation Threshold Engine & Enhanced Universe
-- **Status:** planned
-- **Dependencies:** EPIC-004 (classification state)
-- **Stories:** [To be decomposed]
+- **Status:** in_progress
+- **Dependencies:** EPIC-004 (classification state, all quarterly history stories complete)
+- **Stories:** STORY-075 through STORY-081 (decomposed 2026-04-25)
+- **Active Story:** STORY-075 — Valuation Engine Domain Layer (done ✅)
 - **Integration Checkpoint:** Valuation engine running, zones displayed
 - **Deployment Milestone:** Users can view valuation zones
+
+#### STORY-075 — Valuation Engine Domain Layer
+- **Status:** done
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-075-valuation-engine-domain-layer.md
+- **Tasks:** TASK-075-001 through TASK-075-007 (all done)
+- **Evidence:** 195/195 unit tests passing; zero regressions in pre-existing suite
+
+#### STORY-076 — Valuation State Persistence & History
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-076-valuation-state-persistence.md
+
+#### STORY-077 — Valuation Recompute Batch Job
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-077-valuation-recompute-batch-job.md
+
+#### STORY-078 — User Valuation Override API
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-078-user-valuation-override-api.md
+
+#### STORY-079 — Stock Detail Page: Valuation Tab
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-079-stock-detail-valuation-tab.md
+
+#### STORY-080 — Universe Screen: Valuation Zone Columns & Filters
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-080-universe-screen-valuation-columns.md
+
+#### STORY-081 — EPIC-005 Regression & Integration Tests
+- **Status:** ready
+- **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-081-epic-005-regression-integration-tests.md
 
 ### EPIC-006 — Monitoring & Alerts Engine with Alerts UI
 - **Status:** planned

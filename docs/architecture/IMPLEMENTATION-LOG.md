@@ -3128,3 +3128,58 @@ Key implementation decisions:
 **Baseline Impact:** YES — ADR-013 amended (EQ weight change + new volatility signals). Amendment documented inline in ADR-013 with date and rationale.
 
 **Next Action:** Re-run classification batch to update live EQ grades; then continue with BUG-CE-005 or proceed to STORY-049
+
+---
+
+### 2026-04-25T — EPIC-005 Story Decomposition
+
+**Epic/Story/Task:** EPIC-005 decomposition
+
+**Action:** Decomposed EPIC-005 into 7 stories (STORY-075–081). Ran adversarial review (ChatGPT) and resolved 6 of 7 issues: corrected anchored codes count (16 not 18), confirmed 8 TSR rows, grounded shouldRecompute() in persisted ValuationState fields, fixed scheduler time (8:15 PM ET not 9:30 PM), corrected Universe Screen route paths (api/universe, not api/universe/stocks), confirmed personalized-at-read-time override architecture. Story pack validated.
+
+**Files Changed:**
+- `stories/tasks/EPIC-005-valuation-threshold-engine/STORY-075-081` — 7 story spec files created
+- `stories/README.md` — EPIC-005 story table added
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — EPIC-005 stories registered
+
+**Baseline Impact:** NO (story decomposition only)
+
+**Next Action:** Execute STORY-075
+
+---
+
+### 2026-04-25T — EPIC-005/STORY-075 — Valuation Engine Domain Layer
+
+**Epic/Story/Task:** EPIC-005 / STORY-075 / TASK-075-001 through TASK-075-007
+
+**Action:** Implemented all 7 components of the valuation domain layer as pure functions with no I/O dependency. All DB inputs injected as arrays. Components: types/interfaces, MetricSelector, ThresholdAssigner (with mechanical derivation from nearest anchor), TsrHurdleCalculator, SecondaryAdjustments (gross margin, dilution, cyclicality), ZoneAssigner, computeValuation() orchestrator, shouldRecompute().
+
+**Files Changed (created):**
+- `src/domain/valuation/types.ts` — ValuationInput, ValuationResult, all enums and row types
+- `src/domain/valuation/metric-selector.ts` — selectMetric(), parseBucket()
+- `src/domain/valuation/threshold-assigner.ts` — assignThresholds() with anchored lookup + mechanical derivation
+- `src/domain/valuation/tsr-hurdle-calculator.ts` — calculateTsrHurdle()
+- `src/domain/valuation/secondary-adjustments.ts` — applySecondaryAdjustments()
+- `src/domain/valuation/zone-assigner.ts` — assignZone()
+- `src/domain/valuation/compute-valuation.ts` — computeValuation() orchestrator
+- `src/domain/valuation/should-recompute.ts` — shouldRecompute(current, priorState)
+- `src/domain/valuation/index.ts` — public API barrel export
+- `tests/unit/valuation/metric-selector.test.ts` — 24 tests
+- `tests/unit/valuation/threshold-assigner.test.ts` — 38 tests (16 anchored golden-set + 5 derived + floor/order invariants)
+- `tests/unit/valuation/tsr-hurdle-calculator.test.ts` — 28 tests (all 8 buckets, 6 spec examples)
+- `tests/unit/valuation/secondary-adjustments.test.ts` — 30 tests
+- `tests/unit/valuation/zone-assigner.test.ts` — 26 tests (all zones, boundary transitions)
+- `tests/unit/valuation/compute-valuation.test.ts` — 27 tests (golden-set, B8, holding company, fallback)
+- `tests/unit/valuation/should-recompute.test.ts` — 22 tests
+
+**Tests Added/Updated:** 195 new unit tests, all passing
+
+**Result/Status:** STORY-075 DONE ✅ — 195/195 unit tests passing; pre-existing suite failures (333) confirmed as pre-existing (existed before this story, 369 failed without our code)
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (new domain module, no changes to existing code)
+
+**Next Action:** Execute STORY-076 — Valuation State Persistence & History
