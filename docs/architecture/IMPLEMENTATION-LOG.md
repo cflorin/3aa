@@ -3258,3 +3258,36 @@ Key implementation decisions:
 **Baseline Impact:** NO (batch job + add-stock pipeline extension)
 
 **Next Action:** Execute STORY-078 — User Valuation Override API
+
+---
+
+### [2026-04-25] EPIC-005/STORY-078 — User Valuation Override API
+
+**Timestamp:** 2026-04-25T22:00:00Z
+
+**Epic/Story/Task:** EPIC-005 / STORY-078 / TASK-078-001 through TASK-078-003
+
+**Action Taken:**
+- Created GET /api/stocks/[ticker]/valuation: auth-gated; calls getPersonalizedValuation(); returns systemState + userResult + hasUserOverride + userOverride; 404 if stock not in universe or valuation not computed
+- Created PUT /api/stocks/[ticker]/valuation/override: validates body (missing_override_fields / invalid_threshold_set / threshold_order_violation / invalid_metric); upserts UserValuationOverride; calls getPersonalizedValuation(); returns userResult + userOverride
+- Created DELETE /api/stocks/[ticker]/valuation/override: 404 if no override; deletes row; calls getPersonalizedValuation(); returns userResult + userOverride=null
+- Schema migration already applied in STORY-076 (primaryMetricOverride, forwardOperatingEarningsExExcessCash, notes)
+- 14 route unit tests; all endpoints covered
+
+**Files Changed:**
+- `src/app/api/stocks/[ticker]/valuation/route.ts` — new; GET endpoint
+- `src/app/api/stocks/[ticker]/valuation/override/route.ts` — new; PUT + DELETE endpoints
+- `tests/unit/api/stocks/valuation-override.test.ts` — new; 14 unit tests
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — STORY-078 marked done
+
+**Tests Added/Updated:** 14 new unit tests; 239/239 total passing
+
+**Result/Status:** STORY-078 DONE ✅
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (new API endpoints; system valuation_state never mutated by override routes)
+
+**Next Action:** Execute STORY-079 — Stock Detail Page: Valuation Tab
