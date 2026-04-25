@@ -21,5 +21,5 @@ export const MSFT_BS_GOLDEN_SCORES = { A: 5, B: 0, C: 0 } as const;
 // FCF_STRONG(3) + MOAT_STRONG(2) + NI_A(1) = A:6; NI_B(1) = B:1; C:0
 export const UNH_EQ_GOLDEN_SCORES = { A: 6, B: 1, C: 0 } as const;
 
-// UNH BS: DEBT_HIGH(2) + COVERAGE_WEAK(2) = A:0; B:0; C:4
-export const UNH_BS_GOLDEN_SCORES = { A: 0, B: 0, C: 4 } as const;
+// UNH BS: DEBT_HIGH(3) + COVERAGE_WEAK(2) = A:0; B:0; C:5  [ADR-013 amendment 2026-04-25]
+export const UNH_BS_GOLDEN_SCORES = { A: 0, B: 0, C: 5 } as const;

@@ -35,7 +35,9 @@ export const EQ_MARGIN_DUR_WEAK = 1;    // margin_durability_score < 2.5 → +1 
 // BS scorer weights (STORY-042)
 export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda < 1.0 strict → +3 to A
 export const BS_DEBT_MODERATE = 2;     // net_debt_to_ebitda [1.0, 2.5] → +2 to B
-export const BS_DEBT_HIGH = 2;         // net_debt_to_ebitda > 2.5 → +2 to C
+// [ADR-013 amendment 2026-04-25] raised 2→3: high leverage must outweigh strong coverage so
+// high-debt companies cannot tie-break to BS-A via coverage alone (C:3 > A:2 at all times).
+export const BS_DEBT_HIGH = 3;         // net_debt_to_ebitda > 2.5 → +3 to C
 export const BS_COVERAGE_STRONG = 2;   // interest_coverage > 12.0 → +2 to A
 export const BS_COVERAGE_MODERATE = 1; // interest_coverage [5.0, 12.0] → +1 to B
 export const BS_COVERAGE_WEAK = 2;     // interest_coverage < 5.0 → +2 to C

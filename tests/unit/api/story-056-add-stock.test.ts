@@ -55,7 +55,9 @@ jest.mock('@/modules/data-ingestion/adapters/tiingo.adapter', () => ({
 }));
 
 jest.mock('@/modules/data-ingestion/adapters/fmp.adapter', () => ({
-  FMPAdapter: jest.fn().mockImplementation(() => ({})),
+  FMPAdapter: jest.fn().mockImplementation(() => ({
+    fetchMetadata: jest.fn().mockResolvedValue({ company_name: 'Tesla Inc' }),
+  })),
 }));
 
 jest.mock('@/modules/classification-enrichment/providers/claude.provider', () => ({

@@ -336,9 +336,9 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.reason_codes).toContain('manageable_leverage');
     });
 
-    it('net_debt_to_ebitda=3.01 → scores.C includes BS_DEBT_HIGH (2)', () => {
+    it('net_debt_to_ebitda=3.01 → scores.C includes BS_DEBT_HIGH (3)', () => {
       const r = BalanceSheetQualityScorer(makeInput({ net_debt_to_ebitda: 3.01 }));
-      expect(r.scores.C).toBeGreaterThanOrEqual(2);
+      expect(r.scores.C).toBeGreaterThanOrEqual(3);
       expect(r.reason_codes).toContain('high_leverage');
     });
 
@@ -387,7 +387,16 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.winner).toBe('C');
       expect(r.scores.A).toBe(0);
       expect(r.scores.B).toBe(0);
-      expect(r.scores.C).toBe(4); // DEBT_HIGH(2) + COVERAGE_WEAK(2)
+      expect(r.scores.C).toBe(5); // DEBT_HIGH(3) + COVERAGE_WEAK(2)
+    });
+
+    // [ADR-013 amendment 2026-04-25] regression: high debt must never tie-break to BS-A
+    it('high debt + strong coverage → winner=C, not A (ADR-013 amendment)', () => {
+      const r = BalanceSheetQualityScorer(makeInput({ net_debt_to_ebitda: 3.0, interest_coverage: 15.0 }));
+      expect(r.winner).toBe('C');
+      expect(r.scores.C).toBe(3); // DEBT_HIGH(3)
+      expect(r.scores.A).toBe(2); // COVERAGE_STRONG(2)
+      expect(r.scores.C).toBeGreaterThan(r.scores.A);
     });
   });
 
@@ -419,9 +428,9 @@ describe('EPIC-004/STORY-042/TASK-042-004: EQ and BS Scorers', () => {
       expect(r.scores.C).toBe(0);
     });
 
-    it('net_debt_to_ebitda=2.5001 → High fires (C += 2), Moderate does NOT', () => {
+    it('net_debt_to_ebitda=2.5001 → High fires (C += 3), Moderate does NOT', () => {
       const r = BalanceSheetQualityScorer(makeInput({ net_debt_to_ebitda: 2.5001 }));
-      expect(r.scores.C).toBe(2);
+      expect(r.scores.C).toBe(3);
       expect(r.scores.B).toBe(0);
     });
 

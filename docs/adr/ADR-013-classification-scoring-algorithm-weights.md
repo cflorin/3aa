@@ -1,6 +1,6 @@
 # ADR-013: Classification Scoring Algorithm Point Weights
 
-**Status:** ACCEPTED
+**Status:** ACCEPTED (amended 2026-04-25)
 **Created:** 2026-04-23
 **Supersedes:** N/A
 **Relates to:** RFC-001 §Bucket Scorer; ADR-004 (rules-first classification); ADR-014 (confidence thresholds)
@@ -71,13 +71,23 @@ Point weights must satisfy four constraints:
 |---|---|---|
 | `BS_DEBT_LOW` | **3** | `net_debt_to_ebitda < 1.0` → contributes to BS-A |
 | `BS_DEBT_MODERATE` | **2** | `net_debt_to_ebitda` in `[1.0, 2.5]` → contributes to BS-B |
-| `BS_DEBT_HIGH` | **2** | `net_debt_to_ebitda > 2.5` → contributes to BS-C |
+| `BS_DEBT_HIGH` | ~~2~~ → **3** | `net_debt_to_ebitda > 2.5` → contributes to BS-C |
 | `BS_COVERAGE_STRONG` | **2** | `interest_coverage > 12.0` → contributes to BS-A |
 | `BS_COVERAGE_MODERATE` | **1** | `interest_coverage` in `[5.0, 12.0]` → contributes to BS-B |
 | `BS_COVERAGE_WEAK` | **2** | `interest_coverage < 5.0` → contributes to BS-C |
 | `BS_CAPITAL_INTENSITY` | **1** | `capital_intensity_score ≥ 4.0` → contributes to BS-C direction |
 
 **Net-cash position (`net_debt_to_ebitda ≤ 0`):** Treated as even stronger than `< 1.0`; add additional +1 to BS-A score. Net-cash is better than BS-A threshold.
+
+> **Amendment 2026-04-25 — `BS_DEBT_HIGH` raised from 2 → 3**
+>
+> With `BS_DEBT_HIGH = 2` and `BS_COVERAGE_STRONG = 2`, a company with high leverage
+> (net_debt/EBITDA > 2.5) and strong interest coverage (> 12×) produced A:2, C:2 — a tie
+> resolved to **BS-A** by the A > B > C tie-break. A highly leveraged company must never
+> grade as A balance sheet quality regardless of how well it covers interest in a given period.
+> Raising `BS_DEBT_HIGH` to 3 ensures high leverage always wins (C:3 > A:2), giving the
+> correct BS-C outcome. The full corrected outcome matrix for all leverage × coverage
+> combinations is verified in `tests/unit/classification/story-042-eq-bs-scorer.test.ts`.
 
 ---
 
