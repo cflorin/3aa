@@ -8,6 +8,113 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-26 — EPIC-005/STORY-083: Confidence-Floor Bucket Selection — TASK-083-007 complete
+
+**Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+**Story:** STORY-083 — Confidence-Floor Bucket Selection
+**Task:** TASK-083-007 — Unit tests: comprehensive coverage of floor search algorithm
+
+**Action:** Implemented comprehensive unit tests for STORY-083 confidence-floor algorithm. Fixed `holding_company_flag` gate omission (AC-4 extension). Updated STORY-043 golden fixtures and 15 stale tests to reflect post-floor expected values.
+
+**TASK-083-007 changes:**
+
+1. **`src/domain/classification/classifier.ts`** — Added `!input.holding_company_flag` to floor search gate (line 323). Stocks forced to B3 by holding_company_flag now correctly bypass the floor search (the flag is intentional, not a confidence issue).
+
+2. **`tests/unit/classification/fixtures/classify-stock-golden.ts`** — Updated all 5 golden fixtures to reflect floor search results:
+   - MSFT: B3→B4, low→medium, rawCode='3AA', floorApplied=true
+   - ADBE: B4→B3, low→medium, rawCode='4AA', floorApplied=true (B5 competitor keeps margin=3)
+   - TSLA: B3→B4, low→medium, eq_grade updated A→C (BUG-CE-002 fix was already live but golden stale), rawCode='3CA', floorApplied=true
+   - UBER: B4→B5, low→medium, eq_grade updated A→B, rawCode='4BA', floorApplied=true
+   - UNH: B1→B4, low→medium, rawCode='1AC', floorApplied=true
+
+3. **`tests/unit/classification/story-043-classify-stock.test.ts`** — Updated 15 failing tests:
+   - Section (b) B3v4: 4 tests — verify rawSuggestedCode captures tie-break winner; assert floor reversal to loser bucket
+   - Section (c) B4v5: 2 tests — pre_op=false and pre_op=true both trigger floor (missing=4 degrades medium→low)
+   - Section (d) B5v6: 2 tests — tie reversal via floor
+   - Section (g): 1 test — holding_company gate now blocks floor; `confidenceFloorApplied` is falsy
+   - Section (h): 1 test — UNH now 'medium' (floor found B4); description updated
+   - Section (l): 5 golden tests — updated via fixture; added rawSuggestedCode + confidenceFloorApplied assertions
+
+4. **`tests/unit/classification/story-083-confidence-floor.test.ts`** — New file, 22 tests covering:
+   - AC-1/2: low-confidence triggers floor; first medium+ candidate accepted
+   - AC-3: rawSuggestedCode + rawConfidenceLevel preserved; absent for non-floor stocks
+   - AC-4: binary_flag exempt; holding_company_flag exempt (AC-4 extension)
+   - AC-5: bucket 1 with no lower bucket — floor finds no candidate
+   - AC-6: all floor candidates remain low (B6v7 missing=5 case) → retained
+   - AC-7: high/medium confidence → floor not triggered
+   - BDD Scenarios 1–5: MSFT, ADBE, B6v7 no-fallback, B8 exempt, medium unaffected
+   - Golden-set: 5 stocks — all have floorApplied=true, rawConfidenceLevel='low', rawCode prefix verified
+
+**Files Changed:**
+- `src/domain/classification/classifier.ts` — modified (holding_company_flag gate added to floor search)
+- `tests/unit/classification/fixtures/classify-stock-golden.ts` — modified (all 5 golden fixtures updated)
+- `tests/unit/classification/story-043-classify-stock.test.ts` — modified (15 tests updated)
+- `tests/unit/classification/story-083-confidence-floor.test.ts` — created (22 new tests)
+
+**Tests Added/Updated:** 22 new tests; 15 updated. 377/377 classification unit tests passing.
+
+**Result/Status:** ✅ DONE — 1507/1507 unit tests passing (87 suites). TASK-083-007 complete.
+
+**Blockers/Issues:** None.
+
+**Baseline Impact:** NO — implementation within spec; `holding_company_flag` gate was implicitly required by AC-4 (flags that intentionally force a bucket should not be overridden by the floor).
+
+**Next Action:** TASK-083-008 — Validate against real data: MSFT, ADBE, TSLA, UBER, UNH after re-classification.
+
+---
+
+## 2026-04-26 — EPIC-005/STORY-082: Confidence-Based Valuation Metric Demotion — complete
+
+**Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+**Story:** STORY-082 — Confidence-Based Valuation Metric Demotion
+**Tasks:** TASK-082-001 (docs), TASK-082-002 (domain), TASK-082-003 (persistence), TASK-082-004 (StockTable fallback), TASK-082-005 (demotion notice), TASK-082-006 (domain tests), TASK-082-007 (UI tests), TASK-082-008 (persistence test), TASK-082-009 (log)
+
+**Action:** Implemented confidence-based effective bucket demotion across the full stack: domain layer, persistence, universe list fallback, and classification tab demotion notice.
+
+TASK-082-001: Amended RFC-003 (§Confidence-Based Effective Bucket added; "confidence does NOT affect valuation" struck), ADR-014 (third consumer added; amendment section added), ADR-005 (§Confidence-Based Effective Code note added). Created STORY-082 spec in EPIC-005 stories directory.
+
+TASK-082-002: Added `confidenceLevel?: 'high' | 'medium' | 'low' | null` to `ValuationInput`; added `effectiveCode: string` to `ValuationResult`. Exported `deriveEffectiveCode()` pure helper from domain. In `computeValuation()`: derives effectiveCode before Stage 1; all downstream stages (selectMetric, assignThresholds, calculateTsrHurdle, applySecondaryAdjustments) receive effectiveCode; original activeCode preserved in result. Bucket-8 and bucket-1 floor guards in demotion helper. `stateToResult()` in persistence service updated to include `effectiveCode: s.activeCode` (no demotion for pre-computed stored state).
+
+TASK-082-003: In `persistValuationState()`, added `confidenceLevel: true` to the `classificationState.findUnique` select; built `inputWithConfidence` spread before calling `computeValuation`. Confidence level now flows automatically from classification engine to valuation domain.
+
+TASK-082-004: Updated `valMetricLabel()` and `valMetricValue()` in `StockTable.tsx` to accept `confidence_level` and apply the same bucket−1 demotion rule (floor 1, bucket-8 exempt) when no `currentMultipleBasis` is present. Extracted `effectiveBucketFromCode()` helper.
+
+TASK-082-005: Added `deriveEffectiveCode()` client-side helper to `ClassificationModal.tsx`. Rendered `data-testid="demotion-notice"` callout with amber styling when `effectiveCode !== system_suggested_code`, showing "Valued as B{eff} (demoted from B{active} — low confidence)".
+
+TASK-082-006: Created `tests/unit/valuation/story-082-confidence-demotion.test.ts` — 10 `deriveEffectiveCode()` tests + 9 `computeValuation()` demotion scenarios covering all 6 story BDD scenarios plus bucket-8 guard, backward-compatibility (no confidenceLevel), and activeCode preservation. All 19 pass.
+
+TASK-082-007: Added Scenarios 8–9 + 4 edge cases to `story-080-valuation-zone-columns.test.tsx` (5 new tests, 27 total). Added Scenarios 10–11 + 3 edge cases to `ClassificationModal.test.tsx` (5 new tests, 25 total).
+
+TASK-082-008: Created `tests/integration/valuation/persistence-demotion.test.ts` — 3 mocked-prisma tests: low confidence → B5 metric + B5 thresholds + original B6 activeCode preserved; medium confidence → no demotion; null confidence → no demotion. All 3 pass.
+
+**Files Changed:**
+- `src/domain/valuation/types.ts` — modified (added confidenceLevel to input, effectiveCode to result)
+- `src/domain/valuation/compute-valuation.ts` — modified (deriveEffectiveCode helper, effectiveCode threading)
+- `src/domain/valuation/index.ts` — modified (exports deriveEffectiveCode)
+- `src/modules/valuation/valuation-persistence.service.ts` — modified (reads confidenceLevel, builds inputWithConfidence, stateToResult fix)
+- `src/components/universe/StockTable.tsx` — modified (effectiveBucketFromCode helper, valMetricLabel/valMetricValue updated)
+- `src/components/universe/ClassificationModal.tsx` — modified (deriveEffectiveCode helper, demotion notice)
+- `docs/rfc/RFC-003-valuation-threshold-engine-architecture.md` — amended
+- `docs/adr/ADR-014-classification-confidence-threshold-boundaries.md` — amended
+- `docs/adr/ADR-005-threshold-management-anchored-mechanical-derivation.md` — amended
+- `stories/tasks/EPIC-005-valuation-threshold-engine/STORY-082-confidence-based-valuation-metric-demotion.md` — created
+
+**Tests Added/Updated:**
+- `tests/unit/valuation/story-082-confidence-demotion.test.ts` — created (19 tests)
+- `tests/integration/valuation/persistence-demotion.test.ts` — created (3 tests)
+- `tests/unit/components/story-080-valuation-zone-columns.test.tsx` — updated (+5 tests, 27 total)
+- `tests/unit/components/ClassificationModal.test.tsx` — updated (+5 tests, 25 total)
+
+**Result/Status:** ✅ All 1,498 unit tests passing (87 suites). Verification level: **unit_verified**.
+
+**Blockers/Issues:** None.
+
+**Baseline Impact:** YES — RFC-003 §Inherited Assumptions amended: the prior statement "Classification confidence exists but does NOT affect valuation logic" was struck and replaced with the effective bucket demotion rule. ADR-014 gained a third consumer. ADR-005 gained a note on effective code in threshold lookup. All amendments authored and approved in same session before implementation.
+
+**Next Action:** STORY-082 complete. EPIC-005 all stories done. Ready for EPIC-006 decomposition.
+
+---
+
 ## 2026-04-25 — EPIC-005/STORY-081: EPIC-005 Regression & Integration Tests — complete
 
 **Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe

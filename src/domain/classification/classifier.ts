@@ -40,8 +40,9 @@ function resolveTieBreaks(
   scores: Record<BucketNumber, number>,
   input: ClassificationInput,
   initialMargin: number,
-): { resolvedBucket: BucketNumber | null; tieBreaksFired: TieBreakRecord[] } {
+): { resolvedBucket: BucketNumber | null; tieBreaksFired: TieBreakRecord[]; resolvedScores: Record<number, number> } {
   // Work on a mutable copy; Bucket 8 always excluded from tie-break resolution
+  // resolvedScores is returned so callers (floor search) can compute accurate post-tie-break margins
   const s: Record<number, number> = { ...scores, 8: -Infinity };
   const tieBreaksFired: TieBreakRecord[] = [];
 
@@ -62,7 +63,7 @@ function resolveTieBreaks(
   const top = topScore();
   if (top <= 0) {
     // All scores 0 — no winner, no tie-breaks
-    return { resolvedBucket: null, tieBreaksFired: [] };
+    return { resolvedBucket: null, tieBreaksFired: [], resolvedScores: { ...s } };
   }
 
   for (const [a, b] of PAIRS) {
@@ -142,7 +143,7 @@ function resolveTieBreaks(
   }
   if (bestScore <= 0) resolvedBucket = null;
 
-  return { resolvedBucket, tieBreaksFired };
+  return { resolvedBucket, tieBreaksFired, resolvedScores: { ...s } };
 }
 
 // ── Confidence computation ──────────────────────────────────────────────────
@@ -269,12 +270,14 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
     };
   }
 
-  // Step 2: Tie-break resolution
-  const { resolvedBucket, tieBreaksFired } = resolveTieBreaks(
+  // Step 2: Tie-break resolution (tieBreaksFired declared let — floor search may replace it)
+  const initialTieBreakResult = resolveTieBreaks(
     bucketResult.scores,
     input,
     bucketResult.margin,
   );
+  const resolvedBucket = initialTieBreakResult.resolvedBucket;
+  let tieBreaksFired = initialTieBreakResult.tieBreaksFired;
 
   // Step 3: Special-case overrides (priority order: binary_flag highest)
   let finalBucket = resolvedBucket;
@@ -302,19 +305,88 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
   const bs_grade = finalBucket === 8 ? null : (bsResult.winner ?? null);
 
   // Step 5: Confidence computation (steps 2–5/6; Step 5 trajectory penalty when trend_metrics present)
-  const { confidence_level, steps } = computeConfidence(
+  let { confidence_level, steps } = computeConfidence(
     bucketResult.margin,
     tieBreaksFired.length,
     missing,
     input.trend_metrics,
     eq_grade,
   );
+
+  // Step 5b: Confidence-floor bucket selection (STORY-083; ADR-014 §Confidence-Floor)
+  // If the winning bucket produces low confidence, search downward (by score rank) for the
+  // highest bucket achieving at least medium confidence. B8 and binary_flag stocks are exempt.
+  let rawSuggestedCode: string | null | undefined;
+  let rawConfidenceLevel: 'low' | null | undefined;
+  let confidenceFloorApplied = false;
+
+  if (confidence_level === 'low' && finalBucket !== null && finalBucket !== 8 && !input.binary_flag && !input.holding_company_flag) {
+    // Capture pre-floor code for audit trail
+    rawSuggestedCode = (eq_grade && bs_grade)
+      ? `${finalBucket}${eq_grade}${bs_grade}`
+      : `${finalBucket}`;
+    rawConfidenceLevel = 'low';
+
+    const excludedBuckets = new Set<number>([finalBucket]);
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      // Build modified scores with all excluded buckets eliminated
+      const searchScores = { ...bucketResult.scores } as Record<BucketNumber, number>;
+      for (const b of excludedBuckets) {
+        searchScores[b as BucketNumber] = -Infinity;
+      }
+
+      // Stop if no candidate with a positive score remains
+      const hasCandidate = ([1, 2, 3, 4, 5, 6, 7] as const).some(
+        b => !excludedBuckets.has(b) && bucketResult.scores[b] > 0,
+      );
+      if (!hasCandidate) break;
+
+      const { resolvedBucket: candidate, tieBreaksFired: candidateTieBreaks, resolvedScores } =
+        resolveTieBreaks(searchScores, input, bucketResult.margin);
+
+      if (!candidate || candidate === 8) break;
+
+      // Use post-tie-break scores for margin: tie-break losers are set to -Infinity in resolvedScores,
+      // preventing them from inflating secondBest and incorrectly depressing candidateMargin
+      const candidateScore = resolvedScores[candidate] ?? 0;
+      const secondBest = Math.max(
+        0,
+        ...([1, 2, 3, 4, 5, 6, 7] as const)
+          .filter(b => b !== candidate && (resolvedScores[b] ?? -Infinity) > 0)
+          .map(b => resolvedScores[b] as number),
+      );
+      const candidateMargin = Math.max(0, candidateScore - secondBest);
+
+      const { confidence_level: candidateConf, steps: candidateSteps } = computeConfidence(
+        candidateMargin,
+        candidateTieBreaks.length,
+        missing,
+        input.trend_metrics,
+        eq_grade,
+      );
+
+      if (candidateConf !== 'low') {
+        // Accept this candidate as the final classification
+        finalBucket = candidate;
+        tieBreaksFired = candidateTieBreaks;
+        confidence_level = candidateConf;
+        steps = candidateSteps;
+        confidenceFloorApplied = true;
+        break;
+      }
+
+      // Still low — exclude this candidate and continue downward
+      excludedBuckets.add(candidate);
+    }
+  }
+
   const confidenceSteps: ConfidenceStep[] = [
     { step: 1, label: 'null-suggestion gate', note: 'passed — sufficient data', band: confidence_level },
     ...steps,
   ];
 
-  // Step 6: Code assembly
+  // Step 6: Code assembly (uses post-floor finalBucket)
   let suggested_code: string | null = null;
   if (finalBucket !== null) {
     if (finalBucket === 8) {
@@ -344,5 +416,10 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
     missing_field_count: missing,
     confidenceBreakdown: { steps: confidenceSteps },
     tieBreaksFired,
+    ...(confidenceFloorApplied && {
+      rawSuggestedCode,
+      rawConfidenceLevel,
+      confidenceFloorApplied: true,
+    }),
   };
 }

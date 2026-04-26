@@ -90,35 +90,51 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    it('B3/B4 tie + fcf_conversion≤0.85 or roic≤0.20 → Bucket 3 chosen', () => {
+    // STORY-083: all B3v4 tie cases produce low confidence (margin=0, 1 tie-break → degrade to low).
+    // The confidence-floor search then finds the tie-break LOSER bucket (with no competition, higher
+    // margin, and ≥ medium confidence). rawSuggestedCode preserves the tie-break winner for audit.
+
+    it('B3/B4 tie + fcf_conversion≤0.85 or roic≤0.20 → tie chose B3; floor elevates to B4', () => {
       const r = classifyStock(makeInput({
         ...TIE_BASE,
         fcf_conversion: 0.65, roic: 0.15,
       }));
-      expect(r.bucket).toBe(3);
-      expect(r.tieBreaksFired).toHaveLength(1);
-      expect(r.tieBreaksFired[0].rule).toBe('3v4');
-      expect(r.suggested_code).toMatch(/^3/);
+      // Tie-break rule chose B3 (conservative); rawSuggestedCode captures that pre-floor code
+      expect(r.rawSuggestedCode).toMatch(/^3/);
+      // Floor search finds B4 (loser of 3v4) with no competition → high margin → accepted
+      expect(r.bucket).toBe(4);
+      expect(r.tieBreaksFired).toHaveLength(0); // floor replaced tie-breaks with candidate's (none)
+      expect(r.confidenceFloorApplied).toBe(true);
+      expect(r.suggested_code).toMatch(/^4/);
     });
 
-    it('B3/B4 tie + fcf_conversion>0.85 AND roic>0.20 → Bucket 4 chosen', () => {
+    it('B3/B4 tie + fcf_conversion>0.85 AND roic>0.20 → tie chose B4; floor elevates to B3', () => {
       const r = classifyStock(makeInput({
         ...TIE_BASE,
         fcf_conversion: 0.90, roic: 0.25,
       }));
-      expect(r.bucket).toBe(4);
-      expect(r.tieBreaksFired).toHaveLength(1);
-      expect(r.tieBreaksFired[0].rule).toBe('3v4');
+      // Tie-break rule chose B4 (qualified); rawSuggestedCode captures that pre-floor code
+      expect(r.rawSuggestedCode).toMatch(/^4/);
+      // Floor search finds B3 (loser of 3v4) with no competition → accepted
+      expect(r.bucket).toBe(3);
+      expect(r.tieBreaksFired).toHaveLength(0);
+      expect(r.confidenceFloorApplied).toBe(true);
     });
 
-    it('B3/B4 tie + fcf_conversion exactly 0.85 → Bucket 3 (not strictly greater → B3)', () => {
+    it('B3/B4 tie + fcf_conversion exactly 0.85 → tie chose B3; floor elevates to B4', () => {
+      // 0.85 is NOT strictly greater → conservative B3 chosen by tie-break; floor finds B4
       const r = classifyStock(makeInput({ ...TIE_BASE, fcf_conversion: 0.85, roic: 0.25 }));
-      expect(r.bucket).toBe(3);
+      expect(r.bucket).toBe(4);
+      expect(r.confidenceFloorApplied).toBe(true);
+      expect(r.rawSuggestedCode).toMatch(/^3/);
     });
 
-    it('B3/B4 tie + roic null (missing) → Bucket 3 (conservative default)', () => {
+    it('B3/B4 tie + roic null (missing) → tie chose B3; floor elevates to B4', () => {
+      // roic=null → conservative B3 chosen; floor reverses to B4
       const r = classifyStock(makeInput({ ...TIE_BASE, fcf_conversion: 0.90, roic: null }));
-      expect(r.bucket).toBe(3);
+      expect(r.bucket).toBe(4);
+      expect(r.confidenceFloorApplied).toBe(true);
+      expect(r.rawSuggestedCode).toMatch(/^3/);
     });
   });
 
@@ -151,19 +167,27 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    it('B4/B5 tie + pre_operating_leverage_flag=false → Bucket 4 chosen', () => {
+    // STORY-083: TIE_BASE here has missing=4 (operating_margin, fcf_positive, net_income_positive,
+    // fcf_conversion all null). Confidence starts medium (margin≥2) then degrades to low via
+    // missing-field penalty (4 ≥ 3 → degrade). Floor search finds the tie-break loser bucket.
+
+    it('B4/B5 tie + pre_operating_leverage_flag=false → tie chose B4; floor elevates to B5', () => {
+      // 4v5 fires, flag=false → B4 wins; initial low confidence → floor finds B5 with medium
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: false }));
-      expect(r.bucket).toBe(4);
-      expect(r.tieBreaksFired).toHaveLength(1);
-      expect(r.tieBreaksFired[0].rule).toBe('4v5');
+      expect(r.rawSuggestedCode).toMatch(/^4/); // tie-break chose B4
+      expect(r.bucket).toBe(5);                // floor found B5 (tie-break loser)
+      expect(r.tieBreaksFired).toHaveLength(0); // floor replaced tie-breaks
+      expect(r.confidenceFloorApplied).toBe(true);
     });
 
-    it('pre_operating_leverage_flag=true → Bucket 5 chosen directly (no tie-break)', () => {
-      // BucketScorer adds FLAG_PRIMARY(2) to B5 when flag=true → B5=10, B4=8, margin=2
-      // B5 wins outright; 4v5 tie-break does NOT fire (B4 is 2 below top, not within 1)
+    it('pre_operating_leverage_flag=true → B5 wins outright but missing=4 → low → floor finds B4', () => {
+      // B5 wins with margin=2 (flag bonus), no tie-break. But missing=4 degrades medium→low.
+      // Floor excludes B5, finds B4 (alone with high margin) → medium confidence after missing penalty.
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: true }));
-      expect(r.bucket).toBe(5);
-      expect(r.tieBreaksFired).toHaveLength(0);
+      expect(r.rawSuggestedCode).toMatch(/^5/); // original outright winner was B5
+      expect(r.bucket).toBe(4);                // floor found B4
+      expect(r.tieBreaksFired).toHaveLength(0); // no tie-break originally and floor adds none
+      expect(r.confidenceFloorApplied).toBe(true);
     });
   });
 
@@ -179,15 +203,23 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    it('B5/B6 tie + pre_operating_leverage_flag=false → Bucket 6 chosen', () => {
+    // STORY-083: same missing=4 pattern as B4v5 → confidence degrades to low → floor fires.
+
+    it('B5/B6 tie + pre_operating_leverage_flag=false → tie chose B6; floor elevates to B5', () => {
+      // 5v6 fires, flag=false → B6 wins; low confidence → floor finds B5 (tie-break loser)
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: false }));
-      expect(r.bucket).toBe(6);
-      expect(r.tieBreaksFired[0].rule).toBe('5v6');
+      expect(r.rawSuggestedCode).toMatch(/^6/); // tie-break chose B6
+      expect(r.bucket).toBe(5);                // floor found B5 (tie-break loser)
+      expect(r.tieBreaksFired).toHaveLength(0);
+      expect(r.confidenceFloorApplied).toBe(true);
     });
 
-    it('B5/B6 tie + pre_operating_leverage_flag=true → Bucket 5 chosen', () => {
+    it('B5/B6 tie + pre_operating_leverage_flag=true → tie chose B5; floor elevates to B6', () => {
+      // 5v6 fires, flag=true → B5 wins; low confidence → floor finds B6 (tie-break loser)
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: true }));
-      expect(r.bucket).toBe(5);
+      expect(r.rawSuggestedCode).toMatch(/^5/); // tie-break chose B5
+      expect(r.bucket).toBe(6);                // floor found B6 (tie-break loser)
+      expect(r.confidenceFloorApplied).toBe(true);
     });
   });
 
@@ -285,11 +317,13 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       expect(r.reason_codes).toContain('binary_flag_override');
     });
 
-    it('holding_company_flag=true + bucket scores to B4 → bucket=3', () => {
-      // Strong B4 signals (ADBE-like: B4 scorer winner)
+    it('holding_company_flag=true + bucket scores to B4 → bucket=3 (floor gated by flag)', () => {
+      // Strong B4 signals (ADBE-like: B4 scorer winner). holding_company forces B3.
+      // STORY-083: holding_company_flag gates the floor search → B3 is retained even at low confidence.
       const r = classifyStock(makeInput({ ...ADBE_GOLDEN_INPUT, holding_company_flag: true }));
       expect(r.bucket).toBe(3);
       expect(r.reason_codes).toContain('holding_company_flag_applied');
+      expect(r.confidenceFloorApplied).toBeFalsy(); // floor did not run
     });
 
     it('holding_company_flag=true + bucket scores to B3 → bucket=3 (no change)', () => {
@@ -390,12 +424,13 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       expect(r.confidence_level).toBe('medium');
     });
 
-    it('margin=1, no applicable tie-break rule → confidence_level="low"', () => {
-      // Tie between B1 and another — no rule for 1v2 or 2v3; winner stays B1
-      // B1: rev_fwd ≤ 2% → B1 += 3. B2: use eps to add to B2.
-      // Actually UNH has margin=0 (B1=B4 tied). Use that.
+    it('margin=0, no tie-break rule (B1/B4 tied) → floor finds B4 with medium confidence', () => {
+      // UNH: B1=B4=6, no tie-break rule → B1 wins by position; initial confidence='low'
+      // STORY-083: floor excludes B1, finds B4 (B4=6, B3=4 next → margin=2 → medium)
       const r = classifyStock(makeInput(UNH_GOLDEN_INPUT));
-      expect(r.confidence_level).toBe('low');
+      expect(r.confidence_level).toBe('medium');
+      expect(r.bucket).toBe(4);
+      expect(r.confidenceFloorApplied).toBe(true);
     });
 
     it('missing=3 → degrade confidence one level', () => {
@@ -545,6 +580,8 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       expect(r.bs_grade).toBe(MSFT_CLASSIFY_GOLDEN.bs_grade);
       expect(r.confidence_level).toBe(MSFT_CLASSIFY_GOLDEN.confidence_level);
       expect(r.suggested_code).toBe(MSFT_CLASSIFY_GOLDEN.suggested_code);
+      expect(r.confidenceFloorApplied).toBe(MSFT_CLASSIFY_GOLDEN.confidenceFloorApplied);
+      expect(r.rawSuggestedCode).toBe(MSFT_CLASSIFY_GOLDEN.rawSuggestedCode);
     });
 
     it('ADBE: matches ADBE_CLASSIFY_GOLDEN', () => {
@@ -554,18 +591,26 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       expect(r.bs_grade).toBe(ADBE_CLASSIFY_GOLDEN.bs_grade);
       expect(r.confidence_level).toBe(ADBE_CLASSIFY_GOLDEN.confidence_level);
       expect(r.suggested_code).toBe(ADBE_CLASSIFY_GOLDEN.suggested_code);
+      expect(r.confidenceFloorApplied).toBe(ADBE_CLASSIFY_GOLDEN.confidenceFloorApplied);
+      expect(r.rawSuggestedCode).toBe(ADBE_CLASSIFY_GOLDEN.rawSuggestedCode);
     });
 
     it('TSLA: matches TSLA_CLASSIFY_GOLDEN', () => {
       const r = classifyStock(TSLA_GOLDEN_INPUT);
       expect(r.bucket).toBe(TSLA_CLASSIFY_GOLDEN.bucket);
+      expect(r.eq_grade).toBe(TSLA_CLASSIFY_GOLDEN.eq_grade);
       expect(r.confidence_level).toBe(TSLA_CLASSIFY_GOLDEN.confidence_level);
+      expect(r.confidenceFloorApplied).toBe(TSLA_CLASSIFY_GOLDEN.confidenceFloorApplied);
+      expect(r.rawSuggestedCode).toBe(TSLA_CLASSIFY_GOLDEN.rawSuggestedCode);
     });
 
     it('UBER: matches UBER_CLASSIFY_GOLDEN', () => {
       const r = classifyStock(UBER_GOLDEN_INPUT);
       expect(r.bucket).toBe(UBER_CLASSIFY_GOLDEN.bucket);
+      expect(r.eq_grade).toBe(UBER_CLASSIFY_GOLDEN.eq_grade);
       expect(r.confidence_level).toBe(UBER_CLASSIFY_GOLDEN.confidence_level);
+      expect(r.confidenceFloorApplied).toBe(UBER_CLASSIFY_GOLDEN.confidenceFloorApplied);
+      expect(r.rawSuggestedCode).toBe(UBER_CLASSIFY_GOLDEN.rawSuggestedCode);
     });
 
     it('UNH: matches UNH_CLASSIFY_GOLDEN', () => {
@@ -573,6 +618,8 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       expect(r.bucket).toBe(UNH_CLASSIFY_GOLDEN.bucket);
       expect(r.bs_grade).toBe(UNH_CLASSIFY_GOLDEN.bs_grade);
       expect(r.confidence_level).toBe(UNH_CLASSIFY_GOLDEN.confidence_level);
+      expect(r.confidenceFloorApplied).toBe(UNH_CLASSIFY_GOLDEN.confidenceFloorApplied);
+      expect(r.rawSuggestedCode).toBe(UNH_CLASSIFY_GOLDEN.rawSuggestedCode);
     });
   });
 });
