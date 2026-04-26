@@ -143,8 +143,9 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-072 | Quarterly History Classification Engine Regression & Coherence Tests | ready |
 | STORY-073 | Stock Detail: Quarterly Tab + Annual & Inferred Tab (full data display) | ✅ done |
 | STORY-074 | Bulk Stock Import via CSV (async job queue, progress table, retry) | ready — implement after STORY-077 (bulk worker calls runValuationBatch per ticker) |
+| STORY-087 | 3AA Code Tooltip (hover explanation of bucket, EQ grade, BS grade) | ✅ done |
 
-**Evidence:** 855/855 tests passing (2026-04-24)
+**Evidence:** 1594/1594 unit tests passing (2026-04-26)
 
 ---
 

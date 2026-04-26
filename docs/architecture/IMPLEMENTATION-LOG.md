@@ -8,6 +8,35 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-26 — EPIC-004/STORY-087: 3AA Code Tooltip — complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-087 — 3AA Code Tooltip
+**Tasks:** TASK-087-001, TASK-087-002, TASK-087-003
+
+**Action:** Added hover tooltip to `ClassificationBadge` that explains all three elements of the 3AA code (bucket, EQ grade, BS grade) in plain English. Click behavior (opens classification modal) unchanged. Lookup maps driven by PRD §Buckets 1–8, §Part II, §Part III.
+
+**Files Changed:**
+
+1. **`src/components/universe/ClassificationBadge.tsx`** [MODIFIED] — Added `BUCKET_LABELS`, `EQ_LABELS`, `BS_LABELS` lookup maps; `buildTooltipLines(code)` helper; `useState(hovered)` + `onMouseEnter`/`onMouseLeave` on wrapper span; conditionally rendered tooltip div with `pointer-events: none` and `z-index: 100`.
+
+2. **`tests/unit/components/ClassificationBadge.test.tsx`** [MODIFIED] — Added 8 tooltip tests in new `STORY-087` describe block: tooltip hidden by default, null code no tooltip, "4AA" correct labels, "2CB" correct labels, "8CC" bucket 8 label, mouse-out hides tooltip, partial code no crash, all 8 bucket labels correct.
+
+3. **`stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-087-3aa-code-tooltip.md`** [NEW] — Full story spec.
+
+**Tests Added/Updated:**
+- `tests/unit/components/ClassificationBadge.test.tsx` — 8 new tests (total 15, all passing)
+
+**Result/Status:** ✅ DONE — 1594/1594 unit tests passing
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — pure UX addition; no schema, API, or algorithm changes
+
+**Next Action:** Commit, then continue with next ready story
+
+---
+
 ## 2026-04-26 — EPIC-005/STORY-083: Confidence-Floor Bucket Selection — TASK-083-007 complete
 
 **Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
