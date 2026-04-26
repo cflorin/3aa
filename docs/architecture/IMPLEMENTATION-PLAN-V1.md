@@ -412,12 +412,12 @@
 - **Spec:** /stories/tasks/EPIC-004-classification-engine-universe-screen/STORY-072-quarterly-history-classification-regression-tests.md
 
 ### EPIC-005 — Valuation Threshold Engine & Enhanced Universe
-- **Status:** in_progress
+- **Status:** done ✅ (completed 2026-04-25)
 - **Dependencies:** EPIC-004 (classification state, all quarterly history stories complete)
-- **Stories:** STORY-075 through STORY-081 (decomposed 2026-04-25)
-- **Active Story:** STORY-081 — EPIC-005 Regression & Integration Tests
-- **Integration Checkpoint:** Valuation engine running, zones displayed
-- **Deployment Milestone:** Users can view valuation zones
+- **Stories:** STORY-075 through STORY-081 (all done)
+- **Active Story:** None — EPIC-005 complete
+- **Integration Checkpoint:** ✅ Valuation engine running, zones displayed
+- **Deployment Milestone:** ✅ Users can view valuation zones
 
 #### STORY-075 — Valuation Engine Domain Layer
 - **Status:** done
@@ -456,8 +456,10 @@
 - **Evidence:** 1337/1337 unit tests passing; Zone/Multiple/TSR Hurdle columns in StockTable; valuationZone filter in FilterBar; zone sort wired via SORTABLE_KEYS; domain + API + client all updated
 
 #### STORY-081 — EPIC-005 Regression & Integration Tests
-- **Status:** ready
+- **Status:** done ✅
 - **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-081-epic-005-regression-integration-tests.md
+- **Tasks:** TASK-081-001 through TASK-081-006 (all done)
+- **Evidence:** 376/376 STORY-081 tests passing (golden-set 16 anchored + 10 derived + zone boundary + TSR 72-combo + BDD 7 scenarios + cross-epic ADR-007 + persistence mock); 1464/1464 unit tests passing
 
 ### EPIC-006 — Monitoring & Alerts Engine with Alerts UI
 - **Status:** planned

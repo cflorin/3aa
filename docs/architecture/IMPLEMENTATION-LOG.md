@@ -8,6 +8,47 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-25 — EPIC-005/STORY-081: EPIC-005 Regression & Integration Tests — complete
+
+**Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+**Story:** STORY-081 — EPIC-005 Regression & Integration Tests
+**Tasks:** TASK-081-001 (golden-set), TASK-081-002 (TSR matrix), TASK-081-003 (schema contract), TASK-081-004 (BDD acceptance), TASK-081-005 (cross-epic), TASK-081-006 (persistence)
+
+**Action:** Implemented comprehensive regression and integration test suite for the full EPIC-005 valuation pipeline.
+
+TASK-081-001: Created `tests/unit/valuation/golden-set.test.ts` — 16 anchored codes tested at comfortable_zone representative multiples (end-to-end through `computeValuation()`); B8 not_applicable; 4AA zone boundary sweep (10 boundary points verifying exact zone transitions at pe=15.9/16/17/18/19/20/20.1/21/22/23); 10 derived code examples (4BC, 4CA, 4CC, 3BB, 1BC, 2CA, 5AC, 6AC, 7BC, 3CA) with exact adjusted threshold values; TSR hurdle spot check for all 7 AA codes. Key corrections from initial derivation: 4CA derives from 4BA (EQ dist=1) not 4AA (EQ dist=2); 2CA derives from 2BA (EQ dist=1) not 2AA.
+
+TASK-081-002: Created `tests/unit/valuation/tsr-hurdle-combinations.test.ts` — full 8×9=72 combination matrix using loop structure with precomputed ADJ constants (AA=-1.5, AB=-1.0, AC=+0.75, BA=-0.5, BB=0.0, BC=+1.75, CA=+2.0, CB=+2.5, CC=+4.25) and BASE per bucket; bucket 8 all-null section (9 tests); BB spot check (7 tests — only bucket reason code); CC spot check (4 spot checks).
+
+TASK-081-003: Created `tests/contract/valuation-schema.test.ts` — 23-field REQUIRED_RESULT_FIELDS array as compile-time TypeScript contract; runtime field presence test; null states for B8 and manual_required; array-type guards for thresholdAdjustments and tsrReasonCodes; field count assertion (23).
+
+TASK-081-004: Created `tests/integration/valuation/bdd-acceptance.test.ts` — 7 BDD scenarios using `computeValuation()` directly (pure function, no DB): (1) 4AA pe=19 → comfortable_zone all 22 output fields verified; (2) 3CA null pe cyclicalityFlag=true → manual_required; (3) 6BA evSales=4.5 grossMargin=0.75 → very_good_zone grossMarginAdjustmentApplied=false; (4) 7BA evSales=15 materialDilutionFlag=true → above_max dilutionAdjustmentApplied=true; (5) 8AA → not_applicable null thresholds; (6) 3AA holdingCompanyFlag=true foeeec=null → manual_required; (7) 3AA holdingCompanyFlag=true foeeec=16 → comfortable_zone ready.
+
+TASK-081-005: Created `tests/integration/valuation/cross-epic.test.ts` — ADR-007 invariant tests: system uses suggestedCode (4AA forwardPe=19) not userOverride (6BA evSales=5.0) → different metrics/thresholds/zones; shouldRecompute true when code changes (4AA→4BA); shouldRecompute false when multiple within 5% (19→19.5 = 2.6%); shouldRecompute true when ≥5% (19→20.1 = 5.8%); shouldRecompute true when prior=null; code change produces different metric family and zone; manual override passes through anchored thresholds unchanged.
+
+TASK-081-006: Created `tests/integration/valuation/persistence.test.ts` — mocked-prisma tests for `persistValuationState`: status=updated first compute (upsert args verified); status=skipped when shouldRecompute=false; status=updated on ≥5% multiple change; force=true bypasses guard; error when classification missing; error when stock not found; ADR-007 upsert uses suggestedCode only; `getValuationState` returns null for unknown ticker. Correctly mocked `prisma.$transaction` to execute callback with mock tx proxy.
+
+**Bugs found and fixed:**
+- `computeValuation.ts` was returning `manual_required` for holding company/insurer with null foeeec, but test initially expected `manual_required_insurer`. Confirmed existing test suite truth: `manual_required` is correct; BDD test corrected to match.
+- Golden-set: 4CA/2CA `derivedFromCode` expected '4AA'/'2AA' but `selectReferenceAnchor` picks by minimum EQ distance → '4BA'/'2BA'. Tests corrected to match actual algorithm.
+- Cross-epic: 6BA at evSales=6.5 → comfortable_zone (5.5 < 6.5 ≤ 7.0), not very_good_zone. Changed to evSales=5.0 (4 < 5.0 ≤ 5.5 → very_good_zone).
+
+**Files Changed:**
+- `tests/unit/valuation/golden-set.test.ts` (created — ~50 tests)
+- `tests/unit/valuation/tsr-hurdle-combinations.test.ts` (created — 88 tests)
+- `tests/contract/valuation-schema.test.ts` (created — 7 tests)
+- `tests/integration/valuation/bdd-acceptance.test.ts` (created — 7 tests)
+- `tests/integration/valuation/cross-epic.test.ts` (created — 7 tests)
+- `tests/integration/valuation/persistence.test.ts` (created — 8 tests)
+
+**Tests Added/Updated:** +167 new tests (all passing)
+**Result/Status:** ✅ DONE — 376/376 STORY-081 tests passing; 1464/1464 unit tests passing; zero regressions
+**Blockers/Issues:** None
+**Baseline Impact:** NO
+**Next Action:** Mark STORY-081 done in implementation plan; EPIC-005 complete
+
+---
+
 ## 2026-04-25 — EPIC-005/STORY-080: Universe Screen Valuation Zone Columns & Filters — complete
 
 **Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
