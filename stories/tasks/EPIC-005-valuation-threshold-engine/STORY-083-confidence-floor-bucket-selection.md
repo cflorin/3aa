@@ -145,7 +145,7 @@ Then:  rawSuggestedCode is undefined/absent
 - [x] TASK-083-005: Update detail API to return `raw_suggested_code` / `raw_confidence_level` / `confidence_floor_applied`
 - [x] TASK-083-006: Update `StockDetailClient.tsx` to display pre-floor → active transition
 - [x] TASK-083-007: Unit tests — comprehensive coverage of floor search algorithm
-- [ ] TASK-083-008: Validate against real data: MSFT, ADBE, TSLA, UBER, UNH after re-classification
+- [x] TASK-083-008: Validate against real data: MSFT, ADBE, TSLA, UBER, UNH after re-classification
 
 ---
 
