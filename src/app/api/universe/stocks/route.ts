@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
         // Stage 7: quarterly history + derived metrics (all quarterly data loaded on add)
         currentStage = 'quarterly_history';
         emit({ stage: 'quarterly_history', label: 'Fetching quarterly history…', step: 7, total: TOTAL_STAGES });
-        await syncQuarterlyHistory(tiingo, { tickerFilter: ticker, forceFullScan: true });
+        await syncQuarterlyHistory(fmp, { tickerFilter: ticker, forceFullScan: true });
         await computeDerivedMetricsBatch([ticker]);
         await computeTrendMetricsBatch([ticker]);
 

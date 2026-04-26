@@ -1,11 +1,12 @@
 // EPIC-003: Data Ingestion & Universe Management
 // STORY-060: Quarterly History Sync Service
+// STORY-085: Refactored to use QuarterlyAdapter (provider-agnostic); FMP replaces Tiingo
 // RFC-008 §Ingestion Sync Architecture; ADR-016 §Primary Trigger
 // ADR-015 §Schema; RFC-004 Amendment 2026-04-25
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/infrastructure/database/prisma';
-import type { TiingoAdapter, QuarterlyReport } from '../adapters/tiingo.adapter';
+import type { NormalizedQuarterlyReport } from '../types';
 
 export interface QuarterlyHistorySyncResult {
   stocks_processed: number;
@@ -21,87 +22,66 @@ export interface QuarterlyHistorySyncOpts {
   forceFullScan?: boolean;
 }
 
+/**
+ * Provider-agnostic interface for adapters that supply quarterly financial statements.
+ * Both TiingoAdapter and FMPAdapter implement this via duck typing.
+ */
+export interface QuarterlyAdapter {
+  readonly providerName: 'tiingo' | 'fmp';
+  fetchQuarterlyStatements(ticker: string): Promise<NormalizedQuarterlyReport[] | null>;
+}
+
 // NULL-safe margin derivation: returns null when denominator is null or zero
 function safeRatio(numerator: number | null | undefined, denominator: number | null | undefined): number | null {
   if (numerator == null || denominator == null || denominator === 0) return null;
   return numerator / denominator;
 }
 
-// Extract a DataCode value from a statement section; returns null if absent (ADR-015: NULL ≠ zero)
-function getDataCode(entries: { dataCode: string; value: number }[], code: string): number | null {
-  const entry = entries.find(e => e.dataCode === code);
-  return entry != null ? entry.value : null;
-}
-
-// Compute per-quarter derived margins inline; all nullable (STORY-060 §Scope In)
-function computeMargins(report: QuarterlyReport) {
-  const income = report.statementData.incomeStatement;
-  const cashFlow = report.statementData.cashFlow ?? [];
-
-  const revenue    = getDataCode(income, 'revenue');
-  const grossProfit = getDataCode(income, 'grossProfit');
-  const ebit       = getDataCode(income, 'ebit');
-  const netInc     = getDataCode(income, 'netinc');
-  const cfo        = getDataCode(cashFlow, 'operatingCashFlow');
-  const fcf        = getDataCode(cashFlow, 'freeCashFlow');
-  const sbc        = getDataCode(cashFlow, 'stockBasedCompensation');
-
+// Compute per-quarter derived margins from the normalized report
+function computeMargins(report: NormalizedQuarterlyReport) {
   return {
-    grossMargin:         safeRatio(grossProfit, revenue),
-    operatingMargin:     safeRatio(ebit, revenue),
-    netMargin:           safeRatio(netInc, revenue),
-    cfoToNetIncomeRatio: safeRatio(cfo, netInc),
-    fcfMargin:           safeRatio(fcf, revenue),
-    sbcAsPctRevenue:     safeRatio(sbc, revenue),
-    // dilutionYoy computed across quarters — requires comparison; not available inline
+    grossMargin:         safeRatio(report.grossProfit, report.revenue),
+    operatingMargin:     safeRatio(report.operatingIncome, report.revenue),
+    netMargin:           safeRatio(report.netIncome, report.revenue),
+    cfoToNetIncomeRatio: safeRatio(report.cashFromOperations, report.netIncome),
+    fcfMargin:           safeRatio(report.freeCashFlow, report.revenue),
+    sbcAsPctRevenue:     safeRatio(report.shareBasedCompensation, report.revenue),
     dilutionYoy: null as number | null,
   };
 }
 
-// Map a QuarterlyReport to stock_quarterly_history upsert payload
-function toUpsertPayload(ticker: string, report: QuarterlyReport) {
-  const income   = report.statementData.incomeStatement;
-  const balance  = report.statementData.balanceSheet;
-  const cashFlow = report.statementData.cashFlow ?? [];
-  const overview = report.statementData.overview ?? [];
-
-  const margins = computeMargins(report);
-
-  // Diluted shares: try cashFlow first, then overview, then balance sheet
-  const dilutedShares =
-    getDataCode(cashFlow, 'basicSharesOutstanding') ??
-    getDataCode(overview, 'sharesBasic') ??
-    getDataCode(balance, 'sharesBasic') ??
-    null;
-
+// Map a NormalizedQuarterlyReport to stock_quarterly_history upsert payload
+function toUpsertPayload(
+  ticker: string,
+  report: NormalizedQuarterlyReport,
+  providerName: 'tiingo' | 'fmp',
+) {
   return {
     ticker,
-    fiscalYear:   report.year,
-    fiscalQuarter: report.quarter,
-    sourceProvider: 'tiingo' as const,
+    fiscalYear:    report.fiscalYear,
+    fiscalQuarter: report.fiscalQuarter,
+    sourceProvider: providerName,
     sourceStatementType: 'quarterly_statements',
     reportedDate:  report.date ? new Date(report.date) : null,
     syncedAt:      new Date(),
 
-    // Raw financial fields (all nullable — NULL = DataCode absent)
-    revenue:                     getDataCode(income, 'revenue'),
-    grossProfit:                 getDataCode(income, 'grossProfit'),
-    operatingIncome:             getDataCode(income, 'ebit'),
-    netIncome:                   getDataCode(income, 'netinc'),
-    capex:                       getDataCode(cashFlow, 'capitalExpenditure'),
-    cashFromOperations:          getDataCode(cashFlow, 'operatingCashFlow'),
-    freeCashFlow:                getDataCode(cashFlow, 'freeCashFlow'),
-    shareBasedCompensation:      getDataCode(cashFlow, 'stockBasedCompensation'),
-    depreciationAndAmortization: getDataCode(income, 'depamor'),
-    dilutedSharesOutstanding:    dilutedShares,
+    revenue:                     report.revenue,
+    grossProfit:                 report.grossProfit,
+    operatingIncome:             report.operatingIncome,
+    netIncome:                   report.netIncome,
+    capex:                       report.capex,
+    cashFromOperations:          report.cashFromOperations,
+    freeCashFlow:                report.freeCashFlow,
+    shareBasedCompensation:      report.shareBasedCompensation,
+    depreciationAndAmortization: report.depreciationAndAmortization,
+    dilutedSharesOutstanding:    report.dilutedSharesOutstanding,
 
-    // Per-quarter derived margins
-    ...margins,
+    ...computeMargins(report),
   };
 }
 
 export async function syncQuarterlyHistory(
-  tiingo: TiingoAdapter,
+  adapter: QuarterlyAdapter,
   opts?: QuarterlyHistorySyncOpts,
 ): Promise<QuarterlyHistorySyncResult> {
   const startMs = Date.now();
@@ -113,7 +93,6 @@ export async function syncQuarterlyHistory(
   let stocks_skipped = 0;
   let errors = 0;
 
-  // Fetch in-universe tickers (optionally filtered)
   const stockWhere: Prisma.StockWhereInput = { inUniverse: true };
   if (opts?.tickerFilter) {
     stockWhere.ticker = opts.tickerFilter;
@@ -128,7 +107,7 @@ export async function syncQuarterlyHistory(
     stocks_processed++;
 
     try {
-      const quarters: QuarterlyReport[] | null = await tiingo.fetchQuarterlyStatements(ticker);
+      const quarters: NormalizedQuarterlyReport[] | null = await adapter.fetchQuarterlyStatements(ticker);
 
       if (!quarters || quarters.length === 0) {
         console.log(JSON.stringify({ event: 'quarterly_history_sync_skipped', ticker, reason: 'null_response' }));
@@ -136,23 +115,23 @@ export async function syncQuarterlyHistory(
         continue;
       }
 
-      // Change detection: compare most recent Tiingo reported_date against stored row (ADR-016)
+      // Change detection: compare most recent reported date against stored row for this provider
       if (!forceFullScan) {
-        const mostRecentTiingo = quarters[0]; // newest-first
-        const tiingoReportedDate = mostRecentTiingo.date ? new Date(mostRecentTiingo.date) : null;
+        const mostRecent = quarters[0]; // newest-first
+        const reportedDate = mostRecent.date ? new Date(mostRecent.date) : null;
 
         const storedRow = await prisma.stockQuarterlyHistory.findFirst({
-          where: { ticker, sourceProvider: 'tiingo' },
+          where: { ticker, sourceProvider: adapter.providerName },
           orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
           select: { reportedDate: true },
         });
 
         if (
           storedRow?.reportedDate &&
-          tiingoReportedDate &&
-          storedRow.reportedDate.getTime() === tiingoReportedDate.getTime()
+          reportedDate &&
+          storedRow.reportedDate.getTime() === reportedDate.getTime()
         ) {
-          console.log(JSON.stringify({ event: 'quarterly_history_sync_skipped', ticker, reason: 'no_new_quarter', reported_date: tiingoReportedDate.toISOString() }));
+          console.log(JSON.stringify({ event: 'quarterly_history_sync_skipped', ticker, reason: 'no_new_quarter', reported_date: reportedDate.toISOString() }));
           stocks_skipped++;
           continue;
         }
@@ -161,9 +140,7 @@ export async function syncQuarterlyHistory(
       // Upsert all returned quarters
       let upsertedCount = 0;
       for (const report of quarters) {
-        if (report.quarter === 0) continue; // safety: skip annual rows
-
-        const payload = toUpsertPayload(ticker, report);
+        const payload = toUpsertPayload(ticker, report, adapter.providerName);
 
         await prisma.stockQuarterlyHistory.upsert({
           where: {

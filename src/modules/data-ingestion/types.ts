@@ -150,6 +150,8 @@ export interface StockMetadata {
   description: string | null;
   /** SIC code string (e.g. "6719") — from FMP profile; null if stable tier does not return it (BC-035-001). STORY-035. */
   sicCode: string | null;
+  /** Current market price from FMP profile — used by market-cap sync as Tiingo-independent price source. */
+  current_price: number | null;
 }
 
 /**
@@ -197,6 +199,29 @@ export interface ProvenanceEntry {
   error?: boolean;
   /** Error message from thrown LLM error. */
   error_message?: string;
+}
+
+/**
+ * Provider-agnostic quarterly financial report.
+ * Both TiingoAdapter and FMPAdapter return this from fetchQuarterlyStatements.
+ * operatingIncome = EBIT: Tiingo DataCode 'ebit'; FMP field 'ebit' (not FMP's 'operatingIncome').
+ * STORY-085: replaces Tiingo-specific QuarterlyReport in the quarterly history pipeline.
+ */
+export interface NormalizedQuarterlyReport {
+  date: string;
+  fiscalYear: number;
+  fiscalQuarter: number;
+  revenue: number | null;
+  grossProfit: number | null;
+  /** EBIT — Tiingo DataCode 'ebit'; FMP field 'ebit'. NOT FMP's narrower 'operatingIncome'. */
+  operatingIncome: number | null;
+  netIncome: number | null;
+  capex: number | null;
+  cashFromOperations: number | null;
+  freeCashFlow: number | null;
+  shareBasedCompensation: number | null;
+  depreciationAndAmortization: number | null;
+  dilutedSharesOutstanding: number | null;
 }
 
 // EPIC-003.1: STORY-039 — E1–E6 qualitative enrichment scores (RFC-001)

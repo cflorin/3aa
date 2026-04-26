@@ -17,6 +17,7 @@ import type {
   FundamentalData,
   ForwardEstimates,
   StockMetadata,
+  NormalizedQuarterlyReport,
 } from '../types';
 import {
   ConfigurationError,
@@ -444,6 +445,73 @@ export class FMPAdapter implements VendorAdapter {
   }
 
   /**
+   * EPIC-003/STORY-085: Returns NormalizedQuarterlyReport[] — FMP quarterly history.
+   * Parallel calls: income-statement (period=quarter) + cash-flow-statement (period=quarter).
+   * operatingIncome = FMP 'ebit' field, which matches Tiingo DataCode 'ebit' (EBIT, not
+   * FMP's stricter 'operatingIncome' GAAP line — confirmed equal for NVDA/MSFT/CVX).
+   * FMP provides fiscalYear directly; falls back to calendar year from date.
+   */
+  async fetchQuarterlyStatements(ticker: string): Promise<NormalizedQuarterlyReport[] | null> {
+    const encoded = encodeURIComponent(ticker);
+    const [incomeRaw, cashFlowRaw] = await Promise.all([
+      this.fmpFetch(`/income-statement?symbol=${encoded}&period=quarter&limit=8`) as Promise<Record<string, unknown>[] | null>,
+      this.fmpFetch(`/cash-flow-statement?symbol=${encoded}&period=quarter&limit=8`) as Promise<Record<string, unknown>[] | null>,
+    ]);
+
+    if (!Array.isArray(incomeRaw) || incomeRaw.length === 0) return null;
+
+    // Cash flow lookup by date string
+    const cfByDate = new Map<string, Record<string, unknown>>();
+    if (Array.isArray(cashFlowRaw)) {
+      for (const cf of cashFlowRaw as Record<string, unknown>[]) {
+        cfByDate.set(String(cf.date ?? ''), cf);
+      }
+    }
+
+    const reports: NormalizedQuarterlyReport[] = [];
+    for (const item of incomeRaw as Record<string, unknown>[]) {
+      const date = String(item.date ?? '');
+      if (!date) continue;
+
+      const periodStr = String(item.period ?? '');
+      const fiscalQuarter = parseInt(periodStr.replace('Q', ''), 10);
+      if (isNaN(fiscalQuarter) || fiscalQuarter < 1 || fiscalQuarter > 4) continue;
+
+      const fiscalYear = item.fiscalYear != null
+        ? Number(item.fiscalYear)
+        : parseInt(date.slice(0, 4), 10);
+
+      const cf = cfByDate.get(date) ?? {};
+
+      reports.push({
+        date,
+        fiscalYear,
+        fiscalQuarter,
+        revenue:                     item.revenue != null ? Number(item.revenue) : null,
+        grossProfit:                 item.grossProfit != null ? Number(item.grossProfit) : null,
+        operatingIncome:             item.ebit != null ? Number(item.ebit) : null,
+        netIncome:                   item.netIncome != null ? Number(item.netIncome) : null,
+        capex:                       cf.capitalExpenditure != null ? Number(cf.capitalExpenditure) : null,
+        cashFromOperations:          cf.operatingCashFlow != null ? Number(cf.operatingCashFlow) : null,
+        freeCashFlow:                cf.freeCashFlow != null ? Number(cf.freeCashFlow) : null,
+        shareBasedCompensation:      cf.stockBasedCompensation != null ? Number(cf.stockBasedCompensation) : null,
+        depreciationAndAmortization: item.depreciationAndAmortization != null ? Number(item.depreciationAndAmortization) : null,
+        dilutedSharesOutstanding:    item.weightedAverageShsOutDil != null ? Number(item.weightedAverageShsOutDil) : null,
+      });
+    }
+
+    if (reports.length === 0) return null;
+
+    console.log(JSON.stringify({
+      event: 'fmp_quarterly_statements_fetched',
+      ticker,
+      count: reports.length,
+    }));
+
+    return reports;
+  }
+
+  /**
    * Fetches stock metadata from the FMP profile endpoint.
    * FMP stable: GET /stable/profile?symbol={ticker}
    * Returns array with one element; mktCap in full dollars — convert to millions.
@@ -472,6 +540,7 @@ export class FMPAdapter implements VendorAdapter {
       description: item.description ? String(item.description) : null,
       // BC-035-001: FMP stable profile returns no SIC code — sicCode will always be null
       sicCode: item.sic ? String(item.sic) : null,
+      current_price: item.price != null ? Number(item.price) : null,
     };
   }
 }

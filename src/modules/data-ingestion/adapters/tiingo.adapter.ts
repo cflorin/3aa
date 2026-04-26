@@ -14,6 +14,7 @@ import type {
   FundamentalData,
   ForwardEstimates,
   StockMetadata,
+  NormalizedQuarterlyReport,
 } from '../types';
 import {
   ConfigurationError,
@@ -33,7 +34,8 @@ function toMap(arr: DataCodeEntry[]): DataCodeMap {
   return Object.fromEntries(arr.map(x => [x.dataCode, x.value]));
 }
 
-type QuarterlyReport = {
+// EPIC-003/STORY-059: exported for use by quarterly history sync service (RFC-008, ADR-001)
+export type QuarterlyReport = {
   date: string;
   year: number;
   quarter: number;
@@ -335,6 +337,64 @@ export class TiingoAdapter implements VendorAdapter {
   }
 
   /**
+   * EPIC-003/STORY-085: Returns NormalizedQuarterlyReport[] for quarterly history sync.
+   * Converts Tiingo DataCode arrays to the provider-agnostic NormalizedQuarterlyReport type.
+   * operatingIncome = Tiingo DataCode 'ebit' (EBIT, not strict GAAP operating income).
+   * Returns null on 404 or empty response.
+   */
+  async fetchQuarterlyStatements(ticker: string): Promise<NormalizedQuarterlyReport[] | null> {
+    const raw = await this.tiingoFetch(
+      `/tiingo/fundamentals/${encodeURIComponent(ticker)}/statements`,
+    );
+
+    if (raw === null) return null;
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+
+    const quarters = (raw as QuarterlyReport[]).filter(q => q.quarter !== 0);
+    if (quarters.length === 0) return null;
+
+    const dc = (entries: { dataCode: string; value: number }[], code: string): number | null => {
+      const e = entries.find(x => x.dataCode === code);
+      return e != null ? e.value : null;
+    };
+
+    const normalized: NormalizedQuarterlyReport[] = quarters.map(q => {
+      const inc = q.statementData.incomeStatement;
+      const cf  = q.statementData.cashFlow ?? [];
+      const ov  = q.statementData.overview ?? [];
+      const bal = q.statementData.balanceSheet ?? [];
+      const dilShares =
+        dc(inc, 'shareswaDil') ??
+        dc(ov, 'sharesBasic') ??
+        dc(bal, 'sharesBasic') ??
+        null;
+      return {
+        date:          q.date,
+        fiscalYear:    q.year,
+        fiscalQuarter: q.quarter,
+        revenue:                     dc(inc, 'revenue'),
+        grossProfit:                 dc(inc, 'grossProfit'),
+        operatingIncome:             dc(inc, 'ebit'),
+        netIncome:                   dc(inc, 'netinc'),
+        capex:                       dc(cf,  'capex'),
+        cashFromOperations:          dc(cf,  'ncfo'),
+        freeCashFlow:                dc(cf,  'freeCashFlow'),
+        shareBasedCompensation:      dc(cf,  'sbcomp'),
+        depreciationAndAmortization: dc(inc, 'depamor'),
+        dilutedSharesOutstanding:    dilShares,
+      };
+    });
+
+    console.log(JSON.stringify({
+      event: 'tiingo_quarterly_statements_fetched',
+      ticker,
+      count: normalized.length,
+    }));
+
+    return normalized;
+  }
+
+  /**
    * Always returns null — /tiingo/fundamentals/{ticker}/overview returns 404 at this
    * API tier. forwardEstimateCoverage is declared 'none' in capabilities.
    * No HTTP call is made.
@@ -360,6 +420,7 @@ export class TiingoAdapter implements VendorAdapter {
       shares_outstanding: null,    // not available from Tiingo /daily/{ticker}
       description: null,           // not available from Tiingo /daily/{ticker}
       sicCode: null,               // not available from Tiingo /daily/{ticker}
+      current_price: null,         // not available from Tiingo /daily/{ticker}
     };
   }
 }
