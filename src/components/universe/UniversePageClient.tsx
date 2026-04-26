@@ -7,6 +7,7 @@
 // STORY-070: Added trend column chooser and trend filter state
 // EPIC-005/STORY-080: Added valuationZone filter wiring
 // EPIC-005/STORY-084: Added handleRecomputeClassification — refreshes universe after batch re-class
+// EPIC-005/STORY-086: Added handleRecomputeValuation — refreshes universe after valuation recompute
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort; RFC-008
 
 'use client';
@@ -19,6 +20,7 @@ import FilterBar, { EMPTY_FILTERS, type FilterState } from './FilterBar';
 import AddStockModal from './AddStockModal';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 import type { BatchSummary } from '@/modules/classification-batch/classification-batch.service';
+import type { ValuationBatchSummary } from '@/modules/valuation/valuation-batch.service';
 import { T } from '@/lib/theme';
 
 const LIMIT = 50;
@@ -210,6 +212,10 @@ export default function UniversePageClient() {
     setRefreshKey(k => k + 1);
   }, []);
 
+  const handleRecomputeValuation = useCallback((_summary: ValuationBatchSummary) => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <FilterBar
@@ -220,6 +226,7 @@ export default function UniversePageClient() {
         onClear={handleClear}
         onAddStock={() => setShowAddModal(true)}
         onRecomputeClassification={handleRecomputeClassification}
+        onRecomputeValuation={handleRecomputeValuation}
         showTrendFilters={showTrendFilters}
         visibleTrendColumns={visibleTrendColumns}
         onToggleTrendColumn={handleToggleTrendColumn}

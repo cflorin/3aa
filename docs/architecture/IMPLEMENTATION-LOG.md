@@ -3657,4 +3657,46 @@ Key implementation decisions:
 
 **Baseline Impact:** NO — bug fixes only; no new fields, no schema changes, no baseline document changes.
 
-**Next Action:** Commit, push, create release and backup branch.
+**Next Action:** STORY-086 — Recompute Valuations button.
+
+---
+
+## 2026-04-26 — EPIC-005/STORY-086: Recompute Valuations — Admin API & Universe Screen Button
+
+**Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+**Story:** STORY-086 — Recompute Valuations
+**Tasks:** TASK-086-001 through TASK-086-005
+
+**Action:** Added a "Recompute Valuations" button to the Universe Screen next to "Recompute Classification". Button triggers a forced full valuation recompute via a new dual-auth admin endpoint and refreshes the Zone column on completion.
+
+**Design decision:** The route accepts session cookie auth (UI path) OR OIDC Bearer token (external callers / scripts), enabling on-demand valuation recompute from outside the browser without needing Cloud Scheduler OIDC tokens in development. Optional `?force` (default `true`) and `?ticker` params supported.
+
+**TASK-086-001:** `POST /api/admin/sync/valuation` — dual-auth (session OR `verifySchedulerToken`). Calls `runValuationBatch({ force, tickerFilter })`. Returns `ValuationBatchSummary` on 200.
+
+**TASK-086-002:** `RecomputeValuationButton` component — mirrors `RecomputeClassificationButton` exactly. States: idle / loading / success / error. Success message: "N updated, S skipped" + error count if > 0. Auto-resets after 5 s.
+
+**TASK-086-003:** `FilterBar` — added `onRecomputeValuation` optional prop, `RecomputeValuationButton` rendered after `RecomputeClassificationButton`. `UniversePageClient` — added `handleRecomputeValuation` callback (increments `refreshKey`, same mechanism as classification).
+
+**TASK-086-004:** 24 new unit tests — 11 route tests (session auth, OIDC auth, `?force`/`?ticker` params, 500 handling), 8 component tests (idle/loading/success/error, error count, onSuccess callback), 5 FilterBar wiring tests (absent/present, callback, coexistence of both buttons). All 43 tests pass (24 new + 19 STORY-084 regression).
+
+**Files Changed:**
+- `src/app/api/admin/sync/valuation/route.ts` — new
+- `src/components/universe/RecomputeValuationButton.tsx` — new
+- `src/components/universe/FilterBar.tsx` — added `onRecomputeValuation` prop and button render
+- `src/components/universe/UniversePageClient.tsx` — added `handleRecomputeValuation`, prop wiring
+- `tests/unit/api/admin-sync-valuation.test.ts` — new; 11 tests
+- `tests/unit/components/RecomputeValuationButton.test.tsx` — new; 8 tests
+- `tests/unit/components/story-086-recompute-valuation.test.tsx` — new; 5 tests
+- `stories/tasks/EPIC-005-valuation-threshold-engine/STORY-086-recompute-valuations.md` — new
+- `stories/README.md` — STORY-086 added to EPIC-005 table
+- `docs/architecture/IMPLEMENTATION-LOG.md` — this entry
+
+**Tests Added/Updated:** 24 new unit tests; 43/43 passing (STORY-084 regression green).
+
+**Result/Status:** ✅ DONE — STORY-086 complete. unit_verified.
+
+**Blockers/Issues:** None.
+
+**Baseline Impact:** NO — new endpoint and UI component; no schema changes, no RFC/ADR amendments.
+
+**Next Action:** Commit and push.

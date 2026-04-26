@@ -168,6 +168,7 @@ Story specs: `stories/tasks/EPIC-005-valuation-threshold-engine/`
 | STORY-082 | Confidence-Based Valuation Metric Demotion | ready |
 | STORY-083 | Confidence-Floor Bucket Selection | ✅ done |
 | STORY-084 | Recompute Classification — Admin API & Universe Screen Button | ✅ done |
+| STORY-086 | Recompute Valuations — Admin API & Universe Screen Button | ✅ done |
 
 ---
 
