@@ -3,6 +3,7 @@
 // TASK-053-003: StockDetailClient — 4-tab stock detail page (Classification/Fundamentals/Valuation/History)
 // EPIC-004/STORY-054/TASK-054-007: Applied dark terminal theme (screen-stock-detail.jsx spec)
 // STORY-055/TASK-055-004: Added not-in-universe 404 state (stock removed via STORY-055)
+// STORY-088: Quarterly tab bug fixes — thousands separators, EQ Trend tooltip, quarter deduplication
 // PRD §Stock Detail; RFC-001 §ClassificationResult; RFC-003 §Stock Detail Screen
 // ADR-007 (display_only override scope); ADR-013 (scoring weights); ADR-014 (confidence thresholds)
 
@@ -252,10 +253,47 @@ const SECTION_HEADER: React.CSSProperties = {
 
 // ── MetricRow ─────────────────────────────────────────────────────────────────
 
-function MetricRow({ label, value, color, testId }: { label: string; value: string; color?: string; testId?: string }) {
+function MetricRow({ label, value, color, testId, tooltip }: { label: string; value: string; color?: string; testId?: string; tooltip?: string }) {
+  const [tipVisible, setTipVisible] = useState(false);
   return (
     <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.borderFaint}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 11, color: T.textDim }}>{label}</span>
+      <span style={{ fontSize: 11, color: T.textDim, display: 'flex', alignItems: 'center', gap: 4 }}>
+        {label}
+        {tooltip && (
+          <span
+            data-testid={testId ? `${testId}-tooltip-trigger` : undefined}
+            style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'default' }}
+            onMouseEnter={() => setTipVisible(true)}
+            onMouseLeave={() => setTipVisible(false)}
+          >
+            <span style={{ fontSize: 10, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: '50%', width: 13, height: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, userSelect: 'none' }}>i</span>
+            {tipVisible && (
+              <div
+                data-testid={testId ? `${testId}-tooltip` : undefined}
+                style={{
+                  position: 'absolute',
+                  bottom: '130%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: T.cardBg,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 4,
+                  padding: '7px 10px',
+                  width: 260,
+                  zIndex: 100,
+                  pointerEvents: 'none',
+                  fontSize: 11,
+                  color: T.textDim,
+                  lineHeight: '1.55',
+                  whiteSpace: 'normal',
+                }}
+              >
+                {tooltip}
+              </div>
+            )}
+          </span>
+        )}
+      </span>
       <span data-testid={testId} style={{ fontSize: 12, fontFamily: 'var(--font-dm-mono, monospace)', fontWeight: 600, color: color ?? T.text }}>{value}</span>
     </div>
   );
@@ -966,7 +1004,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                       <tbody>
                         {qhData.quarters.map((q, i) => {
                           const key = `${q.fiscal_year}-${q.fiscal_quarter}`;
-                          const fmtM = (v: number | null) => v === null ? '—' : `$${(v / 1_000_000).toFixed(0)}M`;
+                          const fmtM = (v: number | null) => v === null ? '—' : `$${Math.round(v / 1_000_000).toLocaleString('en-US')}M`;
                           const fmtMgn = (v: number | null) => v === null ? '—' : `${(v * 100).toFixed(1)}%`;
                           const rowBg = i % 2 === 0 ? 'transparent' : T.tableHead;
                           return (
@@ -994,10 +1032,10 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
 
                     <div style={{ borderRight: `1px solid ${T.border}` }}>
                       <div style={SECTION_HEADER}>TTM Rollups</div>
-                      <MetricRow label="Revenue TTM" testId="derived-revenue-ttm" value={qhData.derived.revenue_ttm !== null ? `$${(qhData.derived.revenue_ttm / 1_000_000_000).toFixed(2)}B` : '—'} />
-                      <MetricRow label="Op. Income TTM" value={qhData.derived.operating_income_ttm !== null ? `$${(qhData.derived.operating_income_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.operating_income_ttm !== null && qhData.derived.operating_income_ttm < 0 ? '#ef4444' : undefined} />
-                      <MetricRow label="Net Income TTM" value={qhData.derived.net_income_ttm !== null ? `$${(qhData.derived.net_income_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.net_income_ttm !== null && qhData.derived.net_income_ttm < 0 ? '#ef4444' : undefined} />
-                      <MetricRow label="FCF TTM" value={qhData.derived.free_cash_flow_ttm !== null ? `$${(qhData.derived.free_cash_flow_ttm / 1_000_000_000).toFixed(2)}B` : '—'} color={qhData.derived.free_cash_flow_ttm !== null && qhData.derived.free_cash_flow_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="Revenue TTM" testId="derived-revenue-ttm" value={qhData.derived.revenue_ttm !== null ? `$${(qhData.derived.revenue_ttm / 1_000_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}B` : '—'} />
+                      <MetricRow label="Op. Income TTM" value={qhData.derived.operating_income_ttm !== null ? `$${(qhData.derived.operating_income_ttm / 1_000_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}B` : '—'} color={qhData.derived.operating_income_ttm !== null && qhData.derived.operating_income_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="Net Income TTM" value={qhData.derived.net_income_ttm !== null ? `$${(qhData.derived.net_income_ttm / 1_000_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}B` : '—'} color={qhData.derived.net_income_ttm !== null && qhData.derived.net_income_ttm < 0 ? '#ef4444' : undefined} />
+                      <MetricRow label="FCF TTM" value={qhData.derived.free_cash_flow_ttm !== null ? `$${(qhData.derived.free_cash_flow_ttm / 1_000_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}B` : '—'} color={qhData.derived.free_cash_flow_ttm !== null && qhData.derived.free_cash_flow_ttm < 0 ? '#ef4444' : undefined} />
                       <MetricRow label="Op. Margin TTM" testId="derived-op-margin-ttm" value={fmtPct(qhData.derived.operating_margin_ttm)} color={opMarginColor(qhData.derived.operating_margin_ttm)} />
                       <MetricRow label="FCF Margin TTM" value={fmtPct(qhData.derived.fcf_margin_ttm)} color={fcfMarginColor(qhData.derived.fcf_margin_ttm)} />
 
@@ -1028,6 +1066,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
                           : qhData.derived.earnings_quality_trend_score <= -0.3 ? '#ef4444'
                           : '#eab308'
                           : undefined}
+                        tooltip="Composite score measuring direction of earnings quality signals over the last 4–8 quarters. Positive (≥ +0.3) = improving trend; Negative (≤ −0.3) = deteriorating trend; Near zero = stable or mixed."
                       />
                       <MetricRow label="Deteriorating Cash Conv." value={qhData.derived.deteriorating_cash_conversion_flag === null ? '—' : qhData.derived.deteriorating_cash_conversion_flag ? 'Yes' : 'No'} color={qhData.derived.deteriorating_cash_conversion_flag === true ? '#ef4444' : undefined} />
                       <MetricRow label="Op. Leverage Emerging" value={qhData.derived.operating_leverage_emerging_flag === null ? '—' : qhData.derived.operating_leverage_emerging_flag ? 'Yes' : 'No'} color={qhData.derived.operating_leverage_emerging_flag === true ? '#16a34a' : undefined} />

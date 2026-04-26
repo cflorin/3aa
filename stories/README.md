@@ -144,8 +144,9 @@ Story specs: `stories/tasks/EPIC-004-classification-engine-universe-screen/`
 | STORY-073 | Stock Detail: Quarterly Tab + Annual & Inferred Tab (full data display) | ✅ done |
 | STORY-074 | Bulk Stock Import via CSV (async job queue, progress table, retry) | ready — implement after STORY-077 (bulk worker calls runValuationBatch per ticker) |
 | STORY-087 | 3AA Code Tooltip (hover explanation of bucket, EQ grade, BS grade) | ✅ done |
+| STORY-088 | Quarterly Tab Bug Fixes (thousands separators, EQ tooltip, deduplication) | ✅ done |
 
-**Evidence:** 1594/1594 unit tests passing (2026-04-26)
+**Evidence:** 1606/1606 unit tests passing (2026-04-26)
 
 ---
 

@@ -520,13 +520,13 @@ describe('EPIC-004/STORY-073/BUG-001: Quarterly tab rendering', () => {
     expect(screen.getByTestId('qrow-2024-1')).toHaveTextContent('Q1 2024');
   });
 
-  it('formats revenue in $M with no decimal', async () => {
+  it('formats revenue in $M with thousands separator (STORY-088 BUG-001)', async () => {
     mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
     render(<StockDetailClient ticker="MSFT" />);
     fireEvent.click(await screen.findByTestId('tab-quarterly'));
     await waitFor(() => screen.getByTestId('qrow-2024-2'));
-    // $62020M
-    expect(screen.getByTestId('qcell-2024-2-revenue')).toHaveTextContent('$62020M');
+    // 62,020,000,000 / 1_000_000 = 62,020 → "$62,020M"
+    expect(screen.getByTestId('qcell-2024-2-revenue')).toHaveTextContent('$62,020M');
   });
 
   it('formats gross margin as XX.X%', async () => {
@@ -634,5 +634,57 @@ describe('EPIC-004/STORY-073/BUG-001: Quarterly tab rendering', () => {
     await waitFor(() => screen.getByTestId('qrow-2024-2'));
     const qhCalls = (global.fetch as jest.Mock).mock.calls.filter(([url]: [string]) => url.includes('/quarterly-history'));
     expect(qhCalls).toHaveLength(1);
+  });
+
+  // ── STORY-088 bug fixes ────────────────────────────────────────────────────
+
+  it('STORY-088/BUG-001: gross_profit formatted with thousands separator', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('qcell-2024-2-gross_profit'));
+    // 43,200,000,000 / 1_000_000 = 43,200 → "$43,200M"
+    expect(screen.getByTestId('qcell-2024-2-gross_profit')).toHaveTextContent('$43,200M');
+  });
+
+  it('STORY-088/BUG-001: TTM revenue formatted with toLocaleString', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-revenue-ttm'));
+    // 227_000_000_000 / 1e9 = 227.00 — no comma, but must include decimal places
+    expect(screen.getByTestId('derived-revenue-ttm')).toHaveTextContent('$227.00B');
+  });
+
+  it('STORY-088/BUG-002: EQ Trend Score tooltip trigger renders', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-eq-trend-score-tooltip-trigger'));
+    expect(screen.getByTestId('derived-eq-trend-score-tooltip-trigger')).toBeInTheDocument();
+  });
+
+  it('STORY-088/BUG-002: EQ Trend Score tooltip shows on hover', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-eq-trend-score-tooltip-trigger'));
+    fireEvent.mouseEnter(screen.getByTestId('derived-eq-trend-score-tooltip-trigger'));
+    const tooltip = screen.getByTestId('derived-eq-trend-score-tooltip');
+    expect(tooltip).toBeInTheDocument();
+    expect(tooltip.textContent).toContain('improving');
+    expect(tooltip.textContent).toContain('deteriorating');
+  });
+
+  it('STORY-088/BUG-002: EQ Trend Score tooltip hides on mouse-out', async () => {
+    mockFetchSuccess(BASE_DETAIL, QH_TWO_QUARTERS);
+    render(<StockDetailClient ticker="MSFT" />);
+    fireEvent.click(await screen.findByTestId('tab-quarterly'));
+    await waitFor(() => screen.getByTestId('derived-eq-trend-score-tooltip-trigger'));
+    const trigger = screen.getByTestId('derived-eq-trend-score-tooltip-trigger');
+    fireEvent.mouseEnter(trigger);
+    expect(screen.getByTestId('derived-eq-trend-score-tooltip')).toBeInTheDocument();
+    fireEvent.mouseLeave(trigger);
+    expect(screen.queryByTestId('derived-eq-trend-score-tooltip')).not.toBeInTheDocument();
   });
 });

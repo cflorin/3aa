@@ -8,6 +8,40 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-26 — EPIC-004/STORY-088: Quarterly Tab Bug Fixes — complete
+
+**Epic:** EPIC-004 — Classification Engine & Universe Screen
+**Story:** STORY-088 — Quarterly Tab: Three Bug Fixes
+**Tasks:** TASK-088-001 through TASK-088-005
+
+**Action:** Fixed three bugs in Stock Detail > Quarterly tab: (1) thousands separators missing from $M/$B values; (2) EQ Trend Score had no tooltip explanation; (3) CRITICAL — quarters appeared twice because the API route had no `sourceProvider` filter, causing both FMP and Tiingo rows to be returned for the same fiscal period.
+
+**Root Causes:**
+- BUG-001: `fmtM` used `.toFixed(0)` (no locale) → `$62020M`; TTM used `.toFixed(2)` → `$1234.56B`
+- BUG-002: `MetricRow` had no `tooltip` prop
+- BUG-003: `quarterly-history/route.ts` queried `where: { ticker }` without `sourceProvider` filter; `take: 8` filled with 4 quarters × 2 providers = only 4 unique periods displayed. Derived services (STORY-085 fix) were correct; only display API was broken.
+
+**Files Changed:**
+
+1. **`src/app/api/stocks/[ticker]/quarterly-history/route.ts`** [MODIFIED] — FMP-first query, Tiingo fallback when no FMP rows; `take: 12`
+2. **`src/components/stock-detail/StockDetailClient.tsx`** [MODIFIED] — `fmtM` → `Math.round().toLocaleString('en-US')`; TTM values → `.toLocaleString('en-US', {minimumFractionDigits:2})`; `MetricRow` gains `tooltip?` prop with hover state; EQ Trend Score passes tooltip text
+3. **`tests/unit/api/quarterly-history-route.test.ts`** [NEW] — 7 tests: auth, FMP-first, Tiingo fallback, no double-call, take:12
+4. **`tests/unit/components/StockDetail.test.tsx`** [MODIFIED] — 1 updated test (`$62020M` → `$62,020M`), 6 new STORY-088 tests
+
+**Tests Added/Updated:**
+- `tests/unit/api/quarterly-history-route.test.ts` — 7 new tests
+- `tests/unit/components/StockDetail.test.tsx` — 6 new + 1 updated (total 59 tests passing)
+
+**Result/Status:** ✅ DONE — 1606/1606 unit tests passing
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — display/UX fix only; no schema or algorithm changes
+
+**Next Action:** Commit, push, verify in browser
+
+---
+
 ## 2026-04-26 — EPIC-004/STORY-087: 3AA Code Tooltip — complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen
