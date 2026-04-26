@@ -1,7 +1,6 @@
 // EPIC-004: Classification Engine & Universe Screen
-// STORY-088: Quarterly Tab Bug Fixes
-// TASK-088-001: Unit tests — GET /api/stocks/[ticker]/quarterly-history
-// Bug fixed: no sourceProvider filter caused duplicate quarters (FMP + Tiingo rows both returned)
+// STORY-088: Quarterly Tab Bug Fixes — deduplication (FMP-first, take:12)
+// STORY-089: Tiingo-only quarterly history — upgraded plan, 16 quarters (4 years, avoids COVID)
 
 import { NextRequest } from 'next/server';
 
@@ -28,8 +27,8 @@ const mockDerivedFind = prisma.stockDerivedMetrics.findUnique as jest.Mock;
 
 const MOCK_USER = { id: 'u1', email: 'admin@test.com', role: 'admin', active: true };
 
-const FMP_ROW = (fy: number, fq: number) => ({
-  ticker: 'MSFT', fiscalYear: fy, fiscalQuarter: fq, sourceProvider: 'fmp',
+const TIINGO_ROW = (fy: number, fq: number) => ({
+  ticker: 'MSFT', fiscalYear: fy, fiscalQuarter: fq, sourceProvider: 'tiingo',
   fiscalPeriodEndDate: null, reportedDate: null,
   revenue: null, grossProfit: null, operatingIncome: null, netIncome: null,
   freeCashFlow: null, cashFromOperations: null,
@@ -49,7 +48,7 @@ beforeEach(() => {
   mockDerivedFind.mockResolvedValue(null);
 });
 
-describe('EPIC-004/STORY-088/TASK-088-001: quarterly-history route — deduplication', () => {
+describe('EPIC-004/STORY-089: quarterly-history route — Tiingo-only, 16 quarters', () => {
 
   it('returns 401 when no session', async () => {
     const req = new NextRequest('http://localhost/api/stocks/MSFT/quarterly-history');
@@ -63,43 +62,46 @@ describe('EPIC-004/STORY-088/TASK-088-001: quarterly-history route — deduplica
     expect(res.status).toBe(404);
   });
 
-  it('STORY-088/BUG-003: queries with sourceProvider=fmp first', async () => {
-    mockQhFind.mockResolvedValue([FMP_ROW(2024, 4), FMP_ROW(2024, 3)]);
-    await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
-    const firstCall = mockQhFind.mock.calls[0][0];
-    expect(firstCall.where.sourceProvider).toBe('fmp');
-  });
-
-  it('STORY-088/BUG-003: falls back to tiingo when no FMP rows', async () => {
-    // First call (fmp) returns empty; second call (tiingo) returns data
-    mockQhFind
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([FMP_ROW(2024, 4)]);
-    await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
-    expect(mockQhFind).toHaveBeenCalledTimes(2);
-    const fallbackCall = mockQhFind.mock.calls[1][0];
-    expect(fallbackCall.where.sourceProvider).toBe('tiingo');
-  });
-
-  it('STORY-088/BUG-003: does not make second DB call when FMP rows exist', async () => {
-    mockQhFind.mockResolvedValue([FMP_ROW(2024, 4), FMP_ROW(2024, 3)]);
+  it('queries sourceProvider=tiingo only — no FMP query', async () => {
+    mockQhFind.mockResolvedValue([TIINGO_ROW(2024, 4)]);
     await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
     expect(mockQhFind).toHaveBeenCalledTimes(1);
+    expect(mockQhFind.mock.calls[0][0].where.sourceProvider).toBe('tiingo');
   });
 
-  it('STORY-088/BUG-003: takes up to 12 rows (not 8)', async () => {
+  it('takes up to 16 quarters (4 years, avoids COVID distortion)', async () => {
     mockQhFind.mockResolvedValue([]);
     await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
-    const firstCall = mockQhFind.mock.calls[0][0];
-    expect(firstCall.take).toBe(12);
+    expect(mockQhFind.mock.calls[0][0].take).toBe(16);
   });
 
-  it('returns 200 with quarters and derived', async () => {
-    mockQhFind.mockResolvedValue([FMP_ROW(2024, 4)]);
+  it('orders most-recent-first', async () => {
+    mockQhFind.mockResolvedValue([]);
+    await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
+    expect(mockQhFind.mock.calls[0][0].orderBy).toEqual([
+      { fiscalYear: 'desc' }, { fiscalQuarter: 'desc' },
+    ]);
+  });
+
+  it('returns 200 with quarters array and null derived when no derived row', async () => {
+    mockQhFind.mockResolvedValue([TIINGO_ROW(2024, 4), TIINGO_ROW(2024, 3)]);
     const res = await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.quarters).toHaveLength(1);
+    expect(body.quarters).toHaveLength(2);
     expect(body.derived).toBeNull();
+  });
+
+  it('returns empty quarters array when no Tiingo rows in DB', async () => {
+    mockQhFind.mockResolvedValue([]);
+    const res = await GET(makeRequest('MSFT'), { params: Promise.resolve({ ticker: 'MSFT' }) });
+    const body = await res.json();
+    expect(body.quarters).toHaveLength(0);
+  });
+
+  it('uppercases ticker before querying', async () => {
+    mockQhFind.mockResolvedValue([]);
+    await GET(makeRequest('msft'), { params: Promise.resolve({ ticker: 'msft' }) });
+    expect(mockQhFind.mock.calls[0][0].where.ticker).toBe('MSFT');
   });
 });

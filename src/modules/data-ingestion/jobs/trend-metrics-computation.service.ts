@@ -73,17 +73,11 @@ function pctChange(a: number | null, b: number | null): number | null {
 // ── Main computation ──────────────────────────────────────────────────────────
 
 export async function computeTrendMetrics(ticker: string): Promise<TrendMetricsResult> {
-  // STORY-085: prefer FMP rows; fall back to Tiingo for un-migrated tickers
-  let rows = await prisma.stockQuarterlyHistory.findMany({
-    where: { ticker, sourceProvider: 'fmp' },
+  // STORY-089: Tiingo only — upgraded plan provides full depth (39 quarters); FMP-first removed
+  const rows = await prisma.stockQuarterlyHistory.findMany({
+    where: { ticker, sourceProvider: 'tiingo' },
     orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
   });
-  if (rows.length === 0) {
-    rows = await prisma.stockQuarterlyHistory.findMany({
-      where: { ticker, sourceProvider: 'tiingo' },
-      orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
-    });
-  }
 
   // Reorder oldest-first for slope computation (index = time)
   const oldestFirst = [...rows].reverse();

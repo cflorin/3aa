@@ -29,21 +29,13 @@ export async function GET(req: NextRequest, { params }: Params) {
   });
   if (!stock) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-  // STORY-088/BUG-003: prefer FMP rows (richer data); fall back to Tiingo for un-migrated tickers.
-  // The unique constraint allows both providers to store the same quarter — querying without a
-  // sourceProvider filter returns duplicates (4 real quarters × 2 providers = 8 rows, all shown twice).
-  let quarterRows = await prisma.stockQuarterlyHistory.findMany({
-    where: { ticker: upper, sourceProvider: 'fmp' },
+  // STORY-089: Tiingo only — upgraded plan has 39 quarters of depth; 16 quarters = 4 years,
+  // avoiding COVID distortion in slope/stability computations.
+  const quarterRows = await prisma.stockQuarterlyHistory.findMany({
+    where: { ticker: upper, sourceProvider: 'tiingo' },
     orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
-    take: 12,
+    take: 16,
   });
-  if (quarterRows.length === 0) {
-    quarterRows = await prisma.stockQuarterlyHistory.findMany({
-      where: { ticker: upper, sourceProvider: 'tiingo' },
-      orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
-      take: 12,
-    });
-  }
 
   // Fetch derived metrics (single row per ticker)
   const derived = await prisma.stockDerivedMetrics.findUnique({

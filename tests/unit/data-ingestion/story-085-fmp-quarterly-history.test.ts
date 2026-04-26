@@ -111,7 +111,7 @@ describe('EPIC-003/STORY-085: FMPAdapter.fetchQuarterlyStatements', () => {
       expect(mockFmpFetch).toHaveBeenCalledWith(expect.stringContaining('cash-flow-statement'));
     });
 
-    test('both calls include period=quarter and limit=8', async () => {
+    test('both calls include period=quarter and limit=12 (STORY-088: was 8, raised to 12)', async () => {
       mockFmpFetch
         .mockResolvedValueOnce([makeIncomeRow()])
         .mockResolvedValueOnce([makeCashFlowRow()]);
@@ -122,7 +122,7 @@ describe('EPIC-003/STORY-085: FMPAdapter.fetchQuarterlyStatements', () => {
       const calls = mockFmpFetch.mock.calls.map((c: unknown[]) => c[0] as string);
       calls.forEach(path => {
         expect(path).toContain('period=quarter');
-        expect(path).toContain('limit=8');
+        expect(path).toContain('limit=12');
       });
     });
   });

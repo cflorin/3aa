@@ -1,6 +1,6 @@
 // EPIC-003: Data Ingestion & Universe Management
 // STORY-063: Quarterly History Cron Route & Cloud Scheduler Job
-// STORY-085: Switched from TiingoAdapter to FMPAdapter for quarterly history
+// STORY-089: Switched back to TiingoAdapter (upgraded plan, 39 quarters depth vs FMP's 8)
 // RFC-004 Amendment 2026-04-25 (pipeline stage position)
 // RFC-008 §Ingestion Sync Architecture; ADR-002 Amendment 2026-04-25 (6:45 PM ET slot)
 // ADR-016 §Pipeline Position; ADR-008: OIDC authentication via verifySchedulerToken()
@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySchedulerToken } from '@/lib/scheduler-auth';
-import { FMPAdapter } from '@/modules/data-ingestion/adapters/fmp.adapter';
+import { TiingoAdapter } from '@/modules/data-ingestion/adapters/tiingo.adapter';
 import { syncQuarterlyHistory } from '@/modules/data-ingestion/jobs/quarterly-history-sync.service';
 import { computeDerivedMetricsBatch } from '@/modules/data-ingestion/jobs/derived-metrics-computation.service';
 import { computeTrendMetricsBatch } from '@/modules/data-ingestion/jobs/trend-metrics-computation.service';
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     console.log(JSON.stringify({ event: 'quarterly_history_cron_started', forceFullScan, tickerFilter }));
 
-    const fmp = new FMPAdapter();
-    const syncResult = await syncQuarterlyHistory(fmp, { forceFullScan, tickerFilter });
+    const tiingo = new TiingoAdapter();
+    const syncResult = await syncQuarterlyHistory(tiingo, { forceFullScan, tickerFilter });
 
     // Determine which tickers to run derivation for.
     // Single-ticker mode: use only that ticker (skips full-table scan).

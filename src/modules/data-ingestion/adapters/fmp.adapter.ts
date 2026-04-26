@@ -454,8 +454,8 @@ export class FMPAdapter implements VendorAdapter {
   async fetchQuarterlyStatements(ticker: string): Promise<NormalizedQuarterlyReport[] | null> {
     const encoded = encodeURIComponent(ticker);
     const [incomeRaw, cashFlowRaw] = await Promise.all([
-      this.fmpFetch(`/income-statement?symbol=${encoded}&period=quarter&limit=8`) as Promise<Record<string, unknown>[] | null>,
-      this.fmpFetch(`/cash-flow-statement?symbol=${encoded}&period=quarter&limit=8`) as Promise<Record<string, unknown>[] | null>,
+      this.fmpFetch(`/income-statement?symbol=${encoded}&period=quarter&limit=12`) as Promise<Record<string, unknown>[] | null>,
+      this.fmpFetch(`/cash-flow-statement?symbol=${encoded}&period=quarter&limit=12`) as Promise<Record<string, unknown>[] | null>,
     ]);
 
     if (!Array.isArray(incomeRaw) || incomeRaw.length === 0) return null;

@@ -41,17 +41,11 @@ function toNumber(v: Prisma.Decimal | null): number | null {
 }
 
 export async function computeDerivedMetrics(ticker: string): Promise<DerivedMetricsResult> {
-  // STORY-085: prefer FMP rows (richer, no rate limit); fall back to Tiingo for un-migrated tickers
-  let rows = await prisma.stockQuarterlyHistory.findMany({
-    where: { ticker, sourceProvider: 'fmp' },
+  // STORY-089: Tiingo only — upgraded plan provides full depth (39 quarters); FMP-first removed
+  const rows = await prisma.stockQuarterlyHistory.findMany({
+    where: { ticker, sourceProvider: 'tiingo' },
     orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
   });
-  if (rows.length === 0) {
-    rows = await prisma.stockQuarterlyHistory.findMany({
-      where: { ticker, sourceProvider: 'tiingo' },
-      orderBy: [{ fiscalYear: 'desc' }, { fiscalQuarter: 'desc' }],
-    });
-  }
 
   const quartersAvailable = rows.length;
   const ttmRows = rows.slice(0, 4);

@@ -1,7 +1,7 @@
 // EPIC-003/STORY-063: Quarterly History Cron Route
-// STORY-085: Updated mock from TiingoAdapter to FMPAdapter
+// STORY-089: Switched back to TiingoAdapter (upgraded plan, 16 quarters)
 // RFC-008 §Ingestion Sync Architecture; ADR-002 Amendment 2026-04-25 (6:45 PM ET)
-// TDD: all external dependencies mocked; no live DB or FMP calls
+// TDD: all external dependencies mocked; no live DB or Tiingo calls
 
 import { NextRequest } from 'next/server';
 
@@ -16,8 +16,8 @@ jest.mock('@/infrastructure/database/prisma', () => ({
   },
 }));
 
-jest.mock('@/modules/data-ingestion/adapters/fmp.adapter', () => ({
-  FMPAdapter: jest.fn().mockImplementation(() => ({})),
+jest.mock('@/modules/data-ingestion/adapters/tiingo.adapter', () => ({
+  TiingoAdapter: jest.fn().mockImplementation(() => ({})),
 }));
 
 jest.mock('@/modules/data-ingestion/jobs/quarterly-history-sync.service', () => ({
