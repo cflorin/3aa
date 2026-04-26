@@ -42,6 +42,10 @@ interface DetailResponse {
   tieBreaksFired: TieBreakRecord[];
   input_snapshot: Record<string, unknown> | null;
   classified_at: string | null;
+  // STORY-083: confidence-floor audit fields (null/false when floor was not applied)
+  raw_suggested_code: string | null;
+  raw_confidence_level: 'low' | null;
+  confidence_floor_applied: boolean;
   // Override
   final_code: string | null;
   override_reason: string | null;
@@ -612,28 +616,63 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
               {/* Active code block */}
               <div style={{ padding: '14px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={SECTION_HEADER}>Active Code</div>
-                <div style={{ padding: '12px 0', display: 'flex', gap: 24, alignItems: 'flex-end' }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>System Suggested</div>
-                    <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: T.accent }}>
-                      {detail.suggested_code ?? '—'}
-                    </div>
-                    {detail.confidence_level && (
-                      <div style={{ marginTop: 4 }}>
-                        <ConfidenceBadge confidence={detail.confidence_level} />
+                {(() => {
+                  const sugCode = detail.suggested_code;
+                  const conf = detail.confidence_level;
+                  // STORY-083: use engine-provided floor fields; fall back to client-side demotion
+                  // for stocks not yet re-classified after STORY-083 deployment
+                  const floorApplied = detail.confidence_floor_applied;
+                  const rawCode = detail.raw_suggested_code;
+                  // Pre-floor code to show on the left (raw if floor applied, else just suggested)
+                  const preFloorCode = floorApplied && rawCode ? rawCode : sugCode;
+                  // Post-floor code to show on the right (only when floor applied and no override)
+                  const showFloor = floorApplied && rawCode && sugCode !== rawCode && !detail.final_code;
+                  return (
+                    <>
+                      <div style={{ padding: '12px 0', display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+                        <div>
+                          <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>System Suggested</div>
+                          <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: showFloor ? T.textMuted : T.accent }}>
+                            {preFloorCode ?? '—'}
+                          </div>
+                          <div style={{ marginTop: 4 }}>
+                            <ConfidenceBadge confidence={showFloor ? 'low' : (conf ?? 'low')} />
+                          </div>
+                        </div>
+                        {showFloor && (
+                          <>
+                            <div style={{ fontSize: 20, color: '#16a34a', paddingBottom: 8, lineHeight: 1 }}>→</div>
+                            <div>
+                              <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Active (confidence floor)</div>
+                              <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: T.accent }}>
+                                {sugCode}
+                              </div>
+                              {conf && <div style={{ marginTop: 4 }}><ConfidenceBadge confidence={conf} /></div>}
+                            </div>
+                          </>
+                        )}
+                        {detail.final_code && (
+                          <div>
+                            <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Your Override</div>
+                            <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: '#f97316' }}>
+                              {detail.final_code}
+                            </div>
+                            <div style={{ fontSize: 9, color: T.textDim, marginTop: 4 }}>display only</div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {detail.final_code && (
-                    <div>
-                      <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>Your Override</div>
-                      <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: 22, fontWeight: 800, color: '#f97316' }}>
-                        {detail.final_code}
-                      </div>
-                      <div style={{ fontSize: 9, color: T.textDim, marginTop: 4 }}>display only</div>
-                    </div>
-                  )}
-                </div>
+                      {showFloor && (
+                        <div style={{
+                          marginBottom: 10, padding: '5px 10px',
+                          background: '#16a34a18', border: '1px solid #16a34a40',
+                          borderRadius: 4, fontSize: 10, color: '#16a34a',
+                        }}>
+                          ✓ Confidence floor applied — initial <strong>{rawCode}</strong> (low) → active <strong>{sugCode}</strong> ({conf})
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {detail.classified_at && (
                   <div style={{ fontSize: 10, color: T.textDim }}>
                     Classified {fmtDate(detail.classified_at)}

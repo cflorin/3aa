@@ -63,6 +63,12 @@ stocks (1) ──┬─→ (1) classification_state (shared suggestions)
              ├─→ (1) valuation_state (shared computation)
              │     └─→ (0..n) valuation_history
              │
+             ├─→ (0..n) stock_quarterly_history  [RFC-008 addition]
+             │     (one row per fiscal quarter; raw financial data + per-quarter margins)
+             │
+             ├─→ (0..1) stock_derived_metrics    [RFC-008 addition]
+             │     (one row per ticker; computed trend/trajectory fields for EPIC-004 classification)
+             │
              └─→ (framework_config: anchored_thresholds, tsr_hurdles, framework_version)
 
 
@@ -1058,6 +1064,38 @@ Confidence for each score is stored in `data_provider_provenance` keyed by field
 
 ### Related
 ADR-012, RFC-007, RFC-001 Amendment 2026-04-21
+
+## Amendment — 2026-04-25: Quarterly Financial History Data Layer (RFC-008)
+
+Two new tables are added to the canonical data model. Full schema is specified in ADR-015.
+
+### New Table: `stock_quarterly_history`
+
+Stores raw quarterly financial statements (last 12+ fiscal quarters per stock) plus per-quarter derived margins. One row per `(ticker, fiscal_year, fiscal_quarter, source_provider)`.
+
+Primary key: `id BIGSERIAL`; unique constraint on `(ticker, fiscal_year, fiscal_quarter, source_provider)`.
+
+Raw fields: `revenue`, `gross_profit`, `operating_income`, `net_income`, `capex`, `cash_from_operations`, `free_cash_flow`, `share_based_compensation`, `depreciation_and_amortization`, `diluted_shares_outstanding`.
+
+Per-quarter derived: `gross_margin`, `operating_margin`, `net_margin`, `cfo_to_net_income_ratio`, `fcf_margin`, `sbc_as_pct_revenue`, `dilution_yoy`.
+
+Source provider: `tiingo` (V1 only). Sync cadence: earnings-triggered (ADR-016).
+
+### New Table: `stock_derived_metrics`
+
+One row per ticker. Stores computed trend/trajectory metrics for EPIC-004 classification consumption.
+
+Contains: TTM rollups from quarterly history, margin trajectory slopes (4q/8q), margin stability scores (0.0–1.0), operating leverage ratios and flags, earnings quality trend score (−1.0 to +1.0), dilution/SBC metrics, capital intensity metrics, provenance JSONB.
+
+Refreshed immediately after `stock_quarterly_history` is updated for a ticker. Not primary data — a computed projection from `stock_quarterly_history`.
+
+### Impact on `ClassificationInput`
+
+`toClassificationInput()` gains a JOIN to `stock_derived_metrics`. When a row exists for the ticker, the ~20 trend/trajectory fields defined in RFC-008 §Classifier-Facing Derived Fields are added to `ClassificationInput`. When no row exists (quarterly history not yet available), all trend fields are NULL — scorers treat absent trend fields as missing data and do not error.
+
+### Related
+
+RFC-008, ADR-015 (storage decision), ADR-016 (refresh cadence), RFC-004 Amendment 2026-04-25
 
 ---
 

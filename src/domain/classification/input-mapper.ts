@@ -1,14 +1,15 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-047: Classification Recompute Batch Job
 // TASK-047-002: toClassificationInput — maps Prisma stock row → ClassificationInput
-// RFC-001 §ClassificationInput; ADR-013
+// STORY-065: Extended to optionally include ClassificationTrendMetrics from stock_derived_metrics
+// RFC-001 §ClassificationInput; ADR-013; RFC-001 Amendment 2026-04-25
 //
 // Growth fields stored as percentages in DB (7.24 = 7.24%) — divide by 100.
 // Ratio/margin/flag fields stored as decimal fractions or booleans — used as-is.
 // [BUG-CE-001] If growth fields are ever inserted as decimals (0.072 instead of 7.2),
 // pct() will produce 0.0007, firing Bucket 1 for all signals. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
 
-import type { ClassificationInput } from './types';
+import type { ClassificationInput, ClassificationTrendMetrics } from './types';
 
 export const CLASSIFICATION_STOCK_FIELDS = {
   ticker: true,
@@ -44,8 +45,57 @@ export type ClassificationStockRow = {
   binaryFlag: boolean | null; preOperatingLeverageFlag: boolean | null;
 };
 
-export function toClassificationInput(s: ClassificationStockRow): ClassificationInput {
+// Derived metrics row shape — Decimal fields accepted as any (converted via Number())
+export type DerivedMetricsRow = {
+  quartersAvailable?: number | null;
+  revenueTtm?: unknown; grossProfitTtm?: unknown; operatingIncomeTtm?: unknown;
+  netIncomeTtm?: unknown; capexTtm?: unknown; cashFromOperationsTtm?: unknown;
+  freeCashFlowTtm?: unknown; shareBasedCompensationTtm?: unknown; depreciationAndAmortizationTtm?: unknown;
+  grossMarginTtm?: unknown; operatingMarginTtm?: unknown; netMarginTtm?: unknown;
+  fcfMarginTtm?: unknown; sbcAsPctRevenueTtm?: unknown; cfoToNetIncomeRatioTtm?: unknown;
+  grossMarginSlope4q?: unknown; operatingMarginSlope4q?: unknown; netMarginSlope4q?: unknown;
+  grossMarginSlope8q?: unknown; operatingMarginSlope8q?: unknown; netMarginSlope8q?: unknown;
+  operatingMarginStabilityScore?: unknown; grossMarginStabilityScore?: unknown; netMarginStabilityScore?: unknown;
+  operatingLeverageRatio?: unknown; operatingIncomeAccelerationFlag?: boolean | null;
+  operatingLeverageEmergingFlag?: boolean | null; earningsQualityTrendScore?: unknown;
+  deterioratingCashConversionFlag?: boolean | null; dilutedSharesOutstandingChange4q?: unknown;
+  dilutedSharesOutstandingChange8q?: unknown; materialDilutionTrendFlag?: boolean | null;
+  sbcBurdenScore?: unknown; capexToRevenueRatioAvg4q?: unknown; capexIntensityIncreasingFlag?: boolean | null;
+};
+
+function mapDerivedMetrics(d: DerivedMetricsRow): ClassificationTrendMetrics {
   return {
+    quartersAvailable: d.quartersAvailable ?? null,
+    revenueTtm: num(d.revenueTtm), grossProfitTtm: num(d.grossProfitTtm),
+    operatingIncomeTtm: num(d.operatingIncomeTtm), netIncomeTtm: num(d.netIncomeTtm),
+    capexTtm: num(d.capexTtm), cashFromOperationsTtm: num(d.cashFromOperationsTtm),
+    freeCashFlowTtm: num(d.freeCashFlowTtm), shareBasedCompensationTtm: num(d.shareBasedCompensationTtm),
+    depreciationAndAmortizationTtm: num(d.depreciationAndAmortizationTtm),
+    grossMarginTtm: num(d.grossMarginTtm), operatingMarginTtm: num(d.operatingMarginTtm),
+    netMarginTtm: num(d.netMarginTtm), fcfMarginTtm: num(d.fcfMarginTtm),
+    sbcAsPctRevenueTtm: num(d.sbcAsPctRevenueTtm), cfoToNetIncomeRatioTtm: num(d.cfoToNetIncomeRatioTtm),
+    grossMarginSlope4q: num(d.grossMarginSlope4q), operatingMarginSlope4q: num(d.operatingMarginSlope4q),
+    netMarginSlope4q: num(d.netMarginSlope4q), grossMarginSlope8q: num(d.grossMarginSlope8q),
+    operatingMarginSlope8q: num(d.operatingMarginSlope8q), netMarginSlope8q: num(d.netMarginSlope8q),
+    operatingMarginStabilityScore: num(d.operatingMarginStabilityScore),
+    grossMarginStabilityScore: num(d.grossMarginStabilityScore),
+    netMarginStabilityScore: num(d.netMarginStabilityScore),
+    operatingLeverageRatio: num(d.operatingLeverageRatio),
+    operatingIncomeAccelerationFlag: d.operatingIncomeAccelerationFlag ?? null,
+    operatingLeverageEmergingFlag: d.operatingLeverageEmergingFlag ?? null,
+    earningsQualityTrendScore: num(d.earningsQualityTrendScore),
+    deterioratingCashConversionFlag: d.deterioratingCashConversionFlag ?? null,
+    dilutedSharesOutstandingChange4q: num(d.dilutedSharesOutstandingChange4q),
+    dilutedSharesOutstandingChange8q: num(d.dilutedSharesOutstandingChange8q),
+    materialDilutionTrendFlag: d.materialDilutionTrendFlag ?? null,
+    sbcBurdenScore: num(d.sbcBurdenScore),
+    capexToRevenueRatioAvg4q: num(d.capexToRevenueRatioAvg4q),
+    capexIntensityIncreasingFlag: d.capexIntensityIncreasingFlag ?? null,
+  };
+}
+
+export function toClassificationInput(s: ClassificationStockRow, derivedMetrics?: DerivedMetricsRow | null): ClassificationInput {
+  const base: ClassificationInput = {
     revenue_growth_fwd: pct(s.revenueGrowthFwd),
     revenue_growth_3y: pct(s.revenueGrowth3y),
     eps_growth_fwd: pct(s.epsGrowthFwd),
@@ -72,4 +122,8 @@ export function toClassificationInput(s: ClassificationStockRow): Classification
     binary_flag: s.binaryFlag ?? null,
     pre_operating_leverage_flag: s.preOperatingLeverageFlag ?? null,
   };
+  if (derivedMetrics != null) {
+    base.trend_metrics = mapDerivedMetrics(derivedMetrics);
+  }
+  return base;
 }

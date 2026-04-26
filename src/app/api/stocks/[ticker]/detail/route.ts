@@ -132,6 +132,10 @@ export async function GET(
     tieBreaksFired: scores?.tieBreaksFired ?? [],
     input_snapshot: state?.input_snapshot ?? null,
     classified_at: state?.classified_at ?? null,
+    // STORY-083: pre-floor code and confidence (null when floor was not applied)
+    raw_suggested_code: scores?.rawSuggestedCode ?? null,
+    raw_confidence_level: scores?.rawConfidenceLevel ?? null,
+    confidence_floor_applied: scores?.confidenceFloorApplied ?? false,
 
     // ── User override ───────────────────────────────────────────────────────
     final_code: override?.finalCode ?? null,

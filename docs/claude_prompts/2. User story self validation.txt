@@ -1,0 +1,40 @@
+Claude, validate the breakdown for this one story and decide whether it is ready for execution.
+
+Story:
+Epic-003, Story-032
+
+You are performing the validation yourself.
+
+Check:
+- task boundaries
+- dependency order
+- scope clarity
+- baseline conformity
+- test coverage expectations
+- regression protection
+- whether anything is missing or too broad
+
+Status model:
+- draft
+- validated
+- ready
+- in_progress
+- done
+- needs_revision
+
+Your job:
+1. review the story breakdown you just produced
+2. identify any issues
+3. state whether the story should remain `validated`, move to `ready`, or be marked `needs_revision`
+4. if `ready`, provide the execution order for the tasks
+5. if `needs_revision`, state exactly what must change before execution
+6. update the implementation-plan / implementation-log recommendation accordingly
+
+Return exactly:
+A. Validation verdict
+B. Issues found
+C. Recommended status
+D. Task execution order
+E. Tracking update recommendation
+
+Do not write code yet unless the verdict is `ready` and I explicitly tell you to proceed.

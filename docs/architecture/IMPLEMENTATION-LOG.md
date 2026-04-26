@@ -3545,3 +3545,116 @@ Key implementation decisions:
 **Baseline Impact:** NO (new UI component; existing tabs unaffected)
 
 **Next Action:** Execute STORY-080 — Universe Screen: Valuation Zone Columns & Filters
+
+---
+
+## 2026-04-26 — EPIC-005/STORY-084 — Recompute Classification: Admin API & UI Button
+
+**Tasks Completed:** TASK-084-001 through TASK-084-005
+
+**Actions Taken:**
+- Created `POST /api/admin/sync/classification` route — session auth, calls `runClassificationBatch({ force: true })`, returns `BatchSummary`
+- Created `RecomputeClassificationButton` component — loading/success/error states, 5-second auto-dismiss on success, inline summary message
+- Extended `FilterBar` with `onRecomputeClassification?: (summary: BatchSummary) => void` prop; renders `RecomputeClassificationButton` next to "+ Add Stock" button
+- Extended `UniversePageClient` with `refreshKey` state; `handleRecomputeClassification` increments key to force universe re-fetch after classification completes
+- 18 unit tests: 7 route tests (401/200/500, force=true verified), 7 component tests (idle/loading/success/error states), 4 FilterBar tests (button presence with/without prop, onSuccess callback, coexists with Add Stock)
+
+**Files Changed:**
+- `src/app/api/admin/sync/classification/route.ts` — new
+- `src/components/universe/RecomputeClassificationButton.tsx` — new
+- `src/components/universe/FilterBar.tsx` — added import + `onRecomputeClassification` prop + button render
+- `src/components/universe/UniversePageClient.tsx` — added `BatchSummary` import, `refreshKey` state, `handleRecomputeClassification` handler, prop wiring
+- `tests/unit/api/admin-sync-classification.test.ts` — new; 7 tests
+- `tests/unit/components/RecomputeClassificationButton.test.tsx` — new; 7 tests
+- `tests/unit/components/story-084-recompute-classification.test.tsx` — new; 4 FilterBar tests
+- `stories/tasks/EPIC-005-valuation-threshold-engine/STORY-084-recompute-classification.md` — new
+- `stories/README.md` — STORY-082/083/084 added to EPIC-005 table
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — Active Work updated
+
+**Tests Added/Updated:** 18 new unit tests; 1,547/1,547 unit tests passing (no regressions)
+
+**Result/Status:** STORY-084 DONE ✅
+
+**Verification Level:** unit_verified
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO (new admin endpoint + UI button; no changes to existing routes or classification logic)
+
+**Next Action:** Continue EPIC-005 — next story
+
+---
+
+## 2026-04-26 — EPIC-003/STORY-085: FMP Quarterly History Sync — Replace Tiingo with FMP
+
+**Epic:** EPIC-003 — Data Ingestion & Universe Management
+**Story:** STORY-085 — FMP Quarterly History Sync
+
+**Action:** Replaced Tiingo with FMP as the quarterly history data source. Tiingo rate limits were causing reliability issues. FMP provides richer data with no rate constraints for quarterly statements.
+
+**Key changes:**
+
+1. **`src/modules/data-ingestion/types.ts`** — Added `NormalizedQuarterlyReport` interface: provider-agnostic flat type replacing the Tiingo-specific DataCode-array format. Fields: `date`, `fiscalYear`, `fiscalQuarter`, `revenue`, `grossProfit`, `operatingIncome` (maps to FMP `ebit` / Tiingo `ebit` DataCode — NOT FMP's narrower `operatingIncome` field), `netIncome`, `capex`, `cashFromOperations`, `freeCashFlow`, `shareBasedCompensation`, `depreciationAndAmortization`, `dilutedSharesOutstanding`.
+
+2. **`src/modules/data-ingestion/adapters/fmp.adapter.ts`** — Added `fetchQuarterlyStatements()`: parallel `Promise.all` calls to `/income-statement?period=quarter&limit=8` and `/cash-flow-statement?period=quarter&limit=8`. Cash-flow rows matched to income rows by date string. FMP `ebit` field (not `operatingIncome`) used for `operatingIncome`. FMP `fiscalYear` field used directly (fallback: `parseInt(date.slice(0,4))`). Period string `"Q1"–"Q4"` parsed to `fiscalQuarter` int; `"FY"` entries skipped.
+
+3. **`src/modules/data-ingestion/adapters/tiingo.adapter.ts`** — `fetchQuarterlyStatements()` updated to return `NormalizedQuarterlyReport[] | null` (was Tiingo-specific DataCode format). DataCode-to-field mapping: `ebit`→`operatingIncome`, `netinc`→`netIncome`, `ncfo`→`cashFromOperations`, `sbcomp`→`shareBasedCompensation`, `shareswaDil`/`sharesBasic`→`dilutedSharesOutstanding`.
+
+4. **`src/modules/data-ingestion/jobs/quarterly-history-sync.service.ts`** — Full rewrite. Added `QuarterlyAdapter` duck-type interface (`providerName: 'tiingo' | 'fmp'`, `fetchQuarterlyStatements`). `syncQuarterlyHistory(adapter, opts)` uses `adapter.providerName` as `sourceProvider` in upsert key. Change detection queries by `sourceProvider`. Inline derived margins computed from `NormalizedQuarterlyReport`.
+
+5. **`src/modules/data-ingestion/jobs/derived-metrics-computation.service.ts`** — FMP-first fallback: queries `sourceProvider: 'fmp'` first; falls back to `'tiingo'` for un-migrated tickers.
+
+6. **`src/app/api/cron/quarterly-history/route.ts`** — Changed `TiingoAdapter` → `FMPAdapter`.
+
+7. **`src/app/api/universe/stocks/route.ts`** — Stage 7 changed to use `FMPAdapter`.
+
+**Tests added/updated:**
+- `tests/unit/data-ingestion/story-085-fmp-quarterly-history.test.ts` — new; 8 BDD scenarios (field mapping, ebit→operatingIncome, fiscalYear, cash flow date matching, null handling, period parsing, log events)
+- `tests/unit/data-ingestion/story-059-fetch-quarterly-statements.test.ts` — updated assertions to `fiscalQuarter`/`fiscalYear` field names
+- `tests/unit/data-ingestion/story-060-quarterly-history-sync.test.ts` — updated mock to `QuarterlyAdapter` interface; fixtures rewritten to `NormalizedQuarterlyReport` flat format
+- `tests/unit/api/cron/quarterly-history.test.ts` — mock changed from `TiingoAdapter` to `FMPAdapter`
+- `tests/integration/quarterly-history-pipeline.test.ts` — full rewrite with `FMPAdapter` mock
+
+**Result/Status:** ✅ DONE — 1568/1568 unit tests passing. Live sync verified: 15 stocks × 8 quarters = 120 quarters synced, all with `ttm_computed: true`.
+
+**Baseline Impact:** YES — ADR-001 and ADR-002 amended 2026-04-25 to reflect FMP as primary quarterly history source. RFC-004 amended. Field mapping clarified: `FMP.ebit = Tiingo 'ebit' DataCode = EBIT` (what both providers call operating income in their schemas).
+
+**Next Action:** Pipeline bug fixes (see next entry)
+
+---
+
+## 2026-04-26 — Pipeline Bug Fixes: Stock-Add Route (Three Bugs)
+
+**Epic:** EPIC-003 / EPIC-005 (cross-cutting — stock-add pipeline)
+**Story:** Ad-hoc bug fixes discovered when KO (Coca-Cola) was added to the universe
+
+**Action:** Three bugs in `src/app/api/universe/stocks/route.ts` and `trend-metrics-computation.service.ts` were found and fixed after KO showed multiple missing fields post-add.
+
+**Bug 1: `computeTrendMetrics` hardcoded `sourceProvider: 'tiingo'`**
+- File: `src/modules/data-ingestion/jobs/trend-metrics-computation.service.ts:76`
+- Root cause: STORY-085 applied the FMP-first fallback to `derived-metrics-computation.service.ts` but missed `trend-metrics-computation.service.ts`. For stocks added after STORY-085 (quarterly history stored as `sourceProvider: 'fmp'`), the tiingo-only query returned 0 rows → all trend metrics null.
+- Affected fields: `grossMarginSlope4q/8q`, `operatingMarginSlope4q/8q`, `netMarginSlope4q/8q`, `earningsQualityTrendScore`, `deterioratingCashConversionFlag`, `operatingLeverageEmergingFlag`, `materialDilutionTrendFlag`, `dilutedSharesOutstandingChange4q/8q`, `sbcBurdenScore`.
+- Fix: Applied same FMP-first / Tiingo-fallback pattern as `derived-metrics-computation.service.ts`.
+
+**Bug 2: Pipeline stage ordering — estimates (Stage 4) before market-cap (Stage 5)**
+- File: `src/app/api/universe/stocks/route.ts:141-149`
+- Root cause: `syncForwardEstimates` computes `forwardPe = currentPrice / epsNtm` and `forwardEvEbit = EV / ebitNtm`. These require `currentPrice` and `marketCap` in the DB, which are written by `syncMarketCapAndMultiples`. But market-cap sync was Stage 5 while estimates was Stage 4 — so at the time Stage 4 ran, the stock's `currentPrice` and `marketCap` were null (just created in Stage 2). The service's own comment even states: "must run AFTER syncMarketCapAndMultiples()".
+- Affected fields: `forwardPe`, `forwardEvEbit`, `forwardEvSales` (all null despite raw NTM inputs `epsNtm`, `ebitNtm`, `revenueNtm` being stored correctly).
+- Fix: Swapped stage order — market-cap now runs at step 4, estimates at step 5.
+
+**Bug 3: `sector`, `industry`, `description` not written in stock-add pipeline**
+- File: `src/app/api/universe/stocks/route.ts:116-134`
+- Root cause: `fetchMetadata` (FMP `/profile` endpoint) returns `sector`, `industry`, `description`. Stage 1 uses metadata to validate the ticker; Stage 2 creates/updates the stock record but only saved `company_name`. Stage 5 (`syncMarketCapAndMultiples`) also calls `fetchMetadata` but only uses `marketCap`, `sharesOutstanding`, `currentPrice`.
+- Fix: Stage 2 now writes `sector`, `industry`, `description` from `metadata` for both new stocks and re-added stocks.
+
+**Files Changed:**
+- `src/modules/data-ingestion/jobs/trend-metrics-computation.service.ts` — modified (FMP-first query, lines 76-83)
+- `src/app/api/universe/stocks/route.ts` — modified (sector/industry/description in Stage 2; stage 4/5 order swapped)
+
+**Tests Added/Updated:** Existing trend metrics tests pass (mock returns same data regardless of sourceProvider filter, so fallback logic is transparent). 1652/1652 unit tests passing.
+
+**Result/Status:** ✅ DONE — all three bugs fixed; verified by removing and re-adding KO (all previously missing fields now populated correctly).
+
+**Baseline Impact:** NO — bug fixes only; no new fields, no schema changes, no baseline document changes.
+
+**Next Action:** Commit, push, create release and backup branch.

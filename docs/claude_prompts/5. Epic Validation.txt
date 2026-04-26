@@ -1,0 +1,176 @@
+Claude, validate one epic and all of its current stories.
+
+## Goal
+Perform a validation pass for a single epic and every story currently written under that epic.
+
+This is a **validation step only**.
+Do not create new epics, new stories, tasks, BDD files, implementation order, or code.
+Do not silently change the frozen architecture baseline.
+
+## Authority and gating
+You remain the final technical decision-maker.
+However, validation status must be explicit and controlled.
+
+Use this rule:
+- Default status for generated epics/stories is `draft`
+- Only items explicitly marked `validated` are approved for downstream decomposition
+- Only validated stories may later produce tasks
+- Only ready stories may later be implemented
+
+If an epic/story is not good enough, keep it in `draft` and explain why.
+Do not silently upgrade items to validated without justification.
+
+## Epic to validate
+EPIC-003 and EPIC-003.1
+
+## Files in scope
+Validate:
+1. The epic spec itself
+2. All story files currently written for this epic
+
+Assume epic docs live under:
+- `/stories/epics/`
+
+Assume story docs for this epic live under:
+- `/stories/tasks/[EPIC-FOLDER]/`
+
+## Frozen baseline reminder
+Validate against:
+- full V1 PRD
+- accepted RFCs
+- accepted ADRs
+- platform / deployment decisions
+- frozen architecture baseline
+- validated epic boundaries (if already approved)
+
+Do not reinterpret the baseline during validation.
+If you discover a real conflict with the baseline, flag it explicitly instead of silently adjusting the planning docs.
+
+## What validation means
+
+### Epic validation checks
+Validate whether the epic:
+- is correctly bounded
+- maps cleanly to the baseline architecture
+- does not hide scope from another epic
+- has clear dependencies
+- has strong acceptance criteria
+- has explicit testing expectations
+- is appropriate as an implementation planning unit
+
+### Story validation checks
+Validate whether each story:
+- belongs to this epic and only this epic
+- is small enough to implement safely
+- is large enough to be meaningful
+- has clear scope in / scope out
+- is testable
+- has strong regression/invariant coverage expectations
+- is traceable to epic + PRD + RFC + ADR
+- does not smuggle in task-level implementation decisions unnecessarily
+- does not overlap excessively with sibling stories
+- does not miss key edge cases
+
+## Validation statuses to use
+Use only these statuses for this pass:
+
+- `draft` = generated but not yet approved
+- `validated` = approved for downstream decomposition
+- `needs_revision` = close, but not yet good enough
+- `superseded` = replaced by another item
+
+You may recommend a later `ready` status, but do not assign `ready` in this step.
+
+## What I want you to do
+
+### 1. Validate the epic
+For the epic itself, determine:
+- validate as-is
+- validate with minor edits
+- keep as draft / needs revision
+- supersede / split / merge recommendation
+
+### 2. Validate every story under the epic
+For each story:
+- decide whether it should remain draft, become validated, or needs revision
+- explain why
+- identify overlap, missing scope, unclear boundaries, or regression/testing weaknesses
+
+### 3. Check the story set as a whole
+Assess whether the story set for this epic is:
+- complete enough
+- too broad
+- too fragmented
+- missing a key story
+- containing duplicate stories
+- improperly ordered conceptually
+
+### 4. Recommend minimal changes only
+If something should change:
+- prefer minimal edits
+- do not redesign the epic unless truly necessary
+- do not create tasks yet
+
+## Validation criteria
+Use these criteria explicitly:
+
+### Epic-level
+- architecture alignment
+- scope clarity
+- dependency clarity
+- testing posture
+- decomposition suitability
+
+### Story-level
+- scope clarity
+- implementation safety
+- traceability
+- testing rigor
+- regression protection
+- lack of overlap
+- baseline conformity
+
+## Output format
+Return exactly these sections:
+
+### A. Epic validation result
+Provide:
+- epic ID and name
+- current status
+- recommended status
+- verdict:
+  - validate as-is
+  - validate with minor edits
+  - keep as draft / needs revision
+  - restructure required
+- concise rationale
+
+### B. Story validation table
+For each story provide:
+- story ID and name
+- current status
+- recommended status
+- verdict
+- concise rationale
+
+### C. Story-set assessment
+Assess the full story set for this epic:
+- completeness
+- overlap
+- missing stories
+- stories that are too big
+- stories that are too small
+- testing/regression coverage quality
+
+### D. Required edits before validation
+List only the edits truly required before the epic/story set should be treated as validated.
+
+### E. Validation recommendation
+State clearly:
+- whether this epic should now be marked `validated`
+- which stories should now be marked `validated`
+- which stories must remain `draft` or `needs_revision`
+
+### F. Stop point
+Stop after validation.
+Do not generate tasks, BDD files, implementation order, or code.

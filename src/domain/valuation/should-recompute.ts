@@ -45,14 +45,18 @@ export function shouldRecompute(
 
 function resolveExpectedMetric(input: ValuationInput, bucket: number): string {
   if (input.primaryMetricOverride) return input.primaryMetricOverride;
-  if (bucket === 8) return 'no_stable_metric';
-  if (bucket >= 1 && bucket <= 4) {
-    if ((input.holdingCompanyFlag || input.insurerFlag) && bucket === 3 && input.activeCode === '3AA') {
+  // STORY-082: mirrors deriveEffectiveCode — low confidence demotes bucket by 1 (floor 1, exempt bucket 8)
+  const effectiveBucket = (input.confidenceLevel === 'low' && bucket !== 8 && bucket > 1)
+    ? bucket - 1
+    : bucket;
+  if (effectiveBucket === 8) return 'no_stable_metric';
+  if (effectiveBucket >= 1 && effectiveBucket <= 4) {
+    if ((input.holdingCompanyFlag || input.insurerFlag) && effectiveBucket === 3 && input.activeCode === '3AA') {
       return 'forward_operating_earnings_ex_excess_cash';
     }
     return 'forward_pe';
   }
-  if (bucket === 5) return input.preOperatingLeverageFlag ? 'ev_sales' : 'forward_ev_ebit';
+  if (effectiveBucket === 5) return input.preOperatingLeverageFlag ? 'ev_sales' : 'forward_ev_ebit';
   return 'ev_sales';
 }
 

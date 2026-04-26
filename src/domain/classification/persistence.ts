@@ -31,12 +31,18 @@ export async function persistClassification(
   const classifiedAt = new Date();
 
   // Combine scores + audit trail into the single `scores` JSONB column
+  // STORY-083: include confidence-floor audit fields when floor was applied
   const scoresPayload: ClassificationScoresPayload = {
     bucket: result.scores.bucket,
     eq: result.scores.eq,
     bs: result.scores.bs,
     confidenceBreakdown: result.confidenceBreakdown,
     tieBreaksFired: result.tieBreaksFired,
+    ...(result.confidenceFloorApplied && {
+      rawSuggestedCode: result.rawSuggestedCode,
+      rawConfidenceLevel: result.rawConfidenceLevel,
+      confidenceFloorApplied: true,
+    }),
   };
 
   await prisma.$transaction(async (tx) => {

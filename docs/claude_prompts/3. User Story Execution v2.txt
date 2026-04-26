@@ -1,0 +1,177 @@
+Claude, execute exactly one ready story under strict evidence and verification rules.
+
+Story:
+EPIC-003, Story-032
+
+## Scope
+- Work on this story only.
+- Do not start another story.
+- Do not process another epic.
+- Do not invent new folders, files, or task structures unless they already exist in the approved story package or I explicitly approve them.
+- Do not silently change the frozen baseline.
+
+## Mandatory pre-start gate
+Before doing anything else, confirm and report:
+1. parent epic status = `validated`
+2. story status = `ready`
+3. approved task breakdown exists
+4. BDD file exists
+5. TEST-PLAN exists
+6. dependencies are satisfied
+
+If any item is false, stop immediately and report `blocked`.
+
+## Frozen baseline
+Use only:
+- PRD
+- accepted RFCs
+- accepted ADRs
+- validated epic
+- ready story
+- approved task breakdown
+- story BDD file
+- story TEST-PLAN
+- implementation plan
+- implementation log
+
+If you find a conflict:
+- stop
+- classify it as one of:
+  - implementation_issue
+  - missing_dependency
+  - baseline_ambiguity
+  - architecture_change_request
+- identify the affected document(s)
+- do not guess
+
+## Non-negotiable execution rules
+
+### 1. No false verification
+Do not claim anything passed unless you actually ran it.
+Do not imply live verification from mocked tests.
+Do not imply integration verification from unit tests.
+
+### 2. Mandatory verification levels
+For every task and for the story overall, use exactly one highest achieved level:
+- implemented
+- unit_verified
+- integration_verified_local
+- integration_verified_real
+- live_provider_verified
+- deployed_verified
+
+You may only claim the highest level actually achieved.
+Nothing higher may be implied.
+
+### 3. Mandatory fixture provenance
+Every fixture, payload, or response sample used must be labeled as one of:
+- synthetic
+- mocked
+- captured_real
+- sanitized_real
+
+If it was not captured from a real external/provider/system response, do not describe it as real.
+
+### 4. Mandatory contemporaneous logging
+Implementation log updates must reflect actual work performed.
+Each meaningful task step must append:
+- actual timestamp
+- actual task being worked
+- actual files changed
+- actual commands/checks run
+- actual observed result
+- current verification level
+- remaining gaps
+
+If you are summarizing prior work, label it explicitly as retrospective.
+Do not present retrospective summaries as live execution logs.
+
+### 5. No done inflation
+Do not mark the story `done` unless:
+- implementation is complete for the story scope
+- required tests/checks were actually run
+- the achieved verification level is explicit
+- unverified items are explicitly listed
+- implementation log has been updated with evidence
+
+If only unit tests were run, stop at `unit_verified`.
+If integration ran only against mocks/local test doubles, stop at `integration_verified_local`.
+If no real provider or real DB verification happened, say so explicitly.
+
+## Execution method
+Use the approved task breakdown as the execution plan.
+Execute task by task, in order.
+
+For each task:
+1. restate the task briefly
+2. identify files to change
+3. implement the task
+4. run only the checks/tests actually possible at this stage
+5. report exactly what was run
+6. report exactly what passed
+7. report exactly what failed
+8. report exactly what was not run
+9. report fixture provenance used
+10. assign the correct verification level
+11. update task status
+12. append implementation-log entry
+
+## Status model
+Use only:
+- ready
+- in_progress
+- blocked
+- done
+
+For verification reporting, use the mandatory verification levels above.
+Do not collapse status and verification into one concept.
+
+## Story completion rule
+At the end, explicitly state one of:
+- story remains in_progress
+- story is blocked
+- story is eligible to be marked done
+
+And separately state:
+- highest verification level actually achieved
+
+## Required output format
+
+### A. Execution start check
+- epic status
+- story status
+- dependency check
+- verdict: start / blocked
+
+### B. Task-by-task execution
+For each task:
+- task ID and name
+- files changed
+- what was implemented
+- what was actually run
+- what passed
+- what failed
+- what was not run
+- fixture provenance used
+- verification level reached
+- task status
+- implementation-log entry appended
+
+### C. Story verification summary
+- story status
+- highest verification level achieved
+- what is implemented
+- what is verified
+- what is not verified
+- what remains before story can be marked done
+
+### D. Tracking updates
+- exact implementation-plan update
+- exact implementation-log entries appended
+
+### E. Stop point
+- next task to execute, or
+- reason blocked, or
+- whether story is eligible to be marked done
+
+Begin only if the execution start check passes.

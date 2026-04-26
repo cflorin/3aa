@@ -4,11 +4,14 @@
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-070: Added trend metric filters and column chooser toggle
 // EPIC-005/STORY-080: Added valuationZone multi-select filter
+// EPIC-005/STORY-084: Added onRecomputeClassification prop + RecomputeClassificationButton
 
 'use client';
 
 import React from 'react';
 import { T } from '@/lib/theme';
+import RecomputeClassificationButton from './RecomputeClassificationButton';
+import type { BatchSummary } from '@/modules/classification-batch/classification-batch.service';
 
 export interface FilterState {
   search: string;
@@ -43,6 +46,7 @@ interface FilterBarProps {
   onChange: (f: FilterState) => void;
   onClear: () => void;
   onAddStock?: () => void;
+  onRecomputeClassification?: (summary: BatchSummary) => void;
   /** When true, show the trend filter section (STORY-070) */
   showTrendFilters?: boolean;
   /** Column chooser: which trend columns are currently visible */
@@ -76,7 +80,7 @@ const ctrlStyle: React.CSSProperties = {
   height: 28,
 };
 
-export default function FilterBar({ filters, sectors, total, onChange, onClear, onAddStock, showTrendFilters, visibleTrendColumns = [], onToggleTrendColumn }: FilterBarProps) {
+export default function FilterBar({ filters, sectors, total, onChange, onClear, onAddStock, onRecomputeClassification, showTrendFilters, visibleTrendColumns = [], onToggleTrendColumn }: FilterBarProps) {
   const count = activeFilterCount(filters);
 
   function set<K extends keyof FilterState>(key: K, value: FilterState[K]) {
@@ -225,6 +229,10 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
         >
           + Add Stock
         </button>
+      )}
+
+      {onRecomputeClassification && (
+        <RecomputeClassificationButton onSuccess={onRecomputeClassification} />
       )}
 
       {/* Trend filters (STORY-070) — only shown when showTrendFilters=true */}

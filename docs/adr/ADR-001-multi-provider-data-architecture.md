@@ -109,6 +109,26 @@ V1 shall implement a **multi-provider data architecture** supporting:
 - Provider strategy is configurable, not hardcoded
 - Provenance enables future data quality analysis and provider evaluation
 
+## Amendment — 2026-04-25: Quarterly Financial History Provider (RFC-008)
+
+**Quarterly Financial History:** Tiingo primary; no FMP fallback (V1).
+
+Tiingo's `/tiingo/fundamentals/{ticker}/statements` endpoint returns `QuarterlyReport[]` — quarterly income statement, balance sheet, and cash flow DataCodes. This is confirmed by the existing `fetchFundamentals` implementation, which already processes 16 quarters from this endpoint. The `TiingoAdapter` gains a new method `fetchQuarterlyStatements(ticker)` that exposes the raw quarterly array without aggregation. No plan tier upgrade required.
+
+FMP uses `period=annual` for its income statement endpoint at the current plan tier and does not provide quarterly financial history. FMP is not used as a fallback for this field category.
+
+**Updated provider selection table:**
+
+| Field Category | Primary | Fallback | Rationale |
+|---|---|---|---|
+| EOD Prices | Tiingo | FMP | Either reliable |
+| Historical Fundamentals | Tiingo | FMP | Tiingo comprehensive |
+| Forward Estimates | FMP | Tiingo | FMP superior coverage |
+| Balance Sheet | Tiingo | FMP | Either complete |
+| **Quarterly Financial History** | **Tiingo** | **None (V1)** | **Confirmed available; FMP annual-only at current tier** |
+
+**Related:** RFC-008 (full architecture), ADR-016 (cadence)
+
 ---
 
 **END ADR-001**

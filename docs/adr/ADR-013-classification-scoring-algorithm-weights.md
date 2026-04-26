@@ -164,9 +164,31 @@ These estimates assume data as of the 2026-04-21 snapshot. Actual scores depend 
 
 ---
 
+> **Amendment 2026-04-25 — EQ proxy signals are interim; quarterly-history replacements pending (RFC-008)**
+>
+> The three EQ volatility signals added in the 2026-04-25 amendment (`EQ_EPS_DECLINING`,
+> `EQ_EPS_REV_SPREAD_MODERATE`, `EQ_EPS_REV_SPREAD_SEVERE`) are proxy signals derived from
+> point-in-time 3-year CAGR summary fields. They approximate earnings volatility but cannot
+> distinguish structurally deteriorating businesses from cyclical troughs.
+>
+> Once RFC-008 (Quarterly Financial History Data Layer) is implemented, these signals will be
+> replaced by quarterly-derived equivalents:
+> - `EQ_EPS_DECLINING` → replaced by `earnings_quality_trend_score` and `deteriorating_cash_conversion_flag`
+> - `EQ_EPS_REV_SPREAD_MODERATE/SEVERE` → replaced by `operating_margin_stability_score` and `fcf_conversion_trend_4q`
+>
+> Until quarterly history is available (i.e., `quarters_available < 4`), the proxy signals are
+> retained as fallback logic. They are NOT kept as complementary signals alongside quarterly-derived
+> ones — where quarterly data is available, the quarterly-derived signals replace them entirely.
+>
+> ADR-013 will require a follow-on amendment to add the new quarterly-derived weight constants
+> when EPIC-003 quarterly history stories are complete.
+
+---
+
 ## Traceability
 
 - RFC-001 §Bucket Scorer, §Scoring Algorithm
+- RFC-008 §Use in Classification (quarterly history layer integration)
 - `docs/prd/3_aa_rules_engine_spec_auto_suggestion_v_1.md` §Stage 1
 - `docs/prd/source_of_truth_investment_framework_3AA.md` §Part I–II
 - ADR-004 (rules-first classification, conservative defaults)

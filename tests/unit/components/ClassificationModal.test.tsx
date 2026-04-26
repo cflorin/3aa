@@ -295,3 +295,52 @@ describe('EPIC-004/STORY-051/TASK-051-004: ClassificationModal', () => {
   });
 
 });
+
+// ── STORY-082: Demotion notice in Classification tab ──────────────────────────
+
+describe('EPIC-005/STORY-082: ClassificationModal demotion notice (Scenarios 10–11)', () => {
+
+  // Scenario 10: demotion notice shown when effectiveCode !== system_suggested_code
+  it('Scenario 10 — shows demotion notice for B6 low confidence stock', async () => {
+    mockFetch({ system_suggested_code: '6BA', system_confidence: 'low', active_code: '6BA' });
+    renderModal();
+    await waitFor(() => {
+      expect(screen.getByTestId('demotion-notice')).toBeInTheDocument();
+      expect(screen.getByTestId('demotion-notice')).toHaveTextContent('Valued as B5');
+      expect(screen.getByTestId('demotion-notice')).toHaveTextContent('demoted from B6');
+      expect(screen.getByTestId('demotion-notice')).toHaveTextContent('low confidence');
+    });
+  });
+
+  // Scenario 11: no demotion notice when no demotion occurs
+  it('Scenario 11 — no demotion notice for high confidence stock', async () => {
+    mockFetch({ system_suggested_code: '6BA', system_confidence: 'high', active_code: '6BA' });
+    renderModal();
+    await waitFor(() => screen.getByText('6BA'));
+    expect(screen.queryByTestId('demotion-notice')).not.toBeInTheDocument();
+  });
+
+  it('no demotion notice for medium confidence stock', async () => {
+    mockFetch({ system_suggested_code: '6BA', system_confidence: 'medium', active_code: '6BA' });
+    renderModal();
+    await waitFor(() => screen.getByText('6BA'));
+    expect(screen.queryByTestId('demotion-notice')).not.toBeInTheDocument();
+  });
+
+  it('no demotion notice for B1 low confidence (floor — no demotion)', async () => {
+    mockFetch({ system_suggested_code: '1AA', system_confidence: 'low', active_code: '1AA' });
+    renderModal();
+    await waitFor(() => screen.getByText('1AA'));
+    expect(screen.queryByTestId('demotion-notice')).not.toBeInTheDocument();
+  });
+
+  it('demotion notice for B5 low confidence: shows B4', async () => {
+    mockFetch({ system_suggested_code: '5AA', system_confidence: 'low', active_code: '5AA' });
+    renderModal();
+    await waitFor(() => {
+      expect(screen.getByTestId('demotion-notice')).toHaveTextContent('Valued as B4');
+      expect(screen.getByTestId('demotion-notice')).toHaveTextContent('demoted from B5');
+    });
+  });
+
+});

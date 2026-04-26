@@ -6,6 +6,7 @@
 // STORY-055: Added handleRemoveConfirm — optimistic stock removal + error revert
 // STORY-070: Added trend column chooser and trend filter state
 // EPIC-005/STORY-080: Added valuationZone filter wiring
+// EPIC-005/STORY-084: Added handleRecomputeClassification — refreshes universe after batch re-class
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort; RFC-008
 
 'use client';
@@ -17,6 +18,7 @@ import PaginationControls from './PaginationControls';
 import FilterBar, { EMPTY_FILTERS, type FilterState } from './FilterBar';
 import AddStockModal from './AddStockModal';
 import type { UniverseStockSummary } from '@/domain/monitoring';
+import type { BatchSummary } from '@/modules/classification-batch/classification-batch.service';
 import { T } from '@/lib/theme';
 
 const LIMIT = 50;
@@ -87,6 +89,8 @@ export default function UniversePageClient() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Incrementing triggers a universe re-fetch without changing filters (STORY-084)
+  const [refreshKey, setRefreshKey] = useState(0);
   // Trend column chooser state (STORY-070) — hidden by default
   const [visibleTrendColumns, setVisibleTrendColumns] = useState<TrendColumnKey[]>([]);
   const [showTrendFilters, setShowTrendFilters] = useState(false);
@@ -139,7 +143,7 @@ export default function UniversePageClient() {
       filters.eqTrendPreset, filters.dilutionFlagOnly, filters.minQuarters,
       // eslint-disable-next-line react-hooks/exhaustive-deps
       JSON.stringify(filters.valuationZone),
-      sort, dir, page, visibleTrendColumns]);
+      sort, dir, page, visibleTrendColumns, refreshKey]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
 
@@ -202,6 +206,10 @@ export default function UniversePageClient() {
     }
   }, [data]);
 
+  const handleRecomputeClassification = useCallback((_summary: BatchSummary) => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <FilterBar
@@ -211,6 +219,7 @@ export default function UniversePageClient() {
         onChange={handleFiltersChange}
         onClear={handleClear}
         onAddStock={() => setShowAddModal(true)}
+        onRecomputeClassification={handleRecomputeClassification}
         showTrendFilters={showTrendFilters}
         visibleTrendColumns={visibleTrendColumns}
         onToggleTrendColumn={handleToggleTrendColumn}

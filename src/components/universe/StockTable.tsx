@@ -71,6 +71,49 @@ const ZONE_LABELS: Record<string, string> = {
   above_max: 'Above Max',
   not_applicable: 'N/A',
 };
+// ── Dynamic valuation metric helpers ─────────────────────────────────────────
+// STORY-082: effective_code is the confidence-demoted code from the domain layer.
+// Both label and value use effective_code directly — no client-side re-derivation needed.
+
+function valMetricLabel(s: { effective_code?: string | null; active_code: string | null; currentMultipleBasis: string | null }): string {
+  const basis = s.currentMultipleBasis;
+  if (basis === 'forward_pe' || basis === 'trailing_fallback') return 'Fwd P/E';
+  if (basis === 'forward_ev_ebit') return 'EV/EBIT';
+  if (basis === 'ev_sales') return 'EV/Sales';
+  if (basis === 'forward_operating_earnings_ex_excess_cash') return 'Op Earn';
+  if (basis === 'manual') return 'Manual';
+  const code = s.effective_code ?? s.active_code;
+  if (!code) return '—';
+  const bucket = parseInt(code.charAt(0), 10);
+  if (bucket >= 1 && bucket <= 4) return 'Fwd P/E';
+  if (bucket === 5) return 'EV/EBIT';
+  if (bucket === 6 || bucket === 7) return 'EV/Sales';
+  return '—';
+}
+
+function valMetricValue(s: {
+  effective_code?: string | null;
+  active_code: string | null;
+  currentMultipleBasis: string | null;
+  currentMultiple: number | null;
+  forward_pe: number | null;
+  forward_ev_ebit: number | null;
+  ev_sales: number | null;
+}): string {
+  // 'trailing_fallback' / 'manual' can't be re-derived from raw fields — use stored value
+  if (s.currentMultiple != null && s.currentMultipleBasis !== 'spot' && s.currentMultipleBasis !== null) {
+    return `${s.currentMultiple.toFixed(1)}×`;
+  }
+  // For 'spot' or null basis: derive from effective_code bucket to get the correct raw field
+  const code = s.effective_code ?? s.active_code;
+  if (!code) return '—';
+  const bucket = parseInt(code.charAt(0), 10);
+  if (bucket >= 1 && bucket <= 4 && s.forward_pe != null) return `${s.forward_pe.toFixed(1)}×`;
+  if (bucket === 5 && s.forward_ev_ebit != null) return `${s.forward_ev_ebit.toFixed(1)}×`;
+  if ((bucket === 6 || bucket === 7) && s.ev_sales != null) return `${s.ev_sales.toFixed(1)}×`;
+  return '—';
+}
+
 function ValuationZoneBadge({ zone }: { zone: string | null }) {
   if (!zone) return <span style={{ color: '#52525b' }}>—</span>;
   const color = ZONE_COLORS[zone] ?? '#71717a';
@@ -84,15 +127,6 @@ function ValuationZoneBadge({ zone }: { zone: string | null }) {
     </span>
   );
 }
-
-const BASIS_LABELS: Record<string, string> = {
-  forward_pe: 'fwd P/E',
-  forward_ev_ebit: 'EV/EBIT',
-  ev_sales: 'EV/S',
-  trailing_fallback: 'trail. P/E',
-  manual: 'manual',
-  spot: '',
-};
 
 // ── Column header styles ──────────────────────────────────────────────────────
 
@@ -255,7 +289,6 @@ export default function StockTable({
             Ticker{onSort ? sortIcon('ticker', sort, dir) : ''}
           </th>
           <th scope="col" style={TH}>Company</th>
-          <th scope="col" style={TH}>Sector</th>
           <th scope="col" style={TH}>3AA Code</th>
           <th scope="col" style={TH}>Conf.</th>
           <th scope="col" style={TH}>Monitor</th>
@@ -307,8 +340,11 @@ export default function StockTable({
           >
             Zone{onSort ? sortIcon('valuationZone', sort, dir) : ''}
           </th>
-          <th scope="col" style={{ ...TH, textAlign: 'right' }}>Multiple</th>
-          <th scope="col" style={{ ...TH, textAlign: 'right' }}>TSR Hurdle</th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>Fwd P/E</th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>EV/EBIT</th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>EV/Sales</th>
+          <th scope="col" style={{ ...TH, textAlign: 'left' }}>Metric</th>
+          <th scope="col" style={{ ...TH, textAlign: 'right' }}>Val.</th>
           {/* Trend metric columns (STORY-070) — hidden by default; shown when visibleTrendColumns includes key */}
           {visibleTrendColumns.includes('operating_margin_slope_4q') && (
             <th
@@ -350,6 +386,8 @@ export default function StockTable({
         {stocks.map((s) => {
           const isActive = rowActiveState[s.ticker] ?? s.is_active;
           const activeCode = rowCodeOverlay[s.ticker] !== undefined ? rowCodeOverlay[s.ticker] : s.active_code;
+          // STORY-082: badge shows effective_code (confidence-demoted) unless user has in-session override
+          const displayCode = rowCodeOverlay[s.ticker] !== undefined ? rowCodeOverlay[s.ticker] : (s.effective_code ?? s.active_code);
           return (
             <tr
               key={s.ticker}
@@ -371,16 +409,13 @@ export default function StockTable({
               <td style={{ ...TD, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', color: isActive ? T.text : T.textDim }}>
                 {s.company_name}
               </td>
-              <td style={{ ...TD, color: T.textMuted, fontSize: 10 }}>
-                {s.sector ?? '—'}
-              </td>
               <td style={TD}>
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedTicker(s.ticker); }}
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                   aria-label={`Open classification detail for ${s.ticker}`}
                 >
-                  <ClassificationBadge code={activeCode} />
+                  <ClassificationBadge code={displayCode} />
                 </button>
               </td>
               <td style={TD}>
@@ -411,13 +446,20 @@ export default function StockTable({
               <td style={TD}>
                 <ValuationZoneBadge zone={s.valuationZone ?? null} />
               </td>
-              <td style={{ ...TD, textAlign: 'right', fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
-                {s.currentMultiple != null
-                  ? `${s.currentMultiple.toFixed(1)}× ${BASIS_LABELS[s.currentMultipleBasis ?? ''] ?? ''}`
-                  : '—'}
+              <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                {s.forward_pe != null ? `${s.forward_pe.toFixed(1)}×` : '—'}
               </td>
-              <td style={{ ...TD, textAlign: 'right', fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
-                {s.adjustedTsrHurdle != null ? `${s.adjustedTsrHurdle.toFixed(1)}%` : '—'}
+              <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                {s.forward_ev_ebit != null ? `${s.forward_ev_ebit.toFixed(1)}×` : '—'}
+              </td>
+              <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                {s.ev_sales != null ? `${s.ev_sales.toFixed(1)}×` : '—'}
+              </td>
+              <td style={{ ...TD, fontSize: 10, color: T.textMuted }}>
+                {valMetricLabel(s)}
+              </td>
+              <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                {valMetricValue(s)}
               </td>
               {/* Trend metric cells (STORY-070) */}
               {visibleTrendColumns.includes('operating_margin_slope_4q') && (

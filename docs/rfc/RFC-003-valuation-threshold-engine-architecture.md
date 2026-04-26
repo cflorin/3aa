@@ -47,7 +47,7 @@ This mapping is the core of the framework's principle: **same growth does not de
 - Classification engine produces `suggested_code` (stored in `classification_state`)
 - Users can override via `user_classification_overrides.final_code`
 - **Valuation engine uses system `suggested_code`** (not user overrides) for V1 alert generation
-- Classification confidence exists but does NOT affect valuation logic
+- ~~Classification confidence exists but does NOT affect valuation logic~~ **AMENDED 2026-04-26:** Low classification confidence triggers effective bucket demotion for metric and threshold selection (see §Confidence-Based Effective Bucket below)
 - User overrides preserved for inspection display (see ADR-007 multi-user architecture)
 
 ---
@@ -138,6 +138,36 @@ Output: valuation_state (persisted to DB)
 ---
 
 ## Component Responsibilities
+
+### Confidence-Based Effective Bucket
+
+**Added: 2026-04-26**
+
+Before metric selection and threshold derivation begin, the valuation engine resolves an **effective code** from the active code and classification confidence level.
+
+**Rule:** When `confidence_level = 'low'`, the effective bucket is `bucket − 1` (floor 1). The EQ and BS grade characters are preserved. All downstream stages (metric selector, threshold assigner, TSR hurdle calculator) use the effective code. The original `active_code` is retained in the persisted result for auditability.
+
+```
+effectiveBucket = (confidenceLevel === 'low') ? Math.max(bucket - 1, 1) : bucket
+effectiveCode   = `${effectiveBucket}${activeCode.slice(1)}`
+```
+
+**Examples:**
+
+| Active code | Confidence | Effective code | Metric used |
+|-------------|------------|----------------|-------------|
+| `6BA`       | low        | `5BA`          | EV/EBIT     |
+| `5AA`       | low        | `4AA`          | Fwd P/E     |
+| `4AA`       | low        | `3AA`          | Fwd P/E (same family) |
+| `1AA`       | low        | `1AA`          | Fwd P/E (floor) |
+| `6BA`       | medium     | `6BA`          | EV/Sales (no demotion) |
+| `6BA`       | high       | `6BA`          | EV/Sales (no demotion) |
+
+**Rationale:** A `low`-confidence classification means the scoring algorithm could not clearly distinguish the winning bucket from the runner-up. In that situation the system defaults to the more conservative (lower) bucket's metric rather than potentially applying a growth-stage metric (EV/Sales) to a stock whose growth profile is ambiguous. The displayed classification code is unchanged so the user can see the original system suggestion.
+
+**UI indication:** The stock detail Classification tab renders a demotion notice when `effectiveCode !== activeCode`, showing the original and effective bucket alongside the confidence level.
+
+---
 
 ### Metric Selector
 

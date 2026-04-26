@@ -3,6 +3,7 @@
 // TASK-027-005: syncMarketCapAndMultiples() — fetch FMP profile, compute EV and trailing multiples
 // RFC-004 §Fundamentals Sync: runs after syncFundamentals(); reads TTM values from DB
 // ADR-001: FMP as profile/market-cap source
+// STORY-084 amendment: writes currentPrice from FMP profile (Tiingo-independent price source)
 
 import type { VendorAdapter } from '../ports/vendor-adapter.interface';
 import type { ProvenanceEntry } from '../types';
@@ -66,12 +67,15 @@ export async function syncMarketCapAndMultiples(
 
       const marketCap = profile.market_cap_usd;
       const sharesOutstanding = profile.shares_outstanding;
+      // Use FMP profile price as Tiingo-independent source; only overwrite if FMP provides a value
+      const fmpPrice = profile.current_price;
 
       const totalDebt = stock.totalDebt != null ? Number(stock.totalDebt) : 0;
       const cash = stock.cashAndEquivalents != null ? Number(stock.cashAndEquivalents) : 0;
       const ev = marketCap + totalDebt - cash;
 
-      const currentPrice = stock.currentPrice != null ? Number(stock.currentPrice) : null;
+      // Prefer FMP profile price; fall back to existing DB value (null-not-overwrite)
+      const currentPrice = fmpPrice ?? (stock.currentPrice != null ? Number(stock.currentPrice) : null);
       const epsTtm = stock.epsTtm != null ? Number(stock.epsTtm) : null;
       const ebitTtm = stock.ebitTtm != null ? Number(stock.ebitTtm) : null;
       const revenueTtm = stock.revenueTtm != null ? Number(stock.revenueTtm) : null;
@@ -101,6 +105,7 @@ export async function syncMarketCapAndMultiples(
       const provenanceUpdates: Record<string, ProvenanceEntry> = {
         market_cap: fmpProvenance,
         ...(sharesOutstanding !== null ? { shares_outstanding: fmpProvenance } : {}),
+        ...(fmpPrice !== null ? { current_price: fmpProvenance } : {}),
         ...(trailingPe !== null ? { trailing_pe: computedProvenance } : {}),
         ...(trailingEvEbit !== null ? { trailing_ev_ebit: computedProvenance } : {}),
         ...(evSales !== null ? { ev_sales: computedProvenance } : {}),
@@ -111,6 +116,7 @@ export async function syncMarketCapAndMultiples(
       const updateData: Prisma.StockUpdateInput = {
         marketCap,
         ...(sharesOutstanding !== null ? { sharesOutstanding } : {}),
+        ...(fmpPrice !== null ? { currentPrice: fmpPrice } : {}),
         ...(trailingPe !== null ? { trailingPe } : {}),
         ...(trailingEvEbit !== null ? { trailingEvEbit } : {}),
         ...(evSales !== null ? { evSales } : {}),

@@ -42,6 +42,13 @@ export const EQ_EPS_DECLINING = 1;           // eps_growth_3y < 0 → +1 to C
 export const EQ_EPS_REV_SPREAD_MODERATE = 1; // spread in [−0.20, −0.10) → +1 to C
 export const EQ_EPS_REV_SPREAD_SEVERE = 3;   // spread < −0.20 → +3 to C (analogous to BS_DEBT_HIGH)
 
+// EQ quarterly-derived signal weights (STORY-066)
+// Added when trend_metrics.quarters_available >= 4; supplements proxy signals
+export const EQ_QUARTERLY_TREND_POSITIVE = 2; // earnings_quality_trend_score > 0.30 → +2 to A
+export const EQ_QUARTERLY_TREND_NEGATIVE = 2; // earnings_quality_trend_score < -0.30 → +2 to C
+export const EQ_DETERIORATING_CFO = 1;        // deteriorating_cash_conversion_flag = true → +1 to C
+export const EQ_OPLEVERAGE_EMERGING = 1;      // operating_leverage_emerging_flag = true → +1 to A/B
+
 // BS scorer weights (STORY-042)
 export const BS_DEBT_LOW = 3;          // net_debt_to_ebitda < 1.0 strict → +3 to A
 export const BS_DEBT_MODERATE = 2;     // net_debt_to_ebitda [1.0, 2.5] → +2 to B
@@ -53,3 +60,6 @@ export const BS_COVERAGE_MODERATE = 1; // interest_coverage [5.0, 12.0] → +1 t
 export const BS_COVERAGE_WEAK = 2;     // interest_coverage < 5.0 → +2 to C
 export const BS_CAPITAL_INTENSITY = 1; // capital_intensity_score ≥ 4.0 → +1 to C
 export const BS_NET_CASH_BONUS = 1;    // net_debt_to_ebitda ≤ 0 (net cash) → +1 to A (stacks with DEBT_LOW)
+// BS quarterly-derived signal weights (STORY-067)
+export const BS_DILUTION_TREND = 2;   // material_dilution_trend_flag = true → +2 to C (trend-based)
+export const BS_SBC_BURDEN = 1;       // sbc_burden_score > 0.50 → +1 to C (additive)

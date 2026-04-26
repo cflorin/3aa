@@ -1,0 +1,71 @@
+Claude, prepare one validated story for development.
+
+Story:
+EPIC-003, Story-032 
+
+Rules:
+- Work on this story ONLY.
+- Do not write code yet.
+- Do not process other stories.
+- Use the frozen baseline only: PRD, accepted RFCs, accepted ADRs, platform decisions, validated epic, validated story, implementation plan/log.
+- If the story or its parent epic is not validated, stop.
+- If you find a baseline conflict or missing assumption, stop and flag it instead of guessing.
+
+Status model:
+- default = draft
+- validated = approved for planning
+- ready = approved for implementation
+
+Your job:
+1. Confirm the story is validated and can be prepared.
+2. Write BDD acceptance scenarios for this story only.
+3. Break this story into the minimum sensible implementation tasks.
+4. Make testing explicit:
+   - unit
+   - integration
+   - contract/schema if relevant
+   - BDD
+   - e2e if relevant
+5. Call out regression / invariant risks.
+6. List files likely to change.
+7. State whether the story should move from validated to ready.
+
+For each task use:
+
+# TASK-XXX — [Task Name]
+## Story
+[Story ID and name]
+## Purpose
+## Scope In
+## Scope Out
+## Dependencies
+## Implementation Notes
+## Test Impact
+## Regression / Invariant Risks
+## Definition of Done
+
+Return exactly:
+
+A. Readiness assessment  
+- current status  
+- verdict: ready now / ready with minor edits / blocked  
+- rationale
+
+B. BDD scenarios
+
+C. Task list
+
+D. Full task specs
+
+E. Test strategy summary
+
+F. Files likely to change
+
+G. Definition of Ready
+
+H. Tracking update recommendation  
+- whether to mark story ready  
+- what to add to implementation plan  
+- what to add to implementation log
+
+Stop after this.

@@ -387,6 +387,10 @@ VALUES
   ;
 ```
 
+### Confidence-Based Effective Code (Amendment 2026-04-26)
+
+When `confidence_level = 'low'`, the threshold lookup uses an **effective code** derived by demoting the bucket by 1 (floor 1), not the raw `active_code`. The EQ and BS grades are preserved. The demotion is applied before the anchored lookup and mechanical derivation steps below — both use the effective code as the lookup key. The original `active_code` is stored in the persisted `valuation_state` for auditability. See RFC-003 §Confidence-Based Effective Bucket for the full specification.
+
 ### Threshold Lookup with Derivation
 
 ```typescript

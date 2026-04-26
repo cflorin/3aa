@@ -35,6 +35,10 @@ function makeStock(overrides: Partial<UniverseStockSummary> = {}): UniverseStock
     is_active: true,
     active_code: '3AA',
     confidence_level: 'high',
+    // Raw metric fields
+    forward_pe: null,
+    forward_ev_ebit: null,
+    ev_sales: null,
     // Valuation fields (STORY-080) — null by default
     valuationZone: null,
     currentMultiple: null,
@@ -71,7 +75,6 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     render(<StockTable stocks={[makeStock()]} />);
     expect(screen.getByText('Ticker')).toBeInTheDocument();
     expect(screen.getByText('Company')).toBeInTheDocument();
-    expect(screen.getByText('Sector')).toBeInTheDocument();
     expect(screen.getByText('3AA Code')).toBeInTheDocument();
     expect(screen.getByText('Conf.')).toBeInTheDocument();
     expect(screen.getByText('Monitor')).toBeInTheDocument();
@@ -81,8 +84,14 @@ describe('EPIC-004/STORY-048/TASK-048-003: StockTable', () => {
     expect(screen.getByText('ND/EBITDA')).toBeInTheDocument();
     expect(screen.getByText('Op Margin')).toBeInTheDocument();
     expect(screen.getByText('Zone')).toBeInTheDocument();
-    expect(screen.getByText('Multiple')).toBeInTheDocument();
-    expect(screen.getByText('TSR Hurdle')).toBeInTheDocument();
+    // Fwd P/E appears in both header and Metric cell for B3 default stock
+    expect(screen.getAllByText('Fwd P/E').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('EV/EBIT')).toBeInTheDocument();
+    expect(screen.getAllByText('EV/Sales').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Metric')).toBeInTheDocument();
+    expect(screen.getByText('Val.')).toBeInTheDocument();
+    expect(screen.queryByText('Sector')).not.toBeInTheDocument();
+    expect(screen.queryByText('TSR Hurdle')).not.toBeInTheDocument();
     expect(screen.queryByText('Market Cap')).not.toBeInTheDocument();
   });
 

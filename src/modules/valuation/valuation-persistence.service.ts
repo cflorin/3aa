@@ -123,10 +123,10 @@ export async function persistValuationState(
   const start = Date.now();
 
   try {
-    // Resolve active code from system classification (suggested_code only)
+    // Resolve active code and confidence from system classification (suggested_code only — ADR-007)
     const classification = await prisma.classificationState.findUnique({
       where: { ticker },
-      select: { suggestedCode: true },
+      select: { suggestedCode: true, confidenceLevel: true },
     });
 
     if (!classification?.suggestedCode) {
@@ -155,8 +155,12 @@ export async function persistValuationState(
       }
     }
 
-    // Compute
-    const result = computeValuation(input);
+    // Compute — attach confidence so low-confidence bucket demotion applies (STORY-082)
+    const inputWithConfidence: ValuationInput = {
+      ...input,
+      confidenceLevel: (classification.confidenceLevel as 'high' | 'medium' | 'low' | null) ?? null,
+    };
+    const result = computeValuation(inputWithConfidence);
 
     // Status statuses that cannot be persisted as meaningful state
     if (result.valuationStateStatus === 'classification_required') {
@@ -422,6 +426,7 @@ export async function getValuationHistory(ticker: string, limit = 20) {
 function stateToResult(s: ValuationState): ValuationResult {
   return {
     activeCode: s.activeCode,
+    effectiveCode: s.activeCode,  // persisted state predates demotion; treat as no demotion
     primaryMetric: s.primaryMetric as import('@/domain/valuation').PrimaryMetric,
     metricReason: s.metricReason ?? '',
     currentMultiple: s.currentMultiple !== null ? Number(s.currentMultiple) : null,

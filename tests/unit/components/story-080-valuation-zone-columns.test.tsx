@@ -32,7 +32,11 @@ function makeStock(overrides: Partial<UniverseStockSummary> = {}): UniverseStock
     net_debt_to_ebitda: 0.2,
     is_active: true,
     active_code: '4AA',
+    effective_code: '4AA',
     confidence_level: 'high',
+    forward_pe: null,
+    forward_ev_ebit: null,
+    ev_sales: null,
     valuationZone: null,
     currentMultiple: null,
     currentMultipleBasis: null,
@@ -66,27 +70,55 @@ describe('EPIC-005/STORY-080: StockTable valuation zone columns', () => {
     expect(dashes.length).toBeGreaterThan(0);
   });
 
-  it('renders Multiple cell with value and basis label', () => {
-    render(<StockTable stocks={[makeStock({ currentMultiple: 19.5, currentMultipleBasis: 'forward_pe' })]} />);
-    expect(screen.getByText(/19\.5×/)).toBeInTheDocument();
-    expect(screen.getByText(/fwd P\/E/)).toBeInTheDocument();
+  it('renders P/E cell with value', () => {
+    render(<StockTable stocks={[makeStock({ forward_pe: 19.5 })]} />);
+    // 19.5× appears in both static Fwd P/E column and Val. fallback for B4 stock
+    expect(screen.getAllByText('19.5×').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders Multiple cell with "—" when null', () => {
-    render(<StockTable stocks={[makeStock({ currentMultiple: null })]} />);
-    // Check at least one "—" exists (Multiple + TSR Hurdle + Zone are all null)
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+  it('renders EV/EBIT cell with value', () => {
+    render(<StockTable stocks={[makeStock({ forward_ev_ebit: 14.2 })]} />);
+    expect(screen.getByText('14.2×')).toBeInTheDocument();
   });
 
-  it('renders TSR Hurdle with percentage format', () => {
+  it('renders EV/Sales cell with value', () => {
+    render(<StockTable stocks={[makeStock({ ev_sales: 6.5 })]} />);
+    expect(screen.getByText('6.5×')).toBeInTheDocument();
+  });
+
+  it('metric cells show "—" when null', () => {
+    render(<StockTable stocks={[makeStock()]} />);
+    // Fwd P/E + EV/EBIT + EV/Sales + Val. + Zone all null → multiple dashes
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('Metric column shows "Fwd P/E" for B4 stock from code when no valuationState', () => {
+    render(<StockTable stocks={[makeStock({ active_code: '4AA', currentMultipleBasis: null })]} />);
+    // Fwd P/E appears in both the column header and the Metric cell for B4
+    expect(screen.getAllByText('Fwd P/E').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Metric column shows "EV/Sales" for B6 stock from code', () => {
+    render(<StockTable stocks={[makeStock({ active_code: '6BA', currentMultipleBasis: null })]} />);
+    expect(screen.getAllByText('EV/Sales').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Val. column shows stored currentMultiple for trailing_fallback basis (can\'t be re-derived)', () => {
+    // trailing_fallback means forward P/E was unavailable; stored trailing P/E should be used as-is
+    render(<StockTable stocks={[makeStock({ active_code: '4AA', currentMultiple: 25.3, currentMultipleBasis: 'trailing_fallback', forward_pe: null })]} />);
+    expect(screen.getByText('25.3×')).toBeInTheDocument();
+  });
+
+  it('Val. column falls back to forward_pe raw field when no valuationState', () => {
+    render(<StockTable stocks={[makeStock({ active_code: '4AA', forward_pe: 19.5, currentMultiple: null })]} />);
+    // 19.5× appears in static Fwd P/E column and Val. fallback column for B4
+    expect(screen.getAllByText('19.5×').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('TSR Hurdle column is not rendered (removed per spec)', () => {
     render(<StockTable stocks={[makeStock({ adjustedTsrHurdle: 11.0 })]} />);
-    expect(screen.getByText('11.0%')).toBeInTheDocument();
-  });
-
-  it('renders TSR Hurdle "—" when null', () => {
-    render(<StockTable stocks={[makeStock({ adjustedTsrHurdle: null })]} />);
-    const dashes = screen.getAllByText('—');
-    expect(dashes.length).toBeGreaterThan(0);
+    expect(screen.queryByText('TSR Hurdle')).not.toBeInTheDocument();
+    expect(screen.queryByText('11.0%')).not.toBeInTheDocument();
   });
 
   it('Zone column header is present', () => {
@@ -102,10 +134,120 @@ describe('EPIC-005/STORY-080: StockTable valuation zone columns', () => {
     expect(onSort).toHaveBeenCalledWith('valuationZone', 'desc');
   });
 
-  it('Multiple and TSR Hurdle column headers present', () => {
+  it('Fwd P/E, EV/EBIT, EV/Sales, Metric, Val. column headers present; no Sector or TSR Hurdle', () => {
     render(<StockTable stocks={[makeStock()]} />);
-    expect(screen.getByText('Multiple')).toBeInTheDocument();
-    expect(screen.getByText('TSR Hurdle')).toBeInTheDocument();
+    // Fwd P/E appears in both header and Metric cell for B4 default stock
+    expect(screen.getAllByText('Fwd P/E').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('EV/EBIT')).toBeInTheDocument();
+    // EV/Sales appears in both header and Metric cell if stock is B6/B7
+    expect(screen.getAllByText('EV/Sales').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Metric')).toBeInTheDocument();
+    expect(screen.getByText('Val.')).toBeInTheDocument();
+    expect(screen.queryByText('Sector')).not.toBeInTheDocument();
+    expect(screen.queryByText('TSR Hurdle')).not.toBeInTheDocument();
+  });
+});
+
+// ── STORY-082: effective_code drives badge, Metric label, and Val. value ──────
+
+describe('EPIC-005/STORY-082: effective_code demotion in badge, Metric, and Val. columns (Scenarios 8–9)', () => {
+  // Scenario 8: B6 low confidence → effective_code = 5BA → badge shows 5BA, Metric = EV/EBIT
+  it('Scenario 8 — B6 low confidence: badge shows demoted code 5BA', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '5BA',
+      confidence_level: 'low',
+    })]} />);
+    expect(screen.getByText('5BA')).toBeInTheDocument();
+    expect(screen.queryByText('6BA')).not.toBeInTheDocument();
+  });
+
+  it('Scenario 8 — B6 low confidence: Metric column shows EV/EBIT (demoted from EV/Sales)', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '5BA',
+      confidence_level: 'low',
+      currentMultipleBasis: null,
+      currentMultiple: null,
+      forward_ev_ebit: 14.0,
+    })]} />);
+    expect(screen.getAllByText('EV/EBIT').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('EV/Sales').length).toBe(1); // only header, not Metric cell
+  });
+
+  // Scenario 9: B6 medium confidence → effective_code = 6BA (no demotion) → badge shows 6BA
+  it('Scenario 9 — B6 medium confidence: badge shows 6BA (no demotion)', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '6BA',
+      confidence_level: 'medium',
+    })]} />);
+    expect(screen.getByText('6BA')).toBeInTheDocument();
+  });
+
+  it('Scenario 9 — B6 medium confidence: Metric column shows EV/Sales (no demotion)', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '6BA',
+      confidence_level: 'medium',
+      currentMultipleBasis: null,
+      currentMultiple: null,
+    })]} />);
+    expect(screen.getAllByText('EV/Sales').length).toBeGreaterThanOrEqual(2);
+  });
+
+  // Edge: B5 low → effective_code = 4AA → Metric = Fwd P/E
+  it('B5 low confidence: Metric column shows Fwd P/E (demoted from EV/EBIT)', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '5AA',
+      effective_code: '4AA',
+      confidence_level: 'low',
+      currentMultipleBasis: null,
+      currentMultiple: null,
+    })]} />);
+    expect(screen.getAllByText('Fwd P/E').length).toBeGreaterThanOrEqual(2);
+  });
+
+  // Edge: floor — B1 low confidence → effective_code = 1AA (no change)
+  it('B1 low confidence: floor holds — badge still shows 1AA', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '1AA',
+      effective_code: '1AA',
+      confidence_level: 'low',
+      currentMultipleBasis: null,
+      currentMultiple: null,
+    })]} />);
+    expect(screen.getByText('1AA')).toBeInTheDocument();
+    expect(screen.getAllByText('Fwd P/E').length).toBeGreaterThanOrEqual(1);
+  });
+
+  // Val. value uses effective_code bucket field
+  it('Val. value uses EV/EBIT field for B6 low confidence (effective_code = 5BA)', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '5BA',
+      confidence_level: 'low',
+      currentMultipleBasis: null,
+      currentMultiple: null,
+      forward_ev_ebit: 14.2,
+      ev_sales: 6.5,
+    })]} />);
+    expect(screen.getAllByText('14.2×').length).toBeGreaterThanOrEqual(1);
+  });
+
+  // Scenario 12: stale stored currentMultiple (spot basis) — must use raw field via effective_code
+  it('Scenario 12 — B6 low confidence with stale spot-basis currentMultiple uses EV/EBIT raw field', () => {
+    render(<StockTable stocks={[makeStock({
+      active_code: '6BA',
+      effective_code: '5BA',
+      confidence_level: 'low',
+      currentMultipleBasis: 'spot',
+      currentMultiple: 9.7,
+      forward_ev_ebit: 22.1,
+      ev_sales: 9.7,
+    })]} />);
+    expect(screen.getAllByText('22.1×').length).toBeGreaterThanOrEqual(2); // EV/EBIT col + Val. col
+    expect(screen.getAllByText('9.7×').length).toBe(1); // EV/Sales col only
   });
 });
 

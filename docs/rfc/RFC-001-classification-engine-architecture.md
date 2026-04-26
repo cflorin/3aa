@@ -158,7 +158,8 @@ interface ClassificationInput {
   ticker: string;
   fundamentals: FundamentalFields;
   flags: ClassificationFlags;
-  enrichment?: ClassificationEnrichmentScores; // E1–E6 qualitative scores (EPIC-003.1)
+  enrichment?: ClassificationEnrichmentScores;  // E1–E6 qualitative scores (EPIC-003.1)
+  trend_metrics?: ClassificationTrendMetrics;   // Quarterly-history-derived trend fields (RFC-008)
 }
 
 interface FundamentalFields {
@@ -215,6 +216,64 @@ interface ClassificationEnrichmentScores {
   margin_durability_score?: number;       // 1=commodity pressure, 5=structurally protected
   capital_intensity_score?: number;       // 1=asset-light, 5=heavy capex
   qualitative_cyclicality_score?: number; // 1=counter-cyclical, 5=highly cyclical
+}
+
+/**
+ * ClassificationTrendMetrics — quarterly-history-derived trend/trajectory fields from RFC-008.
+ * Populated via stock_derived_metrics JOIN in toClassificationInput() after EPIC-003 quarterly
+ * history stories are complete. All fields are optional — scorers degrade gracefully when absent.
+ * When quarters_available < 4, all numeric trend fields will be null.
+ */
+interface ClassificationTrendMetrics {
+  // Availability indicator
+  quarters_available?: number;
+
+  // TTM from quarterly history (preferred over provider snapshot when present)
+  revenue_ttm_qhist?: number;
+  operating_income_ttm_qhist?: number;
+  net_income_ttm_qhist?: number;
+  free_cash_flow_ttm_qhist?: number;
+  cfo_to_net_income_ratio_ttm?: number;
+
+  // Margin trajectory (numeric slopes in pp over window)
+  operating_margin_trend_4q?: number;
+  operating_margin_trend_8q?: number;
+  gross_margin_trend_4q?: number;
+  fcf_margin_trend_4q?: number;
+  fcf_margin_trend_8q?: number;
+  cfo_margin_trend_4q?: number;
+
+  // Margin stability (0.0–1.0; 1.0 = perfectly stable)
+  gross_margin_stability_score?: number;
+  operating_margin_stability_score?: number;
+  fcf_margin_stability_score?: number;
+  cfo_to_net_income_stability_score?: number;
+
+  // Operating leverage
+  operating_leverage_ratio_4q?: number;
+  operating_leverage_ratio_8q?: number;
+  gross_profit_drop_through_4q?: number;
+  operating_leverage_emerging_flag?: boolean;
+  operating_margin_expansion_flag?: boolean;
+  operating_income_acceleration_flag?: boolean;
+
+  // Earnings quality trend
+  fcf_conversion_trend_4q?: number;
+  fcf_conversion_trend_8q?: number;
+  earnings_quality_trend_score?: number;    // −1.0 to +1.0
+  cash_earnings_support_flag?: boolean;
+  deteriorating_cash_conversion_flag?: boolean;
+
+  // Dilution and SBC
+  diluted_share_growth_1y?: number;
+  diluted_share_growth_3y?: number;
+  sbc_burden_score?: number;
+  material_dilution_trend_flag?: boolean;
+
+  // Capital intensity
+  capex_intensity_trend_4q?: number;
+  reinvestment_burden_signal?: boolean;
+  maintenance_capital_burden_proxy?: number;
 }
 
 /** @deprecated Use ClassificationFlags instead */
@@ -706,6 +765,46 @@ logger.warn('classification.low_confidence', {
 Provider = "manual" recorded in `dataProviderProvenance`. Manual override takes precedence over any auto-detected value.
 
 **Related:** ADR-012, RFC-007
+
+## Amendment — 2026-04-25: Quarterly History Integration (RFC-008)
+
+### ClassificationInput expansion
+
+`ClassificationInput` gains a new optional field `trend_metrics?: ClassificationTrendMetrics` (interface defined above). Populated via a JOIN to `stock_derived_metrics` in `toClassificationInput()`. When `stock_derived_metrics` has no row for the ticker, `trend_metrics` is `undefined` — all scorers treat absent trend metrics as graceful degradation (no errors, no fabricated values).
+
+### Earnings Quality Scorer revision (pending RFC-008 implementation)
+
+The current EQ scorer (EPIC-004 stories) uses point-in-time proxy signals. Once quarterly history is live, the EQ scorer will be revised to:
+
+| Signal | Current (interim) | Future (quarterly-derived) |
+|---|---|---|
+| FCF quality | `fcf_conversion` point-in-time | `fcf_conversion_trend_4q`, `cash_earnings_support_flag` |
+| Margin stability | `net_margin` point-in-time | `operating_margin_stability_score`, `fcf_margin_stability_score` |
+| Earnings reliability | `EQ_EPS_DECLINING`, spread proxies | `earnings_quality_trend_score`, `deteriorating_cash_conversion_flag` |
+| SBC/dilution | `material_dilution_flag` (annual) | `sbc_burden_score`, `material_dilution_trend_flag` (quarterly) |
+| Operating leverage | `pre_operating_leverage_flag` (static) | `operating_leverage_emerging_flag`, `operating_margin_expansion_flag` |
+
+The proxy signals (`EQ_EPS_DECLINING`, `EQ_EPS_REV_SPREAD_MODERATE/SEVERE` added 2026-04-25) are retained as fallback when `quarters_available < 4`. They are NOT kept alongside quarterly signals when quarterly data is available.
+
+### Bucket Scorer input expansion (pending RFC-008 implementation)
+
+The bucket scorer may use quarterly-derived growth context:
+- `revenue_ttm_qhist` as a fiscal-calendar-aware alternative to FMP-sourced revenue snapshot
+- `operating_leverage_ratio_4q/8q` as supporting signals for Bucket 4/5 tie-break decisions
+- Forward estimate plausibility check against 4-quarter revenue trend slope
+
+Forward estimates remain primary for Buckets 1–4; quarterly trend context is a supporting signal.
+
+### Confidence Computer revision
+
+A new Step 5 (trajectory quality penalty) is added after the existing 4-step confidence computation. See ADR-014 Amendment 2026-04-25 for the full trajectory quality penalty rules. When `trend_metrics` is absent, Step 5 is skipped.
+
+### shouldRecompute new trigger
+
+`shouldRecompute` gains a third trigger type: `quarterly_data_updated`. Fired when `stock_derived_metrics.derived_as_of` for the ticker is newer than `classification_state.classification_last_updated_at` — i.e., the derived metrics were refreshed after the last classification run. No extra flag column needed; the comparison is a timestamp query. See ADR-016.
+
+### Related
+RFC-008 (full quarterly history architecture), ADR-015 (storage), ADR-016 (cadence), ADR-013 Amendment 2026-04-25 (interim EQ proxy signals), ADR-014 Amendment 2026-04-25 (trajectory confidence)
 
 ---
 

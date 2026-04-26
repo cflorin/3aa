@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-047: Classification Recompute Batch Job
 // TASK-047-003: runClassificationBatch — iterate all in-universe stocks, classify, persist
+// STORY-065: Added quarterly_data_updated trigger (ADR-016 §shouldRecompute Extension)
 // RFC-001 §Classification Batch Job; ADR-002 (8 PM ET pipeline); ADR-013
 
 import { prisma } from '@/infrastructure/database/prisma';
@@ -32,13 +33,25 @@ export async function runClassificationBatch(opts: { tickerFilter?: string; forc
     orderBy: { ticker: 'asc' },
   });
 
+  // Pre-fetch derived metrics timestamps to detect quarterly_data_updated trigger (ADR-016)
+  const derivedMetrics = await prisma.stockDerivedMetrics.findMany({
+    where: { ticker: { in: stocks.map(s => s.ticker) } },
+    select: { ticker: true, derivedAsOf: true },
+  });
+  const derivedAsOfMap = new Map(derivedMetrics.map(r => [r.ticker, r.derivedAsOf]));
+
   for (const stock of stocks) {
     try {
       const current: ClassificationInput = toClassificationInput(stock);
       const state = await getClassificationState(stock.ticker);
       const previous = (state?.input_snapshot as ClassificationInput | null | undefined) ?? null;
 
-      if (opts.force || shouldRecompute(current, previous)) {
+      // Quarterly trigger: reclassify when new earnings data is newer than last classification
+      const derivedAsOf = derivedAsOfMap.get(stock.ticker) ?? null;
+      const classifiedAt = state?.updated_at ?? null;
+      const quarterlyDataUpdated = derivedAsOf != null && classifiedAt != null && derivedAsOf > classifiedAt;
+
+      if (opts.force || shouldRecompute(current, previous, { quarterlyDataUpdated })) {
         const result = classifyStock(current);
         await persistClassification(stock.ticker, result, current);
         recomputed++;

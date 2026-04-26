@@ -59,6 +59,9 @@ export interface ValuationInput {
   // Resolved active code: final_code if user has override, else suggested_code
   activeCode: string;
 
+  // STORY-082: Classification confidence — drives effective bucket demotion (RFC-003 §Confidence-Based Effective Bucket)
+  confidenceLevel?: 'high' | 'medium' | 'low' | null;
+
   // Optional manual overrides (applied by caller before passing in)
   primaryMetricOverride?: PrimaryMetric;
   forwardOperatingEarningsExExcessCash?: number | null;
@@ -93,6 +96,8 @@ export interface ThresholdAdjustment {
 
 export interface ValuationResult {
   activeCode: string;
+  // STORY-082: effectiveCode may differ from activeCode when confidence is low (bucket demoted by 1)
+  effectiveCode: string;
   primaryMetric: PrimaryMetric;
   metricReason: string;
 

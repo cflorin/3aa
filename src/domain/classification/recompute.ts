@@ -1,6 +1,7 @@
 // EPIC-004: Classification Engine & Universe Screen
 // STORY-047: Classification Recompute Batch Job
 // TASK-047-001: shouldRecompute — determines if a stock needs reclassification
+// STORY-065: Extended with quarterly_data_updated trigger (ADR-016 §shouldRecompute Extension)
 // RFC-001 §shouldRecompute; ADR-013 (5% threshold per 2026-04-23 user decision)
 
 import type { ClassificationInput } from './types';
@@ -21,10 +22,19 @@ const NUMERIC_FIELDS = [
   'eps_growth_fwd',
 ] as const satisfies ReadonlyArray<keyof ClassificationInput>;
 
+// Pre-evaluated quarterly data trigger — batch orchestrator compares derived_as_of > classified_at
+export interface ShouldRecomputeOpts {
+  quarterlyDataUpdated?: boolean;
+}
+
 export function shouldRecompute(
   current: ClassificationInput,
   previous: ClassificationInput | null,
+  opts?: ShouldRecomputeOpts,
 ): boolean {
+  // Quarterly data trigger: new earnings data warrants reclassification
+  if (opts?.quarterlyDataUpdated) return true;
+
   if (previous === null) return true;
 
   for (const field of NUMERIC_FIELDS) {

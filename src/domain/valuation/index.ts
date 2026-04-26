@@ -2,7 +2,7 @@
 // STORY-075: Valuation Engine Domain Layer
 // Public API for the valuation domain — all pure functions, no I/O
 
-export { computeValuation } from './compute-valuation';
+export { computeValuation, deriveEffectiveCode } from './compute-valuation';
 export { shouldRecompute } from './should-recompute';
 export { selectMetric, parseBucket } from './metric-selector';
 export { assignThresholds } from './threshold-assigner';

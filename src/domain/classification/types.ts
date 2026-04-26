@@ -3,7 +3,61 @@
 // TASK-041-001: ClassificationInput interface and BucketScorerOutput interface
 // STORY-043: TASK-043-001: ClassificationResult, ConfidenceStep, TieBreakRecord interfaces
 // STORY-044: TASK-044-003: ClassificationState, ClassificationHistoryRow interfaces
+// STORY-065: ClassificationTrendMetrics, RecomputeTrigger
 // RFC-001 §ClassificationResult, §Classification State, §Classification History; ADR-013; ADR-014
+// RFC-001 Amendment 2026-04-25: ClassificationTrendMetrics; ADR-016 §shouldRecompute Extension
+
+// ── Quarterly trend metrics (from stock_derived_metrics) — all optional ──────
+// STORY-065: Populated by toClassificationInput when a stock_derived_metrics row exists.
+export interface ClassificationTrendMetrics {
+  quartersAvailable?: number | null;
+  // TTM rollups
+  revenueTtm?: number | null;
+  grossProfitTtm?: number | null;
+  operatingIncomeTtm?: number | null;
+  netIncomeTtm?: number | null;
+  capexTtm?: number | null;
+  cashFromOperationsTtm?: number | null;
+  freeCashFlowTtm?: number | null;
+  shareBasedCompensationTtm?: number | null;
+  depreciationAndAmortizationTtm?: number | null;
+  // TTM margin ratios
+  grossMarginTtm?: number | null;
+  operatingMarginTtm?: number | null;
+  netMarginTtm?: number | null;
+  fcfMarginTtm?: number | null;
+  sbcAsPctRevenueTtm?: number | null;
+  cfoToNetIncomeRatioTtm?: number | null;
+  // Trajectory slopes (pp per quarter)
+  grossMarginSlope4q?: number | null;
+  operatingMarginSlope4q?: number | null;
+  netMarginSlope4q?: number | null;
+  grossMarginSlope8q?: number | null;
+  operatingMarginSlope8q?: number | null;
+  netMarginSlope8q?: number | null;
+  // Stability scores [0, 1]
+  operatingMarginStabilityScore?: number | null;
+  grossMarginStabilityScore?: number | null;
+  netMarginStabilityScore?: number | null;
+  // Operating leverage
+  operatingLeverageRatio?: number | null;
+  operatingIncomeAccelerationFlag?: boolean | null;
+  operatingLeverageEmergingFlag?: boolean | null;
+  // Earnings quality
+  earningsQualityTrendScore?: number | null;
+  deterioratingCashConversionFlag?: boolean | null;
+  // Dilution & SBC
+  dilutedSharesOutstandingChange4q?: number | null;
+  dilutedSharesOutstandingChange8q?: number | null;
+  materialDilutionTrendFlag?: boolean | null;
+  sbcBurdenScore?: number | null;
+  // Capital intensity
+  capexToRevenueRatioAvg4q?: number | null;
+  capexIntensityIncreasingFlag?: boolean | null;
+}
+
+// Identifies WHY a classification recompute was triggered — STORY-065; ADR-016
+export type RecomputeTrigger = 'fundamental_change' | 'flag_change' | 'quarterly_data_updated';
 
 // All numeric fields stored as decimal fractions (0.10 = 10%). Mirrors Prisma @map() names.
 export interface ClassificationInput {
@@ -43,6 +97,9 @@ export interface ClassificationInput {
   optionality_flag: boolean | null;
   binary_flag: boolean | null;
   pre_operating_leverage_flag: boolean | null;
+
+  // Optional quarterly trend metrics — populated when stock_derived_metrics row exists (STORY-065)
+  trend_metrics?: ClassificationTrendMetrics;
 }
 
 export type BucketNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -86,12 +143,13 @@ export interface TieBreakRecord {
 
 // Full output of classifyStock — consumed by STORY-044 persistence and STORY-045+ query functions
 // RFC-001 §ClassificationResult; ADR-014 §Confidence Computation
+// STORY-083: rawSuggestedCode / rawConfidenceLevel / confidenceFloorApplied added for confidence-floor audit
 export interface ClassificationResult {
-  suggested_code: string | null;                // "4AA", "8", or null when data too sparse
-  bucket: BucketNumber | null;                  // null only when missing_field_count > 5
+  suggested_code: string | null;                // "4AA", "8", or null when data too sparse (post-floor)
+  bucket: BucketNumber | null;                  // null only when missing_field_count > 5 (post-floor)
   eq_grade: GradeLevel | null;                  // null for Bucket 8 or all-null EQ input
   bs_grade: GradeLevel | null;                  // null for Bucket 8 or all-null BS input
-  confidence_level: 'high' | 'medium' | 'low'; // NEVER null (ADR-014 §Confidence invariant)
+  confidence_level: 'high' | 'medium' | 'low'; // NEVER null (ADR-014 §Confidence invariant); post-floor
   reason_codes: string[];                       // union of all scorer + tie-break + flag codes
   scores: {
     bucket: Record<BucketNumber, number>;
@@ -101,18 +159,26 @@ export interface ClassificationResult {
   missing_field_count: number;
   confidenceBreakdown: { steps: ConfidenceStep[] }; // always ≥ 1 step
   tieBreaksFired: TieBreakRecord[];               // empty array (never null) when no tie-breaks
+  // STORY-083: confidence-floor audit fields (present only when floor search was applied)
+  rawSuggestedCode?: string | null;             // pre-floor code (same as suggested_code when no floor applied)
+  rawConfidenceLevel?: 'low' | null;            // always 'low' when confidenceFloorApplied is true
+  confidenceFloorApplied?: boolean;             // true when floor search changed the final bucket
 }
 
 // ── STORY-044: Persistence types ─────────────────────────────────────────────
 // RFC-001 §Classification State; ADR-007 (hybrid shared/per-user state)
 
 // Shape of the `scores` JSONB column in classification_state — combines scorer outputs + audit trail
+// STORY-083: rawSuggestedCode / rawConfidenceLevel / confidenceFloorApplied added (no migration needed — JSONB)
 export interface ClassificationScoresPayload {
   bucket: Record<BucketNumber, number>;
   eq: Record<GradeLevel, number>;
   bs: Record<GradeLevel, number>;
   confidenceBreakdown: { steps: ConfidenceStep[] };
   tieBreaksFired: TieBreakRecord[];
+  rawSuggestedCode?: string | null;   // pre-floor code; present only when floor was applied
+  rawConfidenceLevel?: 'low' | null;  // always 'low' when confidenceFloorApplied is true
+  confidenceFloorApplied?: boolean;   // true when floor search changed the bucket
 }
 
 // Hydrated row from classification_state (one per ticker, system-wide)

@@ -1,0 +1,219 @@
+Using the frozen V1 baseline (PRD + accepted RFCs + accepted ADRs + platform/deployment decisions) and the validated epic specs, write the **user stories for one epic only**.
+
+## Epic to process
+[EPIC]
+
+Important:
+- Process **only this one epic**
+- Do NOT generate stories for other epics
+- Do NOT create implementation tasks yet
+- Do NOT create implementation sequencing or sprint planning yet
+- Do NOT silently reinterpret the architecture baseline
+- Stay strictly within frozen V1 scope
+- Be rigorous about automated testing and regression protection
+
+## Authority
+You remain the final technical decision-maker.
+However, story writing must conform to the frozen baseline and validated epic boundaries.
+If you believe a story boundary requires changing an epic or architecture assumption, stop and ask before changing it.
+
+## Scope reminder
+V1 product loop:
+classify → value → monitor → alert → inspect
+
+Still out of scope:
+- manual TSR in screening/alerts
+- portfolio construction
+- entry permission / stabilization
+- decision journaling in the monitoring loop
+- execution workflows
+
+## Repository / folder structure
+Use this repository structure:
+
+/docs
+  /prd
+  /rfc
+  /adr
+  /architecture
+  /runbooks
+
+/specs
+  /engines
+  /schemas
+  /contracts
+
+/stories
+  /epics
+  /tasks
+
+/tests
+  /bdd
+  /integration
+  /e2e
+
+/src
+  /domain
+  /application
+  /infrastructure
+  /ui
+
+## Where story documentation should be written
+Because there is no separate `/stories/stories/` directory in the current structure, write story docs for this epic under:
+
+- `/stories/tasks/[EPIC-FOLDER]/`
+
+Example:
+- `/stories/tasks/EPIC-004-classification-engine/STORY-001-....md`
+- `/stories/tasks/EPIC-004-classification-engine/STORY-002-....md`
+
+If you believe a separate `/stories/stories/` folder would be materially better, do **not** change the structure silently; ask first.
+
+## What I want
+1. Decompose this one epic into the minimum sensible set of user stories
+2. Keep stories small enough to implement safely, but large enough to be meaningful
+3. Make testing and regression protection first-class in every story
+4. Ensure each story is explicitly traceable to:
+   - the epic
+   - PRD
+   - RFC(s)
+   - ADR(s)
+5. Make story boundaries clear enough that tasks can later be generated without inventing scope
+
+## Story-writing rules
+- Prefer one clear capability per story
+- Do not let stories sprawl across multiple architectural concerns unless necessary
+- Be explicit about what is in and out
+- Do not create “catch-all” stories
+- Do not create tasks yet
+- Do not generate BDD feature files yet, but make each story ready for later BDD decomposition
+- Each story must make it obvious how future automated tests will protect against regressions
+
+## Required testing posture
+Every story must explicitly support later derivation of:
+- unit tests
+- integration tests
+- contract/schema tests where relevant
+- BDD acceptance tests
+- e2e tests where relevant
+
+Every story must explicitly identify what must not break later, including where relevant:
+- workflow semantics
+- data/state semantics
+- user isolation
+- provider/fallback behavior
+- audit trail integrity
+- alert behavior
+- nightly batch behavior
+- auth/session semantics
+- UI-state behavior
+
+## Standard story spec format
+For each story, use exactly this structure:
+
+# STORY-XXX — [Story Name]
+
+## Epic
+EPIC-XXX — [Epic Name]
+
+## Purpose
+[Why this story exists and what capability it enables.]
+
+## Story
+As a [user/system],
+I want [capability],
+so that [outcome].
+
+## Outcome
+[What must be true when this story is complete.]
+
+## Scope In
+- ...
+- ...
+- ...
+
+## Scope Out
+- ...
+- ...
+- ...
+
+## Dependencies
+- Epic: ...
+- PRD: ...
+- RFCs: ...
+- ADRs: ...
+- Upstream stories: ...
+
+## Preconditions
+- ...
+- ...
+
+## Inputs
+- ...
+- ...
+
+## Outputs
+- ...
+- ...
+
+## Acceptance Criteria
+- [ ] ...
+- [ ] ...
+- [ ] ...
+
+## Test Strategy Expectations
+- Unit tests:
+  - ...
+- Integration tests:
+  - ...
+- Contract/schema tests:
+  - ...
+- BDD acceptance tests:
+  - ...
+- E2E tests (if relevant):
+  - ...
+
+## Regression / Invariant Risks
+- ...
+- ...
+- ...
+
+## Key Risks / Edge Cases
+- ...
+- ...
+- ...
+
+## Definition of Done
+- [ ] Capability implemented
+- [ ] Tests added and passing
+- [ ] Regression coverage added for changed behavior
+- [ ] Docs/specs updated if needed
+- [ ] Telemetry/logging added where relevant
+- [ ] Migrations/backfills included if needed
+- [ ] Traceability links recorded
+
+## Traceability
+- Epic: ...
+- PRD: ...
+- RFC: ...
+- ADR: ...
+
+## What I want in the response
+Return exactly these sections:
+
+### A. Proposed story set for this epic
+- epic ID and name
+- list of proposed story IDs and names only
+
+### B. Story files to create
+List the exact files you propose to create under `/stories/tasks/[EPIC-FOLDER]/`
+
+### C. Full story specs
+Document each story using the exact standard format above
+
+### D. Story-boundary questions
+List the specific story-boundary decisions I should validate for this epic before we go further into tasks
+
+### E. Stop point
+Stop after the story specs for this epic only.
+Do not generate tasks, BDD feature files, or implementation order yet.

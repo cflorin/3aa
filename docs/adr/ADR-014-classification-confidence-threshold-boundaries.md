@@ -11,9 +11,10 @@
 
 RFC-001 §Confidence Computation requires the classifier to emit a `confidence_level` of `high`, `medium`, or `low`, and `null` classification when data is too sparse to suggest a code. RFC-001 originally referenced `ADR-002: Confidence Threshold Boundaries` for the exact boundary values — but that document does not exist in this repository (existing ADR-002 covers nightly batch orchestration). This ADR fills that gap.
 
-The confidence signal has two consumers:
+The confidence signal has three consumers:
 1. **Display:** Universe screen shows `high`/`medium`/`low` badge; users understand how much to trust the system suggestion.
 2. **Alert system (EPIC-006):** Alerts should not fire on `low`-confidence stocks without user review. High-confidence stocks can be acted on with less friction.
+3. **Valuation metric demotion (EPIC-005 amendment, 2026-04-26):** When `confidence_level = 'low'`, the valuation engine uses an effective bucket of `bucket − 1` (floor 1) for metric selection and threshold derivation. See RFC-003 §Confidence-Based Effective Bucket.
 
 Confidence is a function of three inputs:
 - **Score separation (margin):** winning bucket score minus second-highest bucket score (from ADR-013 weights)
@@ -79,7 +80,23 @@ if missing_field_count > 5:
 | 3–4 | Degrade one level |
 | 5 | Force `low` |
 
-**Step 5 — Final confidence = result after all penalties applied.**
+**Step 5 — Trajectory quality penalty (requires RFC-008 quarterly history layer):**
+
+When `stock_derived_metrics` is populated for a stock:
+
+| Condition | Penalty |
+|---|---|
+| `quarters_available < 4` | Force `low` (insufficient trend history) |
+| `quarters_available < 8` | Cap at `medium` (4-quarter trends available, 8-quarter trends NULL) |
+| `operating_margin_stability_score < 0.40` | Degrade one level (highly volatile margins) |
+| `deteriorating_cash_conversion_flag = true` AND (`suggested_eq IN ('A', 'B')`) | Degrade one level (classification not supported by cash trend) |
+| `earnings_quality_trend_score < -0.50` | Degrade one level (strongly deteriorating quality) |
+
+When `stock_derived_metrics` is NULL or not yet populated for a stock (quarterly history not yet available):
+- Step 5 is skipped entirely; steps 1–4 apply as before.
+- This ensures backwards compatibility during the EPIC-003 quarterly history rollout.
+
+**Step 6 — Final confidence = result after all penalties applied.**
 
 ### Summary Table (representative cases)
 
@@ -153,10 +170,69 @@ A tie-break means the scoring algorithm alone couldn't resolve the winner — th
 
 ---
 
+## Amendment: Valuation Metric Demotion (2026-04-26)
+
+The third consumer of `confidence_level` was added in EPIC-005. The rule is fully specified in RFC-003 §Confidence-Based Effective Bucket. Key points:
+
+- Demotion applies only to `low` confidence; `medium` and `high` use the original bucket unchanged.
+- Demotion shifts the **valuation metric and threshold derivation** only — the persisted `active_code` and `suggested_code` are not modified.
+- The stock detail Classification tab shows a demotion indicator when `effectiveCode !== activeCode`.
+- The floor is bucket 1; a stock already in bucket 1 with low confidence does not demote further.
+
+---
+
+## Amendment: Confidence-Floor Bucket Selection (2026-04-26)
+
+**STORY-083: Confidence-Floor Bucket Selection**
+
+The classification engine must never persist a `low`-confidence classification when a lower bucket with at least `medium` confidence is available. The rule: if the initial winning bucket produces `low` confidence, iterate downward through remaining candidate buckets (by score rank) until a bucket achieving at least `medium` confidence is found. That bucket becomes `suggested_code`.
+
+### Algorithm
+
+Executed in `classifyStock()` immediately after step 5 (confidence computation), before step 6 (code assembly):
+
+1. **Gate:** only runs when `confidence_level === 'low'` AND `finalBucket ∉ {null, 8}` AND `binary_flag !== true`.
+2. **Save raw result:** capture `rawSuggestedCode` (pre-floor code) and `rawConfidenceLevel = 'low'` for audit/UI.
+3. **Iterative search:** maintain a set of excluded buckets (initially `{finalBucket}`):
+   a. Set excluded bucket scores to `-Infinity` in a copy of `bucketResult.scores`.
+   b. Re-run `resolveTieBreaks()` on the modified scores.
+   c. If no candidate returned (or candidate is bucket 8), stop — no floor available.
+   d. Compute `candidateMargin = candidateScore − secondBestScore` (among non-excluded buckets).
+   e. Re-run `computeConfidence(candidateMargin, candidateTieBreaks.length, missing, …)`.
+   f. If `candidateConf !== 'low'` → accept candidate: update `finalBucket`, `tieBreaksFired`, `confidence_level`, `steps`; set `confidenceFloorApplied = true`; **break**.
+   g. Otherwise, add candidate to excluded set and repeat (max 6 iterations).
+4. If no medium-or-better bucket found after all iterations, the original low-confidence bucket is retained.
+
+### Bucket 8 and binary_flag exemption
+
+Bucket 8 (`binary_risk`) is exempt: these stocks genuinely lack stable metrics and should not be force-mapped to a lower bucket. Stocks with `binary_flag = true` are also exempt (they are forced to B8 by the override rule).
+
+### Audit fields added to ClassificationResult
+
+| Field | Type | Meaning |
+|---|---|---|
+| `rawSuggestedCode` | `string \| null` | Code before floor search (set when floor was applied) |
+| `rawConfidenceLevel` | `'low' \| null` | Always `'low'` when floor was applied; null otherwise |
+| `confidenceFloorApplied` | `boolean` | True when floor search changed the final bucket |
+
+These fields are persisted in the `scores` JSONB column alongside `tieBreaksFired` and `confidenceBreakdown`. No schema migration required.
+
+### UI impact
+
+The stock detail Classification tab shows the raw-to-floor transition when `confidenceFloorApplied = true`:
+- Raw (pre-floor): `rawSuggestedCode` with `low` confidence label
+- Arrow →
+- Final (post-floor): `suggested_code` with actual `confidence_level` badge
+
+---
+
 ## Traceability
 
 - RFC-001 §Confidence Computation
+- RFC-003 §Confidence-Based Effective Bucket (amendment 2026-04-26)
 - `docs/prd/3_aa_rules_engine_spec_auto_suggestion_v_1.md` §Stage 3
 - EPIC-004 §Confidence invariants: "confidence='low' when missing >5 critical fields, high when score separation >3"
+- EPIC-005 STORY-082: Confidence-Based Valuation Metric Demotion
+- EPIC-005 STORY-083: Confidence-Floor Bucket Selection
 - ADR-013 (scoring weights — calibration depends on weight values)
 - ADR-004 (rules-first classification, conservative defaults)

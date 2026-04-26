@@ -20,6 +20,7 @@ export interface ShareCountSyncResult {
 
 export async function syncShareCount(
   fmpAdapter: FMPAdapter,
+  opts?: { tickerFilter?: string },
 ): Promise<ShareCountSyncResult> {
   let updated = 0;
   let skipped = 0;
@@ -27,8 +28,11 @@ export async function syncShareCount(
 
   console.log(JSON.stringify({ event: 'share_count_sync_start' }));
 
+  const where: { inUniverse: boolean; ticker?: string } = { inUniverse: true };
+  if (opts?.tickerFilter) where.ticker = opts.tickerFilter;
+
   const stocks = await prisma.stock.findMany({
-    where: { inUniverse: true },
+    where,
     select: { ticker: true },
   });
 

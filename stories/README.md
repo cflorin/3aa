@@ -165,6 +165,9 @@ Story specs: `stories/tasks/EPIC-005-valuation-threshold-engine/`
 | STORY-079 | Stock Detail Page: Valuation Tab (zone badge, threshold gauge, TSR hurdle, override panel) | ready |
 | STORY-080 | Universe Screen: Valuation Zone Column & Filters | ready |
 | STORY-081 | EPIC-005 Regression & Integration Tests (golden-set, BDD acceptance, cross-epic, schema contract) | ready |
+| STORY-082 | Confidence-Based Valuation Metric Demotion | ready |
+| STORY-083 | Confidence-Floor Bucket Selection | ✅ done |
+| STORY-084 | Recompute Classification — Admin API & Universe Screen Button | ✅ done |
 
 ---
 

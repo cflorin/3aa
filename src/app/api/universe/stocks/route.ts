@@ -119,6 +119,9 @@ export async function POST(req: NextRequest) {
               inUniverse: true,
               universeStatusChangedAt: new Date(),
               companyName: metadata.company_name,
+              ...(metadata.sector      ? { sector: metadata.sector }           : {}),
+              ...(metadata.industry    ? { industry: metadata.industry }       : {}),
+              ...(metadata.description ? { description: metadata.description } : {}),
             },
           });
         } else {
@@ -129,6 +132,9 @@ export async function POST(req: NextRequest) {
               country: 'US',
               inUniverse: true,
               universeStatusChangedAt: new Date(),
+              ...(metadata.sector      ? { sector: metadata.sector }           : {}),
+              ...(metadata.industry    ? { industry: metadata.industry }       : {}),
+              ...(metadata.description ? { description: metadata.description } : {}),
             },
           });
         }
@@ -138,15 +144,16 @@ export async function POST(req: NextRequest) {
         emit({ stage: 'fundamentals', label: 'Fetching fundamentals…', step: 3, total: TOTAL_STAGES });
         await syncFundamentals(tiingo, fmp, { tickerFilter: ticker });
 
-        // Stage 4: estimates
-        currentStage = 'estimates';
-        emit({ stage: 'estimates', label: 'Fetching forward estimates…', step: 4, total: TOTAL_STAGES });
-        await syncForwardEstimates(fmp, tiingo, { tickerFilter: ticker });
-
-        // Stage 5: metrics (market cap, EV, trailing multiples)
+        // Stage 4: metrics (market cap, EV, trailing multiples) — must precede estimates
+        // forward ratio computation (stage 5) requires currentPrice and marketCap from DB
         currentStage = 'metrics';
-        emit({ stage: 'metrics', label: 'Computing metrics…', step: 5, total: TOTAL_STAGES });
+        emit({ stage: 'metrics', label: 'Computing metrics…', step: 4, total: TOTAL_STAGES });
         await syncMarketCapAndMultiples(fmp, { tickerFilter: ticker });
+
+        // Stage 5: estimates — runs after metrics so currentPrice/marketCap are available
+        currentStage = 'estimates';
+        emit({ stage: 'estimates', label: 'Fetching forward estimates…', step: 5, total: TOTAL_STAGES });
+        await syncForwardEstimates(fmp, tiingo, { tickerFilter: ticker });
 
         // Stage 6: share count growth
         currentStage = 'share_count';

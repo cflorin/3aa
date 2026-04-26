@@ -32,8 +32,15 @@ export interface UniverseStockSummary {
   net_debt_to_ebitda: number | null;
   is_active: boolean;
   active_code: string | null;
+  // STORY-082: effective_code is the confidence-demoted code (bucket-1 when low, no user override).
+  // This is what the user SEES and what drives metric/threshold selection.
+  effective_code: string | null;
   confidence_level: string | null;
   trend?: UniverseTrendMetrics; // only present when includeTrend=true
+  // Raw valuation metrics from stock record
+  forward_pe: number | null;
+  forward_ev_ebit: number | null;
+  ev_sales: number | null;
   // Valuation fields (STORY-080) — always present; null when no valuation_state row
   valuationZone: string | null;
   currentMultiple: number | null;
@@ -122,6 +129,9 @@ function makeStockSelect(userId: string, includeTrend = false) {
     operatingMargin: true,
     fcfConversion: true,
     netDebtToEbitda: true,
+    forwardPe: true,
+    forwardEvEbit: true,
+    evSales: true,
     classificationState: { select: { suggestedCode: true, confidenceLevel: true } },
     userClassificationOverrides: { where: { userId }, select: { finalCode: true } },
     userDeactivatedStocks: { where: { userId }, select: { userId: true } },
@@ -160,6 +170,9 @@ type StockSelectRow = {
   operatingMargin: { toString(): string } | null;
   fcfConversion: { toString(): string } | null;
   netDebtToEbitda: { toString(): string } | null;
+  forwardPe: { toString(): string } | null;
+  forwardEvEbit: { toString(): string } | null;
+  evSales: { toString(): string } | null;
   classificationState: { suggestedCode: string | null; confidenceLevel: string } | null;
   userClassificationOverrides: { finalCode: string }[];
   userDeactivatedStocks: { userId: string }[];
@@ -180,9 +193,22 @@ type StockSelectRow = {
   } | null;
 };
 
+// STORY-082: when confidence is low, demote system code by one bucket (floor 1, bucket 8 exempt).
+// User overrides are never demoted — the user explicitly chose that bucket.
+function deriveDisplayCode(code: string | null, confidence: string | null): string | null {
+  if (!code || confidence !== 'low') return code;
+  const bucket = parseInt(code[0], 10);
+  if (bucket === 8 || bucket <= 1) return code;
+  return `${bucket - 1}${code.slice(1)}`;
+}
+
 function mapRow(row: StockSelectRow): UniverseStockSummary {
   const systemCode = row.classificationState?.suggestedCode ?? null;
   const overrideCode = row.userClassificationOverrides[0]?.finalCode ?? null;
+  const confidenceLevel = row.classificationState?.confidenceLevel ?? null;
+  const activeCode = overrideCode ?? systemCode;
+  // effective_code: user override as-is, or demoted system code when confidence is low
+  const effectiveCode = overrideCode !== null ? overrideCode : deriveDisplayCode(systemCode, confidenceLevel);
   const base: UniverseStockSummary = {
     ticker: row.ticker,
     company_name: row.companyName,
@@ -196,9 +222,13 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     operating_margin: row.operatingMargin !== null ? Number(row.operatingMargin) : null,
     fcf_conversion: row.fcfConversion !== null ? Number(row.fcfConversion) : null,
     net_debt_to_ebitda: row.netDebtToEbitda !== null ? Number(row.netDebtToEbitda) : null,
+    forward_pe: row.forwardPe !== null ? Number(row.forwardPe) : null,
+    forward_ev_ebit: row.forwardEvEbit !== null ? Number(row.forwardEvEbit) : null,
+    ev_sales: row.evSales !== null ? Number(row.evSales) : null,
     is_active: row.userDeactivatedStocks.length === 0,
-    active_code: overrideCode ?? systemCode,
-    confidence_level: row.classificationState?.confidenceLevel ?? null,
+    active_code: activeCode,
+    effective_code: effectiveCode,
+    confidence_level: confidenceLevel,
     valuationZone: row.valuationState?.valuationZone ?? null,
     currentMultiple: row.valuationState?.currentMultiple != null ? Number(row.valuationState.currentMultiple) : null,
     currentMultipleBasis: row.valuationState?.currentMultipleBasis ?? null,

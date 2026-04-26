@@ -79,6 +79,19 @@ V1 requires continuous ingestion of stock data: universe eligibility, prices, fu
 │  │  LLM flags + E1-E6 scores        │            │
 │  │  Weekly cadence; see RFC-007     │            │
 │  └──────────────────────────────────┘            │
+│  ┌──────────────────────────────────┐            │
+│  │  Quarterly History Sync          │            │
+│  │  (RFC-008 / ADR-016)             │            │
+│  │  Tiingo quarterly statements;    │            │
+│  │  earnings-triggered + Sun scan   │            │
+│  └──────────────────────────────────┘            │
+│  ┌──────────────────────────────────┐            │
+│  │  Derived Metrics Computation     │            │
+│  │  (RFC-008 / ADR-015)             │            │
+│  │  TTM rollups, trend slopes,      │            │
+│  │  stability scores, flags         │            │
+│  │  → stock_derived_metrics         │            │
+│  └──────────────────────────────────┘            │
 │           ↓                                      │
 │  ┌──────────────────────────────────┐            │
 │  │  Data Validator                  │            │
@@ -403,6 +416,63 @@ All decisions recorded in `data_provider_provenance` with model, prompt_version,
 
 ### Related
 RFC-007 (LLM Provider Architecture), ADR-012 (LLM Enrichment Decision)
+
+---
+
+## Amendment — 2026-04-25: Quarterly History Sync and Derived Metrics Computation (RFC-008)
+
+Two new pipeline stages added. Full architecture in RFC-008; storage model in ADR-015; cadence in ADR-016.
+
+### New Job: Quarterly History Sync
+
+**Source:** Tiingo `/tiingo/fundamentals/{ticker}/statements` — same endpoint used by Fundamentals Sync but via a new `fetchQuarterlyStatements(ticker)` adapter method that returns raw `QuarterlyReport[]` without aggregation.
+
+**VendorAdapter addition:**
+```typescript
+// TiingoAdapter gains:
+async fetchQuarterlyStatements(ticker: string): Promise<QuarterlyReport[] | null>;
+// Returns newest-first quarterly rows (quarter ≠ 0); same endpoint as fetchFundamentals
+```
+
+**Important:** `fetchQuarterlyStatements` is NOT added to the `VendorAdapter` interface. It is a `TiingoAdapter`-specific method. Quarterly history is Tiingo-only in V1; no FMP fallback. The `ProviderOrchestrator` abstraction is not used for this field category — the sync service calls `TiingoAdapter` directly.
+
+**Provider selection:** Tiingo primary only (V1). FMP does not provide quarterly history at current plan tier.
+
+**Cadence:** Earnings-triggered (see ADR-016). For each in-universe stock, compares the `reported_date` of the most recent Tiingo quarter against the most recent stored row in `stock_quarterly_history`. If newer, upserts all returned quarters. Weekly full scan (Sunday) serves as backstop.
+
+**Schedule position:** 6:45 PM ET, after Market Cap Sync, before Forward Estimates Sync. (ADR-002 amended.)
+
+**Recompute flag:** When any quarter is upserted, sets `quarterly_data_updated = true` for that ticker to trigger classification recompute at 8:00 PM ET.
+
+### New Job: Derived Metrics Computation
+
+Runs immediately after Quarterly History Sync (same pipeline stage, sequential). For all tickers where `quarterly_data_updated = true`:
+
+1. Load all stored rows from `stock_quarterly_history` for the ticker (newest first)
+2. Compute TTM rollups from latest 4 quarters
+3. Compute fiscal-year rollups for each completed FY in the retention window
+4. Compute margin trajectory slopes (4q and 8q windows)
+5. Compute stability scores (normalized dispersion over 8 quarters)
+6. Compute operating leverage ratios and boolean emergence flags
+7. Compute earnings quality trend score and deterioration flags
+8. Compute dilution/SBC metrics
+9. Compute capital intensity metrics
+10. Upsert `stock_derived_metrics` row with provenance
+
+**Missing-data handling:** If fewer than 4 quarters are available, TTM and trend fields are NULL. If fewer than 8, 8q trend fields are NULL. NULL fields propagate to ClassificationInput as absent enrichment — scorers do not error.
+
+### Provider Selection Table (updated)
+
+| Field Category | Primary | Fallback | Rationale |
+|---|---|---|---|
+| EOD Prices | Tiingo | FMP | Either reliable |
+| Historical Fundamentals | Tiingo | FMP | Tiingo comprehensive |
+| **Forward Estimates** | **FMP** | **Tiingo** | **FMP superior coverage** |
+| Balance Sheet | Tiingo | FMP | Either complete |
+| **Quarterly Financial History** | **Tiingo** | **None (V1)** | **Tiingo already provides quarterly statements** |
+
+### Related
+RFC-008 (full architecture), ADR-015 (storage model), ADR-016 (refresh cadence), RFC-002 Amendment 2026-04-25
 
 ---
 

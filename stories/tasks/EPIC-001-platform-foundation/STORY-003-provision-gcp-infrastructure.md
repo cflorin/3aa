@@ -458,6 +458,18 @@ gcloud scheduler jobs create http alerts \
   --oidc-service-account-email=aaa-scheduler@PROJECT_ID.iam.gserviceaccount.com \
   --oidc-token-audience="${SERVICE_URL}" \
   --description="Daily alerts run (8:30pm ET Mon-Fri)"
+
+# Create quarterly-history-sync job (6:45pm ET Mon-Sun) — ADR-002 Amendment 2026-04-25
+# Runs after market-cap step; syncs quarterly financials + derives TTM and trend metrics
+gcloud scheduler jobs create http quarterly-history-sync \
+  --location=us-central1 \
+  --schedule="45 18 * * *" \
+  --time-zone="America/New_York" \
+  --uri="${SERVICE_URL}/api/cron/quarterly-history" \
+  --http-method=POST \
+  --oidc-service-account-email=aaa-scheduler@PROJECT_ID.iam.gserviceaccount.com \
+  --oidc-token-audience="${SERVICE_URL}" \
+  --description="Daily quarterly history sync + derived metrics (6:45pm ET Mon-Sun)"
 ```
 
 **Verification:**

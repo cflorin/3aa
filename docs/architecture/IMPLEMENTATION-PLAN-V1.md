@@ -656,10 +656,11 @@
 - **Evidence:** 232 total tests passing (219 baseline + 13 new); already-auth redirect, client validation, error handling verified
 
 ## Active Work
-- **Current Epic:** EPIC-004 — Classification Engine & Universe Screen
-- **Current Story:** STORY-042 — Earnings Quality and Balance Sheet Quality Scoring (ready to begin)
-- **Last Completed:** STORY-041 ✅ (BucketScorer — 61 unit tests + 7 integration tests, golden-set locked, 2026-04-24)
-- **Next Action:** Detail and execute STORY-042 (EarningsQualityScorer + BalanceSheetQualityScorer)
+- **Current Epic:** EPIC-005 — Valuation Threshold Engine & Enhanced Universe
+- **Current Story:** None — STORY-084 just completed
+- **Last Completed:** STORY-084 ✅ (Recompute Classification — admin API + UI button; 18 unit tests; 2026-04-26)
+- **Also Completed (this session):** STORY-083 ✅ (Confidence-Floor Bucket Selection; 22 unit tests + real-data validation; 2026-04-26)
+- **Next Action:** Continue EPIC-005 — next story to detail and execute
 
 ## Blocked Items
 - None currently

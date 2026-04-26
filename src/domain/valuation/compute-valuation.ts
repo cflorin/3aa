@@ -1,6 +1,7 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-007: computeValuation() — orchestrator chaining all domain components
+// STORY-082: Confidence-based effective bucket demotion (RFC-003 §Confidence-Based Effective Bucket)
 
 import type { ValuationInput, ValuationResult, ValuationStateStatus, PrimaryMetric } from './types';
 import { selectMetric, parseBucket } from './metric-selector';
@@ -9,17 +10,28 @@ import { calculateTsrHurdle } from './tsr-hurdle-calculator';
 import { applySecondaryAdjustments } from './secondary-adjustments';
 import { assignZone } from './zone-assigner';
 
+// STORY-082: When confidence is 'low', use bucket-1 (floor 1) to avoid applying a growth-stage
+// metric to a borderline classification. Bucket 8 is exempt (special non-valuable case).
+export function deriveEffectiveCode(activeCode: string, confidenceLevel: string | null | undefined): string {
+  if (confidenceLevel !== 'low') return activeCode;
+  const bucket = parseBucket(activeCode);
+  if (bucket === 8 || bucket <= 1) return activeCode;
+  return `${bucket - 1}${activeCode.slice(1)}`;
+}
+
 export function computeValuation(input: ValuationInput): ValuationResult {
   const bucket = parseBucket(input.activeCode);
+  const effectiveCode = deriveEffectiveCode(input.activeCode, input.confidenceLevel);
 
-  // ── Stage 1: Metric selection ──────────────────────────────────────────────
-  const { primaryMetric, metricReason } = selectMetric(input);
+  // ── Stage 1: Metric selection (uses effectiveCode) ─────────────────────────
+  const { primaryMetric, metricReason } = selectMetric({ ...input, activeCode: effectiveCode });
 
   // ── Bucket 8: short-circuit ────────────────────────────────────────────────
   if (bucket === 8 || primaryMetric === 'no_stable_metric') {
-    const hurdle = calculateTsrHurdle(input.activeCode, input.tsrHurdles);
+    const hurdle = calculateTsrHurdle(effectiveCode, input.tsrHurdles);
     return {
       activeCode: input.activeCode,
+      effectiveCode,
       primaryMetric,
       metricReason,
       currentMultiple: null,
@@ -50,7 +62,7 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     if (
       input.forwardOperatingEarningsExExcessCash == null
     ) {
-      return buildStatusResult(input, primaryMetric, metricReason, 'manual_required');
+      return buildStatusResult(input, effectiveCode, primaryMetric, metricReason, 'manual_required');
     }
   }
 
@@ -59,19 +71,19 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     resolveCurrentMultiple(input, primaryMetric);
 
   if (multipleStatus === 'manual_required' || multipleStatus === 'missing_data') {
-    return buildStatusResult(input, primaryMetric, metricReason, multipleStatus);
+    return buildStatusResult(input, effectiveCode, primaryMetric, metricReason, multipleStatus);
   }
 
-  // ── Stage 3: Threshold assignment ─────────────────────────────────────────
+  // ── Stage 3: Threshold assignment (uses effectiveCode) ────────────────────
   const preOpLev = input.preOperatingLeverageFlag === true;
-  const thresholdResult = assignThresholds(input.activeCode, input.anchoredThresholds, preOpLev);
+  const thresholdResult = assignThresholds(effectiveCode, input.anchoredThresholds, preOpLev);
 
-  // ── Stage 4: TSR hurdle ────────────────────────────────────────────────────
-  const hurdle = calculateTsrHurdle(input.activeCode, input.tsrHurdles);
+  // ── Stage 4: TSR hurdle (uses effectiveCode) ───────────────────────────────
+  const hurdle = calculateTsrHurdle(effectiveCode, input.tsrHurdles);
 
-  // ── Stage 5: Secondary adjustments ────────────────────────────────────────
+  // ── Stage 5: Secondary adjustments (uses effectiveCode) ───────────────────
   const adjResult = applySecondaryAdjustments({
-    activeCode: input.activeCode,
+    activeCode: effectiveCode,
     metricFamily: thresholdResult.metricFamily,
     primaryMetric,
     maxThreshold: thresholdResult.maxThreshold,
@@ -98,6 +110,7 @@ export function computeValuation(input: ValuationInput): ValuationResult {
 
   return {
     activeCode: input.activeCode,
+    effectiveCode,
     primaryMetric,
     metricReason,
     currentMultiple,
@@ -187,19 +200,21 @@ function resolveCurrentMultiple(
 
 function buildStatusResult(
   input: ValuationInput,
+  effectiveCode: string,
   primaryMetric: PrimaryMetric,
   metricReason: string,
   status: ValuationStateStatus,
 ): ValuationResult {
-  const hurdle = calculateTsrHurdle(input.activeCode, input.tsrHurdles);
+  const hurdle = calculateTsrHurdle(effectiveCode, input.tsrHurdles);
   const thresholdResult = assignThresholds(
-    input.activeCode,
+    effectiveCode,
     input.anchoredThresholds,
     input.preOperatingLeverageFlag === true,
   );
 
   return {
     activeCode: input.activeCode,
+    effectiveCode,
     primaryMetric,
     metricReason,
     currentMultiple: null,

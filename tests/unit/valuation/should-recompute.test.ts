@@ -225,6 +225,47 @@ describe('EPIC-005/STORY-075/TASK-075-007: shouldRecompute()', () => {
     });
   });
 
+  // ── STORY-082: Confidence-based demotion changes expected metric ──────────────
+
+  describe('Confidence-based demotion (STORY-082)', () => {
+    it('B6 low confidence: expected metric = forward_ev_ebit (demoted from ev_sales) → triggers recompute when prior has ev_sales', () => {
+      // Prior stored before demotion was introduced: primaryMetric = 'ev_sales'
+      const input = makeInput({ activeCode: '6BA', confidenceLevel: 'low', forwardEvEbit: 22.1, evSales: 9.7 });
+      const prior = makePrior({ activeCode: '6BA', primaryMetric: 'ev_sales', currentMultiple: 9.7 });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('B6 low confidence: no recompute when prior already has forward_ev_ebit', () => {
+      const input = makeInput({ activeCode: '6BA', confidenceLevel: 'low', forwardEvEbit: 22.1 });
+      const prior = makePrior({ activeCode: '6BA', primaryMetric: 'forward_ev_ebit', currentMultiple: 22.1 });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('B5 low confidence: expected metric = forward_pe (demoted from forward_ev_ebit) → triggers recompute', () => {
+      const input = makeInput({ activeCode: '5AA', confidenceLevel: 'low', forwardPe: 18.0, forwardEvEbit: 15.0 });
+      const prior = makePrior({ activeCode: '5AA', primaryMetric: 'forward_ev_ebit', currentMultiple: 15.0 });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('B6 high confidence: expected metric = ev_sales (no demotion) → no recompute when prior matches', () => {
+      const input = makeInput({ activeCode: '6BA', confidenceLevel: 'high', evSales: 9.7 });
+      const prior = makePrior({ activeCode: '6BA', primaryMetric: 'ev_sales', currentMultiple: 9.7 });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('B1 low confidence: floor holds — metric stays forward_pe, no spurious recompute', () => {
+      const input = makeInput({ activeCode: '1AA', confidenceLevel: 'low', forwardPe: 8.0 });
+      const prior = makePrior({ activeCode: '1AA', primaryMetric: 'forward_pe', currentMultiple: 8.0 });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('B8 low confidence: exempt — no demotion, metric stays no_stable_metric', () => {
+      const input = makeInput({ activeCode: '8AA', confidenceLevel: 'low' });
+      const prior = makePrior({ activeCode: '8AA', primaryMetric: 'no_stable_metric', currentMultiple: null });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+  });
+
   // ── primaryMetricOverride changes ─────────────────────────────────────────────
 
   describe('primaryMetricOverride changes', () => {

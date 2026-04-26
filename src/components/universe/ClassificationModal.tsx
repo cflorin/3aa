@@ -51,6 +51,14 @@ const REASON_MIN_LENGTH = 10;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// STORY-082: compute effectiveCode client-side from confidence + activeCode (RFC-003 §Confidence-Based Effective Bucket)
+function deriveEffectiveCode(activeCode: string | null, confidence: string | null): string | null {
+  if (!activeCode || confidence !== 'low') return activeCode;
+  const bucket = parseInt(activeCode[0], 10);
+  if (bucket === 8 || bucket <= 1) return activeCode;
+  return `${bucket - 1}${activeCode.slice(1)}`;
+}
+
 function winningBucket(scores: Record<string, number>): string | null {
   let best: string | null = null;
   let bestScore = -Infinity;
@@ -271,11 +279,14 @@ export default function ClassificationModal({
           <div style={{ padding: '40px 24px', textAlign: 'center', color: '#ef4444' }}>Failed to load classification. Please try again.</div>
         )}
 
-        {loadState === 'ready' && data && (
+        {loadState === 'ready' && data && (() => {
+          const effectiveCode = deriveEffectiveCode(data.system_suggested_code, data.system_confidence);
+          const isDemoted = effectiveCode !== null && data.system_suggested_code !== null && effectiveCode !== data.system_suggested_code;
+          return (
           <div style={{ padding: 20 }}>
 
             {/* Active code + system suggestion */}
-            <div style={{ background: T.sidebarBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ background: T.sidebarBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '12px 14px', marginBottom: isDemoted ? 8 : 16 }}>
               <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end' }}>
                 <div>
                   <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>System Suggested</div>
@@ -297,6 +308,24 @@ export default function ClassificationModal({
                 )}
               </div>
             </div>
+
+            {/* Demotion notice — shown when low confidence shifts effective valuation bucket (STORY-082) */}
+            {isDemoted && (
+              <div
+                data-testid="demotion-notice"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 12px', marginBottom: 16,
+                  background: '#f59e0b18', border: '1px solid #f59e0b40',
+                  borderRadius: 4, fontSize: 10, color: '#f59e0b',
+                }}
+              >
+                <span style={{ fontWeight: 700 }}>ⓘ</span>
+                <span>
+                  Valued as <strong>B{effectiveCode![0]}</strong> (demoted from B{data.system_suggested_code![0]} — low confidence)
+                </span>
+              </div>
+            )}
 
             {/* Score breakdown — 3-column bar chart grid per spec */}
             {data.scores && (
@@ -487,7 +516,8 @@ export default function ClassificationModal({
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

@@ -426,6 +426,31 @@ V1 implements nightly batch orchestration using **Google Cloud Scheduler** (ADR-
 - Pipeline can be manually triggered for ad-hoc recomputes
 - **Total processing time target: <30 minutes for 1000 stocks (planning assumption, unvalidated)**
 
+## Amendment — 2026-04-25: Quarterly History Sync Pipeline Slot (RFC-008 / ADR-016)
+
+A new pipeline stage is added at **6:45 PM ET**: Quarterly History Sync + Derived Metrics Computation.
+
+**Updated schedule:**
+
+```
+Daily (Monday–Friday):
+  5:00 PM ET - Universe Sync (weekly on Sunday only) [SHARED]
+  5:00 PM ET - Price Sync (daily) [SHARED]
+  6:00 PM ET - Fundamentals Sync (daily) [SHARED]
+  6:30 PM ET - Market Cap Sync (daily) [SHARED] — added EPIC-003.1
+  6:45 PM ET - Quarterly History Sync + Derived Metrics Computation [SHARED]
+               (earnings-triggered; Sunday: full scan of all stocks)
+  7:00 PM ET - Forward Estimates Sync (daily) [SHARED]
+  8:00 PM ET - Classification Recompute (daily; picks up quarterly_data_updated flags) [SHARED]
+  8:15 PM ET - Valuation Recompute [SHARED]
+  8:30 PM ET - FOR EACH ACTIVE USER (sequential): [PER-USER]
+  9:00 PM ET - Pipeline Complete
+```
+
+The quarterly history sync is earnings-triggered (see ADR-016): for most stocks on most nights, it performs a lightweight check of `reported_date` against stored rows and exits immediately. Only when new quarterly data is detected does it perform upserts and derived metric recomputation. This keeps average nightly runtime low despite the new stage.
+
+**Related:** RFC-008, ADR-016 (cadence decision)
+
 ---
 
 **END ADR-002**
