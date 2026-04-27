@@ -78,13 +78,17 @@ const ZONE_LABELS: Record<string, string> = {
 // Both label and value use effective_code directly — no client-side re-derivation needed.
 
 function valMetricLabel(s: { effective_code?: string | null; active_code: string | null; currentMultipleBasis: string | null; primaryMetric?: string | null }): string {
-  // Regime-driven: primaryMetric takes precedence over basis/bucket fallback
-  if (s.primaryMetric === 'forward_ev_ebitda') return 'Fwd EV/EBITDA';
+  // Use stored primaryMetric as canonical source — avoids bucket fallback getting preOperatingLeverageFlag wrong
+  if (s.primaryMetric) {
+    if (s.primaryMetric === 'forward_pe') return 'Fwd P/E';
+    if (s.primaryMetric === 'forward_ev_ebitda') return 'Fwd EV/EBITDA';
+    if (s.primaryMetric === 'forward_ev_ebit') return 'EV/EBIT';
+    if (s.primaryMetric === 'ev_sales') return 'EV/Sales';
+    if (s.primaryMetric === 'forward_operating_earnings_ex_excess_cash') return 'Op Earn';
+  }
+  // Fallback for legacy rows without primaryMetric
   const basis = s.currentMultipleBasis;
-  if (basis === 'forward_pe' || basis === 'trailing_fallback') return 'Fwd P/E';
-  if (basis === 'forward_ev_ebit') return 'EV/EBIT';
-  if (basis === 'ev_sales') return 'EV/Sales';
-  if (basis === 'forward_operating_earnings_ex_excess_cash') return 'Op Earn';
+  if (basis === 'trailing_fallback') return 'Fwd P/E';
   if (basis === 'manual') return 'Manual';
   const code = s.effective_code ?? s.active_code;
   if (!code) return '—';
@@ -105,15 +109,15 @@ function valMetricValue(s: {
   ev_sales: number | null;
   primaryMetric?: string | null;
 }): string {
-  // Regime-driven: use stored currentMultiple directly (e.g. forward_ev_ebitda = 18.0×)
-  if (s.primaryMetric === 'forward_ev_ebitda') {
-    return s.currentMultiple != null ? `${s.currentMultiple.toFixed(1)}×` : '—';
+  // Use stored currentMultiple when primaryMetric is available — avoids stale raw-field mismatch
+  if (s.primaryMetric && s.currentMultiple != null) {
+    return `${s.currentMultiple.toFixed(1)}×`;
   }
-  // 'trailing_fallback' / 'manual' can't be re-derived from raw fields — use stored value
+  // Fallback: trailing or manual basis always use stored value
   if (s.currentMultiple != null && s.currentMultipleBasis !== 'spot' && s.currentMultipleBasis !== null) {
     return `${s.currentMultiple.toFixed(1)}×`;
   }
-  // For 'spot' or null basis: derive from effective_code bucket to get the correct raw field
+  // Legacy fallback: derive from raw fields via bucket
   const code = s.effective_code ?? s.active_code;
   if (!code) return '—';
   const bucket = parseInt(code.charAt(0), 10);
