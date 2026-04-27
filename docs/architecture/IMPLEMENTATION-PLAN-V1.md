@@ -3,19 +3,19 @@
 ## Baseline Reference
 - **Version:** V1.0 (frozen 2026-04-19; amendments below)
 - **PRD:** /docs/prd/PRD.md
-- **RFCs:** RFC-001 through RFC-008 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25; RFC-001/002/004 amended again 2026-04-25)
-- **ADRs:** ADR-001 through ADR-016 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23; ADR-013/ADR-014 amended 2026-04-25; ADR-015/ADR-016 added 2026-04-25; ADR-001/ADR-002 amended 2026-04-25)
-- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅, EPIC-005 ✅, EPIC-008 (decomposed 2026-04-27)
-- **Validated Stories:** STORY-001 through STORY-088 complete (exception: STORY-074 Bulk CSV Import — not implemented); STORY-089–096 decomposed for EPIC-008
-- **Baseline Amendments (2026-04-27):** RFC-003 amended (valuation regime decoupling + 5 ChatGPT feedback fixes); RFC-001 amended (schema extensions); ADR-005 amended (regime-keyed threshold table); ADR-017 added (regime selection logic); ADR-018 added (cyclical overlay framework); PRD amended; EPIC-008 decomposed
+- **RFCs:** RFC-001 through RFC-009 (accepted; RFC-001/002/004 amended multiple times; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25; RFC-009 added 2026-04-27 — Earnings Path Bucket Engine)
+- **ADRs:** ADR-001 through ADR-019 (accepted; ADR-013 superseded by RFC-009; ADR-017 amended 2026-04-27; ADR-018 added 2026-04-27; ADR-019 added 2026-04-27 — Operating Leverage State Engine)
+- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅, EPIC-005 ✅, EPIC-008 ✅; EPIC-009 stories decomposed 2026-04-27
+- **Validated Stories:** STORY-001 through STORY-096 complete (exception: STORY-074 Bulk CSV Import — not implemented); STORY-100–111 decomposed for EPIC-009
+- **Baseline Amendments (2026-04-27):** RFC-009 added; ADR-013 superseded; ADR-017/ADR-019 amended/added; PRD amended; 3AA-FRAMEWORK-MODEL-REFERENCE-V2.md created (V2.0 then V2.1 post-adversarial review)
 
 ## Status Summary
-- **Current Phase:** EPIC-008 — Valuation Regime Decoupling
-- **Active Epic:** EPIC-008 ✅ COMPLETE (STORY-089–096 all done 2026-04-27)
-- **Active Story:** None — EPIC-008 complete; EPIC-006 needs story decomposition before any coding
-- **Overall Progress:** 6 epics fully done (EPIC-001 through EPIC-005, EPIC-003.1); EPIC-008 decomposed and ready; EPIC-006 and EPIC-007 remain after EPIC-008
-- **Baseline Status:** All 2026-04-27 amendments applied; 5 ChatGPT feedback fixes applied across ADR-017, ADR-018, RFC-003, PRD, model reference
-- **Unit Tests (last verified):** 1803/1803 passing (2026-04-27, EPIC-008 complete)
+- **Current Phase:** EPIC-009 — Earnings Path Bucket Engine
+- **Active Epic:** EPIC-009 — stories detailed (STORY-100–111); ready to begin STORY-100
+- **Active Story:** None — begin STORY-100 (Schema Migration)
+- **Overall Progress:** 7 epics fully done (EPIC-001–005, EPIC-003.1, EPIC-008); EPIC-009 designed and stories ready; EPIC-006/007 follow EPIC-009
+- **Baseline Status:** All 2026-04-27 amendments applied; V2.1 framework model reference committed; 8 adversarial review issues resolved
+- **Unit Tests (last verified):** 1803/1803 passing (2026-04-27, EPIC-008 baseline)
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -485,9 +485,30 @@
   - STORY-095: Stock Detail regime & cyclicality display + Universe Screen filter — status: **done** ✅
   - STORY-096: EPIC-008 regression & integration tests (golden-set BDD + baseline preservation) — status: **done** ✅
 
+### EPIC-009 — Earnings Path Bucket Engine
+- **Status:** ready (stories detailed 2026-04-27)
+- **Dependencies:** EPIC-008 ✅ (CyclicalScoreService, cycle_position, structural_cyclicality_score all live)
+- **Stories:** STORY-100 through STORY-111 (12 stories) — all detailed
+- **Integration Checkpoint:** V2 bucket engine live, fleet-wide migration complete, V1 BucketScorer retired
+- **Deployment Milestone:** All universe stocks reclassified under V2 Earnings Path Engine
+- **Execution order:** STORY-100 → 101 → 102 → 103 → 104 → 105 → 106 → 107 → 108 → 109 → 110 → 111
+- **Key design documents:** RFC-009, ADR-013 (superseded), ADR-019, ADR-017 (amended), V2.1 Framework Model Reference
+  - STORY-100: Schema migration — status: **ready**
+  - STORY-101: FMP adapter FY2 EPS — status: **ready**
+  - STORY-102: Revenue engine service — status: **ready**
+  - STORY-103: Earnings engine service (FY2 fallback chain) — status: **ready**
+  - STORY-104: Operating leverage engine service — status: **ready**
+  - STORY-105: Cyclicality normalisation service — status: **ready**
+  - STORY-106: Dilution + SBC penalty services — status: **ready**
+  - STORY-107: Qualitative visibility modifier service — status: **ready**
+  - STORY-108: Final formula + bucket mapper + confidence model — status: **ready**
+  - STORY-109: Regime selector update (V2 bucket gates + Step 2.5) — status: **ready**
+  - STORY-110: Pipeline integration + fleet-wide migration batch — status: **ready**
+  - STORY-111: Regression + integration tests golden set — status: **ready**
+
 ### EPIC-006 — Monitoring & Alerts Engine with Alerts UI
-- **Status:** planned
-- **Dependencies:** EPIC-005 (valuation state)
+- **Status:** planned (after EPIC-009)
+- **Dependencies:** EPIC-005 (valuation state), EPIC-009 (V2 buckets for alert thresholds)
 - **Stories:** [To be decomposed]
 - **Integration Checkpoint:** Alerts generating, Alerts Feed functional
 - **Deployment Milestone:** Users receive personalized alerts
