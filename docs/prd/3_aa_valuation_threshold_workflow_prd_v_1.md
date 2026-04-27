@@ -527,6 +527,7 @@ Bucket remains an input and explanatory dimension. It is no longer the sole dete
 | `profitable_growth_pe` | `forward_pe` | Profitable high-growth compounder |
 | `cyclical_earnings` | `forward_ev_ebit` | Cyclical with real earnings |
 | `profitable_growth_ev_ebit` | `forward_ev_ebit` | Profitable but scaling/transitional |
+| `high_amortisation_earnings` | `forward_ev_ebitda` | Mature profitable with heavy D&A (pharma, large-cap acquirers); GAAP P/E distorted by non-cash charges |
 | `mature_pe` | `forward_pe` | Stable profitable; classic P/E |
 | `manual_required` | none | Catch-all; no safe automated metric |
 
@@ -604,6 +605,7 @@ Existing values unchanged. Added:
 | `profitable_growth_pe` | `standard` (20–25% growth) | 26.0x | 22.0x | 19.0x | 16.0x |
 | `profitable_growth_ev_ebit` | — | 24.0x | 20.0x | 16.0x | 12.0x |
 | `cyclical_earnings` | — | 16.0x | 13.0x | 10.0x | 7.0x |
+| `high_amortisation_earnings` | — | 16.0x | 13.0x | 10.0x | 8.0x |
 | `sales_growth_standard` | — | 12.0x | 10.0x | 8.0x | 6.0x |
 | `sales_growth_hyper` | — | 18.0x | 15.0x | 11.0x | 8.0x |
 

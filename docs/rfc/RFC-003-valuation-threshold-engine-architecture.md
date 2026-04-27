@@ -1160,6 +1160,9 @@ interface ValuationInput {
   revenueGrowthFwd: number | null;      // from stock
   structuralCyclicalityScore: number;   // 0–3; replaces cyclicality_flag
   cyclePosition: CyclePosition;         // depressed|normal|elevated|peak|insufficient_data
+  // STORY-098: high amortisation detection inputs (from stock — FMP ebitdaAvg / ebitAvg)
+  ebitdaNtm: number | null;             // NTM EBITDA consensus; null when FMP does not provide
+  ebitNtm: number | null;               // NTM EBIT consensus; null when not provided
 }
 ```
 
@@ -1167,15 +1170,16 @@ interface ValuationInput {
 
 ```typescript
 const REGIME_METRIC: Record<ValuationRegime, PrimaryMetric> = {
-  not_applicable:              'no_stable_metric',
-  financial_special_case:      'forward_operating_earnings_ex_excess_cash',
-  sales_growth_standard:       'ev_sales',
-  sales_growth_hyper:          'ev_sales',
-  profitable_growth_pe:        'forward_pe',
-  cyclical_earnings:           'forward_ev_ebit',
-  profitable_growth_ev_ebit:   'forward_ev_ebit',
-  mature_pe:                   'forward_pe',
-  manual_required:             'no_stable_metric',
+  not_applicable:                'no_stable_metric',
+  financial_special_case:        'forward_operating_earnings_ex_excess_cash',
+  sales_growth_standard:         'ev_sales',
+  sales_growth_hyper:            'ev_sales',
+  profitable_growth_pe:          'forward_pe',
+  cyclical_earnings:             'forward_ev_ebit',
+  profitable_growth_ev_ebit:     'forward_ev_ebit',
+  high_amortisation_earnings:    'forward_ev_ebitda',  // STORY-098 — 2026-04-28
+  mature_pe:                     'forward_pe',
+  manual_required:               'no_stable_metric',
 };
 ```
 
@@ -1251,6 +1255,19 @@ function selectRegime(input: ValuationInput): ValuationRegime {
     opMargin !== null && opMargin >= 0.10 && opMargin < 0.25
   ) {
     return 'profitable_growth_ev_ebit';
+  }
+
+  // Step 4.5 — High amortisation earnings (STORY-098, 2026-04-28)
+  // ebitdaNtm/ebitNtm >= 1.30 means implied D&A >= 30% of EBIT — pharma/large-cap acquirer signal
+  if (
+    input.ebitdaNtm != null &&
+    input.ebitNtm != null &&
+    input.ebitNtm > 0 &&
+    input.ebitdaNtm / input.ebitNtm >= 1.30 &&
+    netIncomePositive &&
+    fcfPositive
+  ) {
+    return 'high_amortisation_earnings';
   }
 
   // Step 5 — Mature PE default

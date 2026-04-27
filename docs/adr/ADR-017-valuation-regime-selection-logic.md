@@ -2,6 +2,7 @@
 
 **Status:** ACCEPTED
 **Date:** 2026-04-27
+**Amended:** 2026-04-28 — Added `high_amortisation_earnings` regime (STORY-098)
 **Deciders:** Product Team
 **Related:** RFC-003 Amendment 2026-04-27, ADR-005 Amendment 2026-04-27, ADR-018, PRD Amendment 2026-04-27
 
@@ -33,7 +34,7 @@ Introduce `valuation_regime` as a formal, persisted field computed by a determin
 
 ## Regime Set
 
-Nine regimes cover all automated and special-case paths:
+Ten regimes cover all automated and special-case paths:
 
 | Regime | Primary Metric | Purpose |
 |--------|---------------|---------|
@@ -44,6 +45,7 @@ Nine regimes cover all automated and special-case paths:
 | `profitable_growth_pe` | `forward_pe` | Profitable high-growth compounder |
 | `cyclical_earnings` | `forward_ev_ebit` | Cyclical with real earnings; EV/EBIT is cleaner anchor |
 | `profitable_growth_ev_ebit` | `forward_ev_ebit` | Profitable but scaling / transitional; margin 10–25% |
+| `high_amortisation_earnings` | `forward_ev_ebitda` | Profitable mature with heavy acquired-intangible D&A (pharma, large-cap acquirers); GAAP P/E materially distorted |
 | `mature_pe` | `forward_pe` | Stable profitable; classic P/E |
 | `manual_required` | `no_stable_metric` | Catch-all; no safe automated metric |
 
@@ -189,6 +191,37 @@ THEN valuation_regime = profitable_growth_ev_ebit
 
 Rationale: These businesses are profitable and growing, but still in a reinvestment or scaling phase where operating margins have not yet reached the level that supports a high-multiple P/E regime. EV/EBIT is a cleaner anchor than P/E because it captures value at the enterprise level without per-share distortion from reinvestment. The `< 0.25` upper bound forms a clean partition with Step 2 (`>= 0.25`).
 
+### Step 4.5 — High amortisation earnings (STORY-098, 2026-04-28)
+
+```
+IF all of:
+  ebitdaNtm is not null
+  ebitNtm is not null
+  ebitdaNtm / ebitNtm >= 1.30   (implied D&A >= 30% of EBIT)
+  net_income_positive = true
+  fcf_positive = true
+THEN valuation_regime = high_amortisation_earnings
+```
+
+**Rationale:** Companies with ≥30% D&A burden relative to EBIT carry large acquired-intangible amortisation charges that materially depress GAAP EPS without affecting cash earnings. GAAP P/E for such companies severely understates true earnings power; forward EV/EBITDA at the enterprise level adds back these non-cash charges and is the sell-side industry standard for pharma and large-cap acquirers.
+
+**Trigger data:** `ebitdaNtm` (FMP `ebitdaAvg`) and `ebitNtm` (FMP `ebitAvg`) are already fetched from the same FMP `/analyst-estimates` call (STORY-097). No new data sources required.
+
+**Threshold:** `ebitdaNtm / ebitNtm >= 1.30` was calibrated against live FMP data (2026-04-28):
+
+| Stock | ebitdaAvg/ebitAvg | Triggers? |
+|-------|-------------------|-----------|
+| ABBV | 1.76x | Yes — Allergan acquired-intangible amortisation |
+| PFE | 1.38x | Yes — post-2021 acquisition amortisation |
+| JNJ | 1.35x | Yes — acquired-intangible portfolio |
+| MRK | 1.19x | No — lower relative amortisation |
+| AZN | 1.17x | No — lower relative amortisation |
+| MSFT | 1.19x | No — cloud D&A but modest relative to EBIT |
+
+**Precedence note:** Step 4.5 fires only after Steps 1–4 have not matched. A pharma in a high-growth phase (≥20% revenue growth) would already be captured by Step 2 or Step 4, where EV/EBIT is already used. Step 4.5 is specifically for mature, slow-growing companies where P/E would otherwise be selected by Step 5.
+
+**Data availability guard:** If `ebitdaNtm` or `ebitNtm` is null (FMP data gap), the step is skipped and the stock falls to `mature_pe` — no error.
+
 ### Step 5 — Mature PE default
 
 ```
@@ -196,7 +229,7 @@ IF net_income_positive = true AND fcf_positive = true
 THEN valuation_regime = mature_pe
 ```
 
-Rationale: Stable profitable companies that did not qualify for any growth or cyclical path. Classic P/E is appropriate. Intended to capture: Walmart, Procter & Gamble, Colgate, and similar stalwarts.
+Rationale: Stable profitable companies that did not qualify for any growth, cyclical, or high-amortisation path. Classic P/E is appropriate. Intended to capture: Walmart, Procter & Gamble, Colgate, and similar stalwarts.
 
 ### Step 6 — Catch-all
 
@@ -216,7 +249,8 @@ These are intentional and must be preserved:
 4. Immature/sales-valued path before anything else (cannot fake profitability)
 5. **Profitable high-growth PE before cyclical** — NVIDIA must reach Step 2 before Step 3
 6. Cyclical earnings before profitable transitional — cyclical risk profile is distinct
-7. Mature PE as final automated path — stable profitable names not fitting any prior path
+7. **High amortisation before mature PE** — a pharma with 30%+ D&A burden should not get P/E treatment
+8. Mature PE as final automated path — stable profitable names not fitting any prior path
 
 ---
 
@@ -241,6 +275,11 @@ These are directional expectations, not hard-coded outputs. Actual regime depend
 | NOW | `profitable_growth_pe` or `sales_growth_hyper` | Depends on current FCF_conversion_ttm |
 | PANW | `profitable_growth_pe` or `sales_growth_standard` | Depends on current operating_margin_ttm |
 | Tesla | `sales_growth_standard` or `profitable_growth_pe` | Depends on current margin and FCF profile |
+| ABBV | `high_amortisation_earnings` | ebitdaAvg/ebitAvg = 1.76x (Allergan intangible amortisation); mature, low growth, profitable → Step 4.5 fires |
+| JNJ | `high_amortisation_earnings` | ebitdaAvg/ebitAvg = 1.35x; mature diversified pharma → Step 4.5 fires |
+| PFE | `high_amortisation_earnings` | ebitdaAvg/ebitAvg = 1.38x; post-acquisition amortisation → Step 4.5 fires |
+| MRK | `mature_pe` | ebitdaAvg/ebitAvg = 1.19x; below 1.30 threshold → Step 5 (P/E) |
+| AZN | `mature_pe` | ebitdaAvg/ebitAvg = 1.17x; below 1.30 threshold → Step 5 (P/E) |
 
 ---
 
@@ -254,6 +293,7 @@ For each regime, quality downgrades are applied using step values (in turns or x
 | `profitable_growth_pe` | 4.0 | 4.0 | 2.0 | 3.0 |
 | `profitable_growth_ev_ebit` | 3.0 | 3.0 | 1.5 | 2.0 |
 | `cyclical_earnings` | 2.0 | 2.0 | 1.0 | 1.5 |
+| `high_amortisation_earnings` | 2.0 | 2.0 | 1.0 | 1.5 |
 | `sales_growth_standard` | 2.0 | 1.75 | 1.0 | 1.75 |
 | `sales_growth_hyper` | 2.0 | 1.75 | 1.0 | 1.75 |
 

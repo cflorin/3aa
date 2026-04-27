@@ -211,6 +211,7 @@ Story specs: `stories/tasks/EPIC-008-valuation-regime-decoupling/`
 | STORY-095 | Stock Detail Page — Regime & Cyclicality Display | done |
 | STORY-096 | EPIC-008 Regression & Integration Tests | done |
 | STORY-097 | Forward EV/EBITDA Metric | ready |
+| STORY-098 | High Amortisation Earnings Regime | ready |
 
 ---
 
@@ -223,7 +224,7 @@ Stories are numbered sequentially across epics (not reset per epic):
 - EPIC-003.1: STORY-034–040
 - EPIC-004: STORY-041–056; STORY-065–072 (quarterly history classification additions 2026-04-25)
 - EPIC-005: STORY-073–088
-- EPIC-008: STORY-089–096 (valuation regime decoupling — added 2026-04-27)
+- EPIC-008: STORY-089–098 (valuation regime decoupling — added 2026-04-27; STORY-097–098 added 2026-04-28)
 
 Note: STORY-054–056 are EPIC-004 stories (theme, remove/add stock); STORY-057–064 are EPIC-003 quarterly history stories added 2026-04-25; STORY-065–072 are EPIC-004 quarterly history classification stories added 2026-04-25.
 

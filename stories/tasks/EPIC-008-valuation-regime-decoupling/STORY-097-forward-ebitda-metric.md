@@ -117,7 +117,7 @@ Test file: `tests/unit/data-ingestion/story-097-forward-ebitda.test.ts`
 
 ## Scope Out
 - Trailing EV/EBITDA (separate story if needed; requires TTM D&A from income statement)
-- Using EV/EBITDA in threshold selection / regime logic (EPIC-009)
+- Using EV/EBITDA in threshold selection / regime logic — **implemented in STORY-098** (not deferred to EPIC-009)
 - Displaying EV/EBITDA on the universe screen table (defer unless user requests)
 
 ---
