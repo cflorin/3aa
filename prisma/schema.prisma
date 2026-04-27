@@ -231,6 +231,10 @@ model Stock {
   forwardEvEbitSource                          String?  @db.VarChar(20) @map("forward_ev_ebit_source")
   trailingEvEbit                               Decimal? @db.Decimal(8, 2) @map("trailing_ev_ebit")
 
+  // STORY-097: Forward EV/EBITDA — adds D&A back to EBIT for pharma / amortisation-heavy stocks
+  depreciationNtm                              Decimal? @db.Decimal(20, 2) @map("depreciation_ntm")
+  forwardEvEbitda                              Decimal? @db.Decimal(8, 4) @map("forward_ev_ebitda")
+
   forwardEvSales                               Decimal? @db.Decimal(8, 2) @map("forward_ev_sales")
   evSales                                      Decimal? @db.Decimal(8, 2) @map("ev_sales")
   evSalesSource                                String?  @db.VarChar(20) @map("ev_sales_source")
