@@ -124,7 +124,45 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles');
+  // ── EPIC-008/STORY-089: ValuationRegimeThreshold seed (ADR-005 amended, ADR-017)
+  // 9 rows, one per ValuationRegime. profitable_growth_pe = high-tier base (≥35% growth).
+  // null thresholds for not_applicable, manual_required, financial_special_case.
+  const regimeThresholds = [
+    { regime: 'mature_pe',                   metric: 'forward_pe',                                   max: 22.0, comfortable: 20.0, veryGood: 18.0, steal: 16.0, notes: 'Profitable stable business, growth < 20%' },
+    { regime: 'profitable_growth_pe',        metric: 'forward_pe',                                   max: 36.0, comfortable: 30.0, veryGood: 24.0, steal: 18.0, notes: 'High-tier base (≥35% growth); mid/standard tiers are runtime constants' },
+    { regime: 'profitable_growth_ev_ebit',   metric: 'forward_ev_ebit',                              max: 24.0, comfortable: 20.0, veryGood: 16.0, steal: 12.0, notes: 'Profitable transitional 15-25% growth, op_margin 10-25%' },
+    { regime: 'cyclical_earnings',           metric: 'forward_ev_ebit',                              max: 16.0, comfortable: 13.0, veryGood: 10.0, steal:  7.0, notes: 'Cyclical earnings; cycle-position overlay applied separately' },
+    { regime: 'sales_growth_standard',       metric: 'ev_sales',                                     max: 12.0, comfortable: 10.0, veryGood:  8.0, steal:  6.0, notes: 'Pre-earnings revenue growth' },
+    { regime: 'sales_growth_hyper',          metric: 'ev_sales',                                     max: 18.0, comfortable: 15.0, veryGood: 11.0, steal:  8.0, notes: 'Hyper-growth ≥40% revenue, gross_margin ≥70%' },
+    { regime: 'financial_special_case',      metric: 'forward_operating_earnings_ex_excess_cash',    max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Insurer/holding company; thresholds set manually' },
+    { regime: 'not_applicable',              metric: 'no_stable_metric',                             max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Bucket 8 / lottery — no valuation metric' },
+    { regime: 'manual_required',             metric: 'no_stable_metric',                             max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Bank flag or catch-all; automated metric not possible' },
+  ] as const;
+
+  for (const row of regimeThresholds) {
+    await prisma.valuationRegimeThreshold.upsert({
+      where: { regime: row.regime },
+      update: {
+        primaryMetric: row.metric,
+        maxThreshold: row.max !== null ? row.max : null,
+        comfortableThreshold: row.comfortable !== null ? row.comfortable : null,
+        veryGoodThreshold: row.veryGood !== null ? row.veryGood : null,
+        stealThreshold: row.steal !== null ? row.steal : null,
+        notes: row.notes,
+      },
+      create: {
+        regime: row.regime,
+        primaryMetric: row.metric,
+        maxThreshold: row.max !== null ? row.max : null,
+        comfortableThreshold: row.comfortable !== null ? row.comfortable : null,
+        veryGoodThreshold: row.veryGood !== null ? row.veryGood : null,
+        stealThreshold: row.steal !== null ? row.steal : null,
+        notes: row.notes,
+      },
+    });
+  }
+
+  console.log('Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles, 9 valuation_regime_thresholds');
 }
 
 main()

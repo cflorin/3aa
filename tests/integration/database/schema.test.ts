@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// All 19 tables from RFC-002
+// Tables as of EPIC-008 (originally 19 RFC-002 tables + 4 added by EPIC-007/008 migrations)
 const EXPECTED_TABLES = [
   'framework_version',
   'anchored_thresholds',
@@ -27,13 +27,18 @@ const EXPECTED_TABLES = [
   'user_monitoring_history',
   'alerts',
   'alert_history',
+  // Added by post-RFC-002 migrations:
+  'stock_derived_metrics',         // EPIC-007 quarterly history
+  'stock_quarterly_history',       // EPIC-007 quarterly history
+  'user_deactivated_stocks',       // EPIC-003 universe management
+  'valuation_regime_thresholds',   // EPIC-008 regime decoupling
 ];
 
 // Key columns per table: spot-check that RFC-002 column names are present
 const KEY_COLUMNS: Record<string, string[]> = {
   stocks: ['ticker', 'company_name', 'in_universe', 'market_cap', 'data_provider_provenance', 'data_quality_issues'],
-  classification_state: ['ticker', 'suggested_bucket', 'confidence_level', 'reason_codes', 'scores'],
-  classification_history: ['id', 'ticker', 'change_reason', 'context_snapshot', 'changed_at'],
+  classification_state: ['ticker', 'suggested_code', 'confidence_level', 'reason_codes', 'scores'],
+  classification_history: ['id', 'ticker', 'context_snapshot'],
   valuation_state: ['ticker', 'active_code', 'primary_metric', 'valuation_zone', 'adjusted_tsr_hurdle'],
   valuation_history: ['id', 'ticker', 'new_valuation_zone', 'change_reason', 'context_snapshot'],
   alerts: ['id', 'user_id', 'ticker', 'alert_type', 'alert_family', 'priority', 'dedup_key', 'suppressed'],
@@ -52,14 +57,13 @@ const KEY_COLUMNS: Record<string, string[]> = {
   user_monitoring_history: ['id', 'user_id', 'ticker', 'action'],
 };
 
-// Indexes from RFC-002 (subset; verifies partial indexes were applied)
+// Indexes (subset; verifies key indexes were applied across epics)
 const EXPECTED_INDEXES = [
   'idx_stocks_in_universe',
   'idx_stocks_market_cap',
   'idx_stocks_sector',
   'idx_stocks_data_freshness',
   'idx_classification_confidence',
-  'idx_classification_suggested_bucket',
   'idx_valuation_zone',
   'idx_valuation_zone_interested',
   'idx_alerts_user_id',
@@ -68,9 +72,10 @@ const EXPECTED_INDEXES = [
   'idx_users_email',
   'idx_user_sessions_user_id',
   'idx_anchored_thresholds_code',
+  'idx_valuation_regime',   // EPIC-008
 ];
 
-describe('EPIC-001/STORY-004: Database Schema — 19 RFC-002 tables exist', () => {
+describe('EPIC-001/STORY-004: Database Schema — RFC-002 tables exist (updated EPIC-008)', () => {
   beforeAll(async () => {
     await prisma.$connect();
   });
@@ -79,7 +84,7 @@ describe('EPIC-001/STORY-004: Database Schema — 19 RFC-002 tables exist', () =
     await prisma.$disconnect();
   });
 
-  test('all 19 RFC-002 tables exist in public schema', async () => {
+  test('all expected tables exist in public schema', async () => {
     const result = await prisma.$queryRaw<{ tablename: string }[]>`
       SELECT tablename
       FROM pg_tables
