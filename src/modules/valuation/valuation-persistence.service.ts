@@ -1,6 +1,7 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-076: Valuation State Persistence & History
 // TASK-076-001–004: loadValuationInput, persistValuationState, getPersonalizedValuation, read models
+// EPIC-008/STORY-094/TASK-094-002: Add StockDerivedMetrics join + valuationRegimeThresholds load
 
 import { prisma } from '@/infrastructure/database/prisma';
 import {
@@ -11,6 +12,7 @@ import {
   type AnchoredThresholdRow,
   type TsrHurdleRow,
   type PriorValuationState,
+  type ValuationRegimeThresholdRow,
 } from '@/domain/valuation';
 import type { ValuationState, Prisma } from '@prisma/client';
 
@@ -38,7 +40,7 @@ export async function loadValuationInput(
   ticker: string,
   activeCode: string,
 ): Promise<ValuationInput | null> {
-  const [stock, anchors, hurdles] = await Promise.all([
+  const [stock, anchors, hurdles, regimeThresholds] = await Promise.all([
     prisma.stock.findUnique({
       where: { ticker },
       select: {
@@ -57,10 +59,30 @@ export async function loadValuationInput(
         cyclicalityFlag: true,
         preOperatingLeverageFlag: true,
         forwardOperatingEarningsExExcessCash: true,
+        // EPIC-008: new fields from stock
+        bankFlag: true,
+        structuralCyclicalityScore: true,
+        cyclePosition: true,
+        cyclicalConfidence: true,
+        revenueGrowthFwd: true,
+        netIncomePositive: true,
+        fcfPositive: true,
+        fcfConversion: true,
+        // StockDerivedMetrics join for TTM values
+        derivedMetrics: {
+          select: {
+            netIncomeTtm: true,
+            freeCashFlowTtm: true,
+            operatingMarginTtm: true,
+            grossMarginTtm: true,
+          },
+        },
       },
     }),
     prisma.anchoredThreshold.findMany(),
     prisma.tsrHurdle.findMany(),
+    // EPIC-008: regime thresholds replace anchoredThresholds for regime-driven path
+    prisma.valuationRegimeThreshold.findMany(),
   ]);
 
   if (!stock) return null;
@@ -89,6 +111,17 @@ export async function loadValuationInput(
     balanceSheetCAdjustment: Number(h.balanceSheetCAdjustment),
   }));
 
+  const regimeThresholdRows: ValuationRegimeThresholdRow[] = regimeThresholds.map(r => ({
+    regime: r.regime,
+    primaryMetric: r.primaryMetric,
+    maxThreshold: r.maxThreshold !== null ? Number(r.maxThreshold) : null,
+    comfortableThreshold: r.comfortableThreshold !== null ? Number(r.comfortableThreshold) : null,
+    veryGoodThreshold: r.veryGoodThreshold !== null ? Number(r.veryGoodThreshold) : null,
+    stealThreshold: r.stealThreshold !== null ? Number(r.stealThreshold) : null,
+  }));
+
+  const dm = stock.derivedMetrics;
+
   return {
     activeCode,
     forwardPe: stock.forwardPe !== null ? Number(stock.forwardPe) : null,
@@ -111,6 +144,20 @@ export async function loadValuationInput(
         : null,
     anchoredThresholds: anchoredRows,
     tsrHurdles: tsrHurdleRows,
+    // EPIC-008: regime-driven fields
+    bankFlag: stock.bankFlag ?? false,
+    structuralCyclicalityScore: stock.structuralCyclicalityScore ?? 0,
+    cyclePosition: (stock.cyclePosition ?? 'normal') as import('@/domain/valuation').CyclePosition,
+    cyclicalConfidence: (stock.cyclicalConfidence ?? 'insufficient_data') as 'high' | 'medium' | 'low' | 'insufficient_data',
+    revenueGrowthFwd: stock.revenueGrowthFwd !== null ? Number(stock.revenueGrowthFwd) : null,
+    // fcfConversionTtm from stock.fcf_conversion (pre-computed ratio by fundamentals sync)
+    fcfConversionTtm: stock.fcfConversion !== null ? Number(stock.fcfConversion) : null,
+    // TTM values from StockDerivedMetrics
+    netIncomeTtm: dm?.netIncomeTtm !== null && dm?.netIncomeTtm !== undefined ? Number(dm.netIncomeTtm) : null,
+    freeCashFlowTtm: dm?.freeCashFlowTtm !== null && dm?.freeCashFlowTtm !== undefined ? Number(dm.freeCashFlowTtm) : null,
+    operatingMarginTtm: dm?.operatingMarginTtm !== null && dm?.operatingMarginTtm !== undefined ? Number(dm.operatingMarginTtm) : null,
+    grossMarginTtm: dm?.grossMarginTtm !== null && dm?.grossMarginTtm !== undefined ? Number(dm.grossMarginTtm) : null,
+    valuationRegimeThresholds: regimeThresholdRows,
   };
 }
 
@@ -206,6 +253,15 @@ export async function persistValuationState(
       valuationStateStatus: result.valuationStateStatus,
       valuationLastUpdatedAt: new Date(),
       version: priorState ? priorState.version + 1 : 1,
+      // EPIC-008/STORY-094/TASK-094-003: persist regime + cyclical fields
+      valuationRegime: result.valuationRegime ?? null,
+      thresholdFamily: result.thresholdFamily ?? null,
+      structuralCyclicalityScoreSnapshot: result.structuralCyclicalityScoreSnapshot ?? null,
+      cyclePositionSnapshot: result.cyclePositionSnapshot ?? null,
+      cyclicalOverlayApplied: result.cyclicalOverlayApplied ?? null,
+      cyclicalOverlayValue: result.cyclicalOverlayValue ?? null,
+      cyclicalConfidence: result.cyclicalConfidence ?? null,
+      growthTier: result.growthTier ?? null,
     };
 
     // Atomic upsert + history in transaction
@@ -424,6 +480,10 @@ export async function getValuationHistory(ticker: string, limit = 20) {
 // ── Helper: ValuationState row → ValuationResult (for no-override path) ───────
 
 function stateToResult(s: ValuationState): ValuationResult {
+  // EPIC-008/STORY-094/TASK-094-006: backward-compat guard — treat legacy 'ready' as 'computed'
+  const rawStatus = s.valuationStateStatus as string;
+  const valuationStateStatus = (rawStatus === 'ready' ? 'computed' : rawStatus) as import('@/domain/valuation').ValuationStateStatus;
+
   return {
     activeCode: s.activeCode,
     effectiveCode: s.activeCode,  // persisted state predates demotion; treat as no demotion
@@ -445,9 +505,18 @@ function stateToResult(s: ValuationState): ValuationResult {
     hurdleSource: s.hurdleSource as 'default' | 'manual_override',
     tsrReasonCodes: (s.tsrReasonCodes as string[]) ?? [],
     valuationZone: s.valuationZone as import('@/domain/valuation').ValuationZone,
-    valuationStateStatus: s.valuationStateStatus as import('@/domain/valuation').ValuationStateStatus,
+    valuationStateStatus,
     grossMarginAdjustmentApplied: false,
     dilutionAdjustmentApplied: false,
     cyclicalityContextFlag: false,
+    // EPIC-008 fields from persisted state
+    valuationRegime: (s.valuationRegime as import('@/domain/valuation').ValuationRegime) ?? null,
+    thresholdFamily: s.thresholdFamily ?? null,
+    growthTier: (s.growthTier as import('@/domain/valuation').GrowthTier) ?? null,
+    structuralCyclicalityScoreSnapshot: s.structuralCyclicalityScoreSnapshot ?? null,
+    cyclePositionSnapshot: (s.cyclePositionSnapshot as import('@/domain/valuation').CyclePosition) ?? null,
+    cyclicalOverlayApplied: s.cyclicalOverlayApplied ?? null,
+    cyclicalOverlayValue: s.cyclicalOverlayValue !== null ? Number(s.cyclicalOverlayValue) : null,
+    cyclicalConfidence: (s.cyclicalConfidence as import('@/domain/valuation').ValuationResult['cyclicalConfidence']) ?? null,
   };
 }

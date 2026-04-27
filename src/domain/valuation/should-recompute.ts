@@ -1,6 +1,7 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-007: shouldRecompute — change detection using current input vs persisted ValuationState
+// EPIC-008/STORY-094/TASK-094-004: Add cyclicality_score, cycle_position, operating_margin, regime triggers
 
 import type { ValuationInput } from './types';
 import { parseBucket } from './metric-selector';
@@ -11,9 +12,15 @@ export interface PriorValuationState {
   primaryMetric: string;
   currentMultiple: number | null;
   adjustedTsrHurdle: number | null;
+  // EPIC-008 optional: set when regime-driven path has run before
+  valuationRegime?: string | null;
+  structuralCyclicalityScoreSnapshot?: number | null;
+  cyclePositionSnapshot?: string | null;
+  operatingMarginSnapshot?: number | null;
 }
 
-const MULTIPLE_CHANGE_THRESHOLD = 0.05; // 5% relative change triggers recompute
+const MULTIPLE_CHANGE_THRESHOLD = 0.05;      // 5% relative change triggers recompute
+const OPERATING_MARGIN_CHANGE_THRESHOLD = 0.05; // 5 pp absolute change triggers recompute
 
 export function shouldRecompute(
   input: ValuationInput,
@@ -38,6 +45,50 @@ export function shouldRecompute(
   } else if (currentMultiple !== priorState.currentMultiple) {
     // One is null and the other is not
     return true;
+  }
+
+  // EPIC-008 triggers — only fire when prior state has regime fields
+  if (priorState.valuationRegime !== undefined) {
+    // Cyclicality score changed
+    if (
+      input.structuralCyclicalityScore !== undefined &&
+      priorState.structuralCyclicalityScoreSnapshot !== null &&
+      priorState.structuralCyclicalityScoreSnapshot !== undefined &&
+      input.structuralCyclicalityScore !== priorState.structuralCyclicalityScoreSnapshot
+    ) {
+      return true;
+    }
+
+    // Cycle position changed
+    if (
+      input.cyclePosition !== undefined &&
+      priorState.cyclePositionSnapshot !== null &&
+      priorState.cyclePositionSnapshot !== undefined &&
+      input.cyclePosition !== priorState.cyclePositionSnapshot
+    ) {
+      return true;
+    }
+
+    // Operating margin changed materially (≥5 pp absolute)
+    if (
+      input.operatingMarginTtm !== undefined &&
+      input.operatingMarginTtm !== null &&
+      priorState.operatingMarginSnapshot !== null &&
+      priorState.operatingMarginSnapshot !== undefined
+    ) {
+      const opMarginChange = Math.abs(input.operatingMarginTtm - priorState.operatingMarginSnapshot);
+      if (opMarginChange >= OPERATING_MARGIN_CHANGE_THRESHOLD) return true;
+    }
+
+    // Valuation regime changed
+    if (
+      input.valuationRegime !== undefined &&
+      priorState.valuationRegime !== null &&
+      priorState.valuationRegime !== undefined &&
+      input.valuationRegime !== priorState.valuationRegime
+    ) {
+      return true;
+    }
   }
 
   return false;

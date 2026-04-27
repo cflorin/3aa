@@ -2,10 +2,12 @@
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-007: computeValuation() — orchestrator chaining all domain components
 // STORY-082: Confidence-based effective bucket demotion (RFC-003 §Confidence-Based Effective Bucket)
+// EPIC-008/STORY-094/TASK-094-001: Wire selectRegime() + assignThresholdsRegimeDriven() into pipeline
 
 import type { ValuationInput, ValuationResult, ValuationStateStatus, PrimaryMetric } from './types';
 import { selectMetric, parseBucket } from './metric-selector';
-import { assignThresholds } from './threshold-assigner';
+import { assignThresholds, assignThresholdsRegimeDriven } from './threshold-assigner';
+import { selectRegime } from './regime-selector';
 import { calculateTsrHurdle } from './tsr-hurdle-calculator';
 import { applySecondaryAdjustments } from './secondary-adjustments';
 import { assignZone } from './zone-assigner';
@@ -70,31 +72,101 @@ export function computeValuation(input: ValuationInput): ValuationResult {
   const { currentMultiple, currentMultipleBasis, metricSource, status: multipleStatus } =
     resolveCurrentMultiple(input, primaryMetric);
 
-  if (multipleStatus === 'manual_required' || multipleStatus === 'missing_data') {
+  if (multipleStatus === 'manual_required') {
     return buildStatusResult(input, effectiveCode, primaryMetric, metricReason, multipleStatus);
   }
 
-  // ── Stage 3: Threshold assignment (uses effectiveCode) ────────────────────
+  // ── Stage 3: Threshold assignment ─────────────────────────────────────────
+  // EPIC-008/STORY-094: when regime inputs are present, use regime-driven path;
+  // otherwise fall back to legacy code-keyed path (anchoredThresholds).
   const preOpLev = input.preOperatingLeverageFlag === true;
-  const thresholdResult = assignThresholds(effectiveCode, input.anchoredThresholds, preOpLev);
+
+  let thresholdResult: import('./threshold-assigner').ThresholdResult;
+  let valuationRegime = input.valuationRegime;
+
+  if (
+    input.valuationRegimeThresholds?.length &&
+    input.bankFlag !== undefined &&
+    input.structuralCyclicalityScore !== undefined &&
+    input.cyclePosition !== undefined
+  ) {
+    // Regime-driven path: compute regime first, then thresholds
+    if (!valuationRegime) {
+      valuationRegime = selectRegime({
+        activeCode: input.activeCode,
+        bankFlag: input.bankFlag ?? false,
+        insurerFlag: input.insurerFlag ?? false,
+        holdingCompanyFlag: input.holdingCompanyFlag ?? false,
+        preOperatingLeverageFlag: preOpLev,
+        netIncomeTtm: input.netIncomeTtm ?? null,
+        freeCashFlowTtm: input.freeCashFlowTtm ?? null,
+        operatingMarginTtm: input.operatingMarginTtm ?? null,
+        grossMarginTtm: input.grossMarginTtm ?? null,
+        fcfConversionTtm: input.fcfConversionTtm ?? null,
+        revenueGrowthFwd: input.revenueGrowthFwd ?? null,
+        structuralCyclicalityScore: input.structuralCyclicalityScore ?? 0,
+      });
+    }
+    thresholdResult = assignThresholdsRegimeDriven({
+      regime: valuationRegime,
+      thresholds: input.valuationRegimeThresholds,
+      activeCode: effectiveCode,
+      revenueGrowthFwd: input.revenueGrowthFwd ?? null,
+      structuralCyclicalityScore: input.structuralCyclicalityScore ?? 0,
+      cyclePosition: (input.cyclePosition ?? 'normal') as import('./types').CyclePosition,
+      grossMarginTtm: input.grossMarginTtm ?? null,
+      shareCountGrowth3y: input.shareCountGrowth3y ?? null,
+      materialDilutionFlag: input.materialDilutionFlag,
+    });
+  } else {
+    // Legacy path: code-keyed anchored thresholds
+    thresholdResult = assignThresholds(effectiveCode, input.anchoredThresholds, preOpLev);
+  }
 
   // ── Stage 4: TSR hurdle (uses effectiveCode) ───────────────────────────────
   const hurdle = calculateTsrHurdle(effectiveCode, input.tsrHurdles);
 
-  // ── Stage 5: Secondary adjustments (uses effectiveCode) ───────────────────
-  const adjResult = applySecondaryAdjustments({
-    activeCode: effectiveCode,
-    metricFamily: thresholdResult.metricFamily,
-    primaryMetric,
-    maxThreshold: thresholdResult.maxThreshold,
-    comfortableThreshold: thresholdResult.comfortableThreshold,
-    veryGoodThreshold: thresholdResult.veryGoodThreshold,
-    stealThreshold: thresholdResult.stealThreshold,
-    grossMargin: input.grossMargin,
-    shareCountGrowth3y: input.shareCountGrowth3y,
-    materialDilutionFlag: input.materialDilutionFlag,
-    cyclicalityFlag: input.cyclicalityFlag,
-  });
+  // ── Stage 5: Secondary adjustments ────────────────────────────────────────
+  // In regime-driven path, steps 5a/5b are already applied inside assignThresholdsRegimeDriven.
+  // In legacy path, apply them here via applySecondaryAdjustments.
+  let adjResult: {
+    maxThreshold: number | null;
+    comfortableThreshold: number | null;
+    veryGoodThreshold: number | null;
+    stealThreshold: number | null;
+    thresholdAdjustments: import('./types').ThresholdAdjustment[];
+    grossMarginAdjustmentApplied: boolean;
+    dilutionAdjustmentApplied: boolean;
+    cyclicalityContextFlag: boolean;
+  };
+
+  if (valuationRegime) {
+    adjResult = {
+      maxThreshold: thresholdResult.maxThreshold,
+      comfortableThreshold: thresholdResult.comfortableThreshold,
+      veryGoodThreshold: thresholdResult.veryGoodThreshold,
+      stealThreshold: thresholdResult.stealThreshold,
+      thresholdAdjustments: thresholdResult.thresholdAdjustments ?? [],
+      grossMarginAdjustmentApplied: thresholdResult.thresholdAdjustments?.some(a => a.type === 'gross_margin') ?? false,
+      dilutionAdjustmentApplied: thresholdResult.thresholdAdjustments?.some(a => a.type === 'dilution') ?? false,
+      cyclicalityContextFlag: input.cyclicalityFlag === true,
+    };
+  } else {
+    const secAdj = applySecondaryAdjustments({
+      activeCode: effectiveCode,
+      metricFamily: thresholdResult.metricFamily,
+      primaryMetric,
+      maxThreshold: thresholdResult.maxThreshold,
+      comfortableThreshold: thresholdResult.comfortableThreshold,
+      veryGoodThreshold: thresholdResult.veryGoodThreshold,
+      stealThreshold: thresholdResult.stealThreshold,
+      grossMargin: input.grossMargin,
+      shareCountGrowth3y: input.shareCountGrowth3y,
+      materialDilutionFlag: input.materialDilutionFlag,
+      cyclicalityFlag: input.cyclicalityFlag,
+    });
+    adjResult = secAdj;
+  }
 
   // ── Stage 6: Zone assignment ───────────────────────────────────────────────
   const valuationZone = assignZone(
@@ -105,8 +177,11 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     adjResult.stealThreshold,
   );
 
+  // 'ready' → 'computed', 'missing_data' → 'manual_required' (EPIC-008/STORY-089)
   const valuationStateStatus: ValuationStateStatus =
-    valuationZone === 'not_applicable' ? 'missing_data' : 'ready';
+    (thresholdResult.valuationStateStatus && thresholdResult.valuationStateStatus !== 'computed')
+      ? thresholdResult.valuationStateStatus
+      : valuationZone === 'not_applicable' ? 'manual_required' : 'computed';
 
   return {
     activeCode: input.activeCode,
@@ -133,6 +208,15 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     grossMarginAdjustmentApplied: adjResult.grossMarginAdjustmentApplied,
     dilutionAdjustmentApplied: adjResult.dilutionAdjustmentApplied,
     cyclicalityContextFlag: adjResult.cyclicalityContextFlag,
+    // EPIC-008 optional output fields
+    valuationRegime,
+    growthTier: thresholdResult.growthTier ?? null,
+    structuralCyclicalityScoreSnapshot: input.structuralCyclicalityScore ?? null,
+    cyclePositionSnapshot: (input.cyclePosition as import('./types').CyclePosition) ?? null,
+    cyclicalOverlayApplied: thresholdResult.cyclicalOverlayApplied ?? null,
+    cyclicalOverlayValue: thresholdResult.cyclicalOverlayValue ?? null,
+    cyclicalConfidence: (input.cyclicalConfidence as import('./types').ValuationResult['cyclicalConfidence']) ?? null,
+    thresholdFamily: thresholdResult.thresholdFamily ?? null,
   };
 }
 
@@ -145,7 +229,7 @@ function resolveCurrentMultiple(
   currentMultiple: number | null;
   currentMultipleBasis: string;
   metricSource: string;
-  status: 'ok' | 'manual_required' | 'missing_data';
+  status: 'ok' | 'manual_required';
 } {
   switch (primaryMetric) {
     case 'forward_pe': {
@@ -194,7 +278,7 @@ function resolveCurrentMultiple(
       return { currentMultiple: null, currentMultipleBasis: 'spot', metricSource: 'forward_operating_earnings_ex_excess_cash', status: 'manual_required' };
 
     default:
-      return { currentMultiple: null, currentMultipleBasis: 'spot', metricSource: 'unknown', status: 'missing_data' };
+      return { currentMultiple: null, currentMultipleBasis: 'spot', metricSource: 'unknown', status: 'manual_required' };
   }
 }
 

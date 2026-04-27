@@ -1,6 +1,7 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-007: Unit tests — shouldRecompute() change detection
+// EPIC-008/STORY-094/TASK-094-004: EPIC-008 trigger conditions
 
 import { shouldRecompute } from '../../../src/domain/valuation/should-recompute';
 import type { PriorValuationState } from '../../../src/domain/valuation/should-recompute';
@@ -280,6 +281,96 @@ describe('EPIC-005/STORY-075/TASK-075-007: shouldRecompute()', () => {
         currentMultiple: 18,
       });
       expect(shouldRecompute(input, prior)).toBe(true);
+    });
+  });
+
+  // ── EPIC-008/STORY-094: New trigger conditions ────────────────────────────────
+
+  describe('EPIC-008 triggers (cyclicality_score, cycle_position, operating_margin, regime)', () => {
+    function makeEpic8Input(override: Partial<ValuationInput>): ValuationInput {
+      return makeInput({
+        activeCode: '3AA',
+        forwardPe: 30,
+        structuralCyclicalityScore: 1,
+        cyclePosition: 'normal' as const,
+        operatingMarginTtm: 0.25,
+        valuationRegime: 'profitable_growth_pe',
+        ...override,
+      });
+    }
+
+    function makeEpic8Prior(override: Partial<PriorValuationState>): PriorValuationState {
+      return makePrior({
+        activeCode: '3AA',
+        primaryMetric: 'forward_pe',
+        currentMultiple: 30,
+        valuationRegime: 'profitable_growth_pe',
+        structuralCyclicalityScoreSnapshot: 1,
+        cyclePositionSnapshot: 'normal',
+        operatingMarginSnapshot: 0.25,
+        ...override,
+      });
+    }
+
+    it('cyclicality score changed → true', () => {
+      const input = makeEpic8Input({ structuralCyclicalityScore: 2 });
+      const prior = makeEpic8Prior({ structuralCyclicalityScoreSnapshot: 1 });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('cyclicality score unchanged → not triggered', () => {
+      const input = makeEpic8Input({ structuralCyclicalityScore: 1 });
+      const prior = makeEpic8Prior({ structuralCyclicalityScoreSnapshot: 1 });
+      // Only these epic-8 fields match; multiple also unchanged
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('cycle position changed → true', () => {
+      const input = makeEpic8Input({ cyclePosition: 'elevated' as const });
+      const prior = makeEpic8Prior({ cyclePositionSnapshot: 'normal' });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('cycle position unchanged → not triggered', () => {
+      const input = makeEpic8Input({ cyclePosition: 'normal' as const });
+      const prior = makeEpic8Prior({ cyclePositionSnapshot: 'normal' });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('operating margin changed by ≥5pp → true', () => {
+      const input = makeEpic8Input({ operatingMarginTtm: 0.31 });  // changed by 0.06 ≥ 0.05
+      const prior = makeEpic8Prior({ operatingMarginSnapshot: 0.25 });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('operating margin changed by <5pp → not triggered', () => {
+      const input = makeEpic8Input({ operatingMarginTtm: 0.28 });  // changed by 0.03 < 0.05
+      const prior = makeEpic8Prior({ operatingMarginSnapshot: 0.25 });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('valuation regime changed → true', () => {
+      const input = makeEpic8Input({ valuationRegime: 'cyclical_earnings' });
+      const prior = makeEpic8Prior({ valuationRegime: 'profitable_growth_pe' });
+      expect(shouldRecompute(input, prior)).toBe(true);
+    });
+
+    it('valuation regime unchanged → not triggered', () => {
+      const input = makeEpic8Input({ valuationRegime: 'profitable_growth_pe' });
+      const prior = makeEpic8Prior({ valuationRegime: 'profitable_growth_pe' });
+      expect(shouldRecompute(input, prior)).toBe(false);
+    });
+
+    it('EPIC-008 triggers do not fire when prior state has no valuationRegime field (legacy prior)', () => {
+      // Legacy prior (no valuationRegime field set) — EPIC-008 triggers should not fire
+      const input = makeEpic8Input({ structuralCyclicalityScore: 3, cyclePosition: 'peak' as const });
+      const prior = makePrior({
+        activeCode: '3AA',
+        primaryMetric: 'forward_pe',
+        currentMultiple: 30,
+        // no valuationRegime — undefined, not set
+      });
+      expect(shouldRecompute(input, prior)).toBe(false);
     });
   });
 });

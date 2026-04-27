@@ -8,6 +8,57 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-27 — EPIC-008/STORY-094: Valuation Pipeline Integration — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-094 — Valuation Pipeline Integration
+**Tasks:** TASK-094-001 through TASK-094-007
+
+**Action:** Wired all EPIC-008 domain services into the live valuation pipeline. `computeValuation()` now calls `selectRegime()` + `assignThresholdsRegimeDriven()` when regime inputs are present. `loadValuationInput()` fetches new fields. `persistValuationState()` writes all regime/cyclical columns. `shouldRecompute()` has 4 new triggers. CyclicalScoreService runs first in cron.
+
+**TASK-094-001 — computeValuation() orchestrator (`src/domain/valuation/compute-valuation.ts`):**
+- Import `selectRegime`, `assignThresholdsRegimeDriven` from domain
+- When `valuationRegimeThresholds` + `bankFlag` + cyclical fields present: regime-driven path
+- Legacy path (anchoredThresholds) retained for backward compat
+- Secondary adjustments (steps 5a/5b) skipped in regime path (already applied in assigner)
+- New EPIC-008 fields populated in ValuationResult output
+
+**TASK-094-002 — loadValuationInput() (`src/modules/valuation/valuation-persistence.service.ts`):**
+- Added `derivedMetrics` include to stock query (netIncomeTtm, freeCashFlowTtm, operatingMarginTtm, grossMarginTtm)
+- Added new stock fields: bankFlag, structuralCyclicalityScore, cyclePosition, cyclicalConfidence, revenueGrowthFwd, fcfConversion
+- Added `prisma.valuationRegimeThreshold.findMany()` parallel query
+- fcfConversionTtm from stock.fcf_conversion (pre-computed ratio)
+- netIncomeTtm/freeCashFlowTtm/operatingMarginTtm/grossMarginTtm from derivedMetrics
+
+**TASK-094-003 — persistValuationState() (`src/modules/valuation/valuation-persistence.service.ts`):**
+- Added 8 EPIC-008 fields to upsert data: valuationRegime, thresholdFamily, structuralCyclicalityScoreSnapshot, cyclePositionSnapshot, cyclicalOverlayApplied, cyclicalOverlayValue, cyclicalConfidence, growthTier
+- stateToResult() backward-compat guard: 'ready' → 'computed'; reads back EPIC-008 fields
+
+**TASK-094-004 — shouldRecompute() (`src/domain/valuation/should-recompute.ts`):**
+- PriorValuationState extended with optional EPIC-008 fields
+- 4 new triggers: cyclicality_score_changed, cycle_position_changed, operating_margin_changed (≥5pp), regime_changed
+- Triggers only fire when priorState has valuationRegime field (not legacy records)
+
+**TASK-094-005 — CyclicalScoreService in cron (`src/app/api/cron/valuation/route.ts`):**
+- Step 1: cyclicalScoreService.computeAndPersist() before runValuationBatch()
+- Response wrapped: `{ cyclical, valuation }`
+
+**TASK-094-006 — Backward-compat data migration:**
+- stateToResult() read guard: `if (status === 'ready') status = 'computed'`
+- Migration SQL already in STORY-089 migration: default changed to 'computed'
+
+**TASK-094-007 — Tests:**
+- `tests/unit/api/cron/valuation.test.ts` updated: added cyclicalScoreService mock, response shape updated, ordering test added
+- `tests/unit/valuation/should-recompute.test.ts` updated: 9 new EPIC-008 trigger tests
+- `tests/unit/valuation-persistence/story-076-valuation-persistence.test.ts` updated: valuationRegimeThreshold mock added, STOCK_AAPL extended with EPIC-008 fields
+
+**Tests:** 1753/1753 unit tests passing (0 regressions)
+**Result:** STORY-094 complete ✅
+**Baseline Impact:** NO
+**Next Action:** STORY-095 — Stock Detail regime & cyclicality display + Universe Screen filter
+
+---
+
 ## 2026-04-27 — EPIC-008/STORY-093: ThresholdAssigner Regime Decoupling — COMPLETE
 
 **Epic:** EPIC-008 — Valuation Regime Decoupling

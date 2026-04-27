@@ -11,8 +11,8 @@
 
 ## Status Summary
 - **Current Phase:** EPIC-008 — Valuation Regime Decoupling
-- **Active Epic:** EPIC-008 (STORY-089–093 ✅ done 2026-04-27)
-- **Active Story:** STORY-094 — Valuation Pipeline Integration
+- **Active Epic:** EPIC-008 (STORY-089–094 ✅ done 2026-04-27)
+- **Active Story:** STORY-095 — Stock Detail Regime & Cyclicality Display
 - **Overall Progress:** 6 epics fully done (EPIC-001 through EPIC-005, EPIC-003.1); EPIC-008 decomposed and ready; EPIC-006 and EPIC-007 remain after EPIC-008
 - **Baseline Status:** All 2026-04-27 amendments applied; 5 ChatGPT feedback fixes applied across ADR-017, ADR-018, RFC-003, PRD, model reference
 - **Unit Tests (last verified):** 1568/1568 passing (2026-04-26 baseline)
@@ -481,7 +481,7 @@
   - STORY-091: CyclicalScoreService (score + position + **confidence** all persisted to stock) — status: **done** ✅
   - STORY-092: RegimeSelectorService (selectRegime() Steps 0A–6) — status: **done** ✅
   - STORY-093: ThresholdAssigner regime decoupling (cyclicalConfidence as input, not computed here) — status: **done** ✅
-  - STORY-094: Valuation pipeline integration (**StockDerivedMetrics join** documented, fcf_conversion field clarified) — status: **validated**
+  - STORY-094: Valuation pipeline integration (**StockDerivedMetrics join** documented, fcf_conversion field clarified) — status: **done** ✅
   - STORY-095: Stock Detail regime & cyclicality display + Universe Screen filter — status: **validated**
   - STORY-096: EPIC-008 regression & integration tests (golden-set BDD + baseline preservation) — status: **validated**
 

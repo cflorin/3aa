@@ -8,6 +8,7 @@ jest.mock('@/infrastructure/database/prisma', () => ({
     stock: { findUnique: jest.fn() },
     anchoredThreshold: { findMany: jest.fn() },
     tsrHurdle: { findMany: jest.fn() },
+    valuationRegimeThreshold: { findMany: jest.fn() },  // EPIC-008
     classificationState: { findUnique: jest.fn() },
     valuationState: { findUnique: jest.fn(), upsert: jest.fn() },
     valuationHistory: { create: jest.fn(), findMany: jest.fn() },
@@ -65,11 +66,22 @@ const STOCK_AAPL = {
   cyclicalityFlag: false,
   preOperatingLeverageFlag: false,
   forwardOperatingEarningsExExcessCash: null,
+  // EPIC-008 fields
+  bankFlag: false,
+  structuralCyclicalityScore: null,
+  cyclePosition: null,
+  cyclicalConfidence: null,
+  revenueGrowthFwd: null,
+  netIncomePositive: null,
+  fcfPositive: null,
+  fcfConversion: null,
+  derivedMetrics: null,
 };
 
 function setupMocks(overrides: Record<string, unknown> = {}) {
   (prisma.anchoredThreshold.findMany as jest.Mock).mockResolvedValue(ANCHORS);
   (prisma.tsrHurdle.findMany as jest.Mock).mockResolvedValue(TSR_HURDLES);
+  (prisma.valuationRegimeThreshold.findMany as jest.Mock).mockResolvedValue([]);  // EPIC-008
   (prisma.stock.findUnique as jest.Mock).mockResolvedValue({ ...STOCK_AAPL, ...overrides });
   (prisma.classificationState.findUnique as jest.Mock).mockResolvedValue({ suggestedCode: '4AA' });
   (prisma.valuationState.findUnique as jest.Mock).mockResolvedValue(null);
@@ -94,6 +106,7 @@ describe('EPIC-005/STORY-076/TASK-076-001: loadValuationInput', () => {
     (prisma.stock.findUnique as jest.Mock).mockResolvedValue(null);
     (prisma.anchoredThreshold.findMany as jest.Mock).mockResolvedValue(ANCHORS);
     (prisma.tsrHurdle.findMany as jest.Mock).mockResolvedValue(TSR_HURDLES);
+    (prisma.valuationRegimeThreshold.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await loadValuationInput('UNKNOWN', '4AA');
     expect(result).toBeNull();
@@ -147,6 +160,7 @@ describe('EPIC-005/STORY-076/TASK-076-002: persistValuationState', () => {
     (prisma.stock.findUnique as jest.Mock).mockResolvedValue(null);
     (prisma.anchoredThreshold.findMany as jest.Mock).mockResolvedValue(ANCHORS);
     (prisma.tsrHurdle.findMany as jest.Mock).mockResolvedValue(TSR_HURDLES);
+    (prisma.valuationRegimeThreshold.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await persistValuationState('AAPL');
     expect(result.status).toBe('error');
@@ -304,7 +318,7 @@ describe('EPIC-005/STORY-076/TASK-076-003: getPersonalizedValuation', () => {
     hurdleSource: 'default',
     tsrReasonCodes: ['bucket_4_base'],
     valuationZone: 'comfortable_zone',
-    valuationStateStatus: 'ready',
+    valuationStateStatus: 'computed',
     valuationOverrideReason: null,
     valuationOverrideTimestamp: null,
     valuationLastUpdatedAt: new Date(),
@@ -317,6 +331,7 @@ describe('EPIC-005/STORY-076/TASK-076-003: getPersonalizedValuation', () => {
     (prisma.valuationState.findUnique as jest.Mock).mockResolvedValue(SYSTEM_STATE);
     (prisma.anchoredThreshold.findMany as jest.Mock).mockResolvedValue(ANCHORS);
     (prisma.tsrHurdle.findMany as jest.Mock).mockResolvedValue(TSR_HURDLES);
+    (prisma.valuationRegimeThreshold.findMany as jest.Mock).mockResolvedValue([]);  // EPIC-008
     (prisma.stock.findUnique as jest.Mock).mockResolvedValue(STOCK_AAPL);
     (prisma.userClassificationOverride.findUnique as jest.Mock).mockResolvedValue(null);
     (prisma.userValuationOverride.findUnique as jest.Mock).mockResolvedValue(null);
