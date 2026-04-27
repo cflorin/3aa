@@ -190,6 +190,29 @@ Story specs: `stories/tasks/EPIC-005-valuation-threshold-engine/`
 
 ---
 
+## EPIC-008 — Valuation Regime Decoupling
+
+**Status:** planned — stories decomposed 2026-04-27
+
+**Dependencies:** EPIC-005 ✅, EPIC-003.1 ✅
+
+Epic spec: `stories/epics/EPIC-008-valuation-regime-decoupling.md`
+
+Story specs: `stories/tasks/EPIC-008-valuation-regime-decoupling/`
+
+| Story | Title | Status |
+|-------|-------|--------|
+| STORY-089 | Schema Migration — Regime Decoupling + ValuationRegimeThreshold Seed | planned |
+| STORY-090 | Bank Flag Derivation (Deterministic Classification Flag) | planned |
+| STORY-091 | CyclicalScoreService — structural_cyclicality_score + cycle_position | planned |
+| STORY-092 | RegimeSelectorService — selectRegime() Implementation | planned |
+| STORY-093 | ThresholdAssigner Regime Decoupling (Growth Tier + Cyclical Overlay) | planned |
+| STORY-094 | Valuation Pipeline Integration | planned |
+| STORY-095 | Stock Detail Page — Regime & Cyclicality Display | planned |
+| STORY-096 | EPIC-008 Regression & Integration Tests | planned |
+
+---
+
 ## Numbering Convention
 
 Stories are numbered sequentially across epics (not reset per epic):
@@ -198,7 +221,8 @@ Stories are numbered sequentially across epics (not reset per epic):
 - EPIC-003: STORY-015–033; STORY-057–064 (quarterly history additions 2026-04-25)
 - EPIC-003.1: STORY-034–040
 - EPIC-004: STORY-041–056; STORY-065–072 (quarterly history classification additions 2026-04-25)
-- EPIC-005: STORY-073+ (TBD)
+- EPIC-005: STORY-073–088
+- EPIC-008: STORY-089–096 (valuation regime decoupling — added 2026-04-27)
 
 Note: STORY-054–056 are EPIC-004 stories (theme, remove/add stock); STORY-057–064 are EPIC-003 quarterly history stories added 2026-04-25; STORY-065–072 are EPIC-004 quarterly history classification stories added 2026-04-25.
 

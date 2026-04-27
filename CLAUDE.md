@@ -6,42 +6,48 @@ This is the 3AA Monitoring Product V1 implementation. This document provides man
 ## Frozen Baseline (DO NOT MODIFY WITHOUT APPROVAL)
 - **Version:** V1.0 (frozen 2026-04-19; amendments below)
 - **PRD:** `/docs/prd/PRD.md`
-- **RFCs:** RFC-001 through RFC-008 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25 — quarterly financial history data layer; RFC-001/002/004 amended 2026-04-25)
-- **ADRs:** ADR-001 through ADR-016 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23; ADR-013/ADR-014 amended 2026-04-25; ADR-015/ADR-016 added 2026-04-25 — quarterly history storage model and refresh cadence; ADR-001/ADR-002 amended 2026-04-25)
-- **Validated Epics:** EPIC-001 through EPIC-003.1
+- **RFCs:** RFC-001 through RFC-008 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25 — quarterly financial history data layer; RFC-001/002/004 amended 2026-04-25; RFC-001/RFC-003/ADR-005 amended 2026-04-27 — valuation regime decoupling)
+- **ADRs:** ADR-001 through ADR-018 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23; ADR-013/ADR-014 amended 2026-04-25; ADR-015/ADR-016 added 2026-04-25; ADR-001/ADR-002 amended 2026-04-25; ADR-017/ADR-018 added 2026-04-27 — regime selection + cyclical overlay; ADR-005 amended 2026-04-27)
+- **Validated Epics:** EPIC-001 through EPIC-005; EPIC-008 fully designed (valuation regime decoupling — implement after EPIC-007)
 
-## Current State (as of 2026-04-23) — READ THIS FIRST
+## Current State (as of 2026-04-27) — READ THIS FIRST
 
 **Quick orientation for a new Claude session:**
 
 | Item | Value |
 |------|-------|
-| Overall progress | 4/8 epics complete |
-| Last completed | EPIC-003.1 ✅ Classification LLM Enrichment (2026-04-21) |
-| Next epic | EPIC-004 — Classification Engine & Universe Screen |
-| Active story | **None** — EPIC-004 needs story decomposition before any coding |
-| Unit tests | 489/489 passing |
-| Git branch | `main` (backup: `backup/epic-003.1-complete-2026-04-21`) |
-| GitHub | https://github.com/cflorin/3aa — fully pushed 2026-04-22 |
+| Overall progress | 6/8 epics complete; EPIC-008 decomposed and ready |
+| Last completed | EPIC-005 ✅ Valuation Threshold Engine |
+| Next epic | EPIC-008 — Valuation Regime Decoupling (stories decomposed 2026-04-27) |
+| Active story | **None** — begin with STORY-089 (Schema Migration) |
+| Unit tests | ~1568 passing (2026-04-26 baseline) |
+| Git branch | `main` |
+| GitHub | https://github.com/cflorin/3aa |
 
 **Completed epics:**
 - EPIC-001 ✅ Platform Foundation & Deployment (STORY-001–009)
 - EPIC-002 ✅ Authentication & User Management (STORY-010–014)
 - EPIC-003 ✅ Data Ingestion & Universe Management (STORY-015–033)
 - EPIC-003.1 ✅ Classification LLM Enrichment (STORY-034–040)
+- EPIC-004 ✅ Classification Engine & Universe Screen (STORY-041–088, except STORY-074 Bulk CSV Import — deferred)
+- EPIC-005 ✅ Valuation Threshold Engine (STORY-075–086)
 
-**What was just built (EPIC-003.1):**
-- LLM provider interface + Claude adapter (`src/modules/classification-enrichment/`)
-- 3 flag detectors: holding_company, cyclicality, binary_risk
-- Combined enrichment detector: 6 qualitative scores E1–E6 (moat, pricing power, revenue recurrence, margin durability, capital intensity, qualitative cyclicality)
-- `classificationEnrichmentSync` job + admin route
-- **Bug fixed:** missing `/api/cron/market-cap` route (STORY-027 gap — caused null marketCap/EV for new stocks)
-- **Cloud Scheduler:** STORY-003 updated to include 7th job (`market-cap` at 6:30pm ET)
+**What was just completed (EPIC-005 + extras):**
+- Full valuation domain layer: metric selector, threshold assigner, zone assigner (`src/domain/valuation/`)
+- Valuation state persistence + history (`src/modules/valuation/`)
+- Valuation batch job + cron route + stock-add pipeline integration
+- User valuation override API (GET/PUT/DELETE)
+- Stock Detail valuation tab + universe screen valuation columns + filters
+- Recompute Classification + Recompute Valuations admin buttons
+- Confidence-based metric demotion (STORY-082) + confidence floor bucket selection (STORY-083)
+- **EPIC-008 baseline fully designed + decomposed (2026-04-27):** 8 stories (STORY-089–096); regime selector (ADR-017), cyclical overlay (ADR-018), growth tier overlay, bank_flag, CyclicalScoreService; docs frozen with 5 ChatGPT feedback fixes applied
 
 **Next action required:**
-1. Decompose EPIC-004 (Classification Engine & Universe Screen) into stories + tasks
-2. Validate stories against baseline (PRD §4, RFC-001, RFC-003)
-3. Begin STORY-XXX (first EPIC-004 story) once decomposed and validated
+1. Begin STORY-089 — Schema Migration (Regime Decoupling + ValuationRegimeThreshold seed)
+2. Proceed through STORY-090–096 in dependency order (see EPIC-008 epic spec)
+3. EPIC-006 and EPIC-007 follow EPIC-008
+
+**STORY-074 status:** Bulk CSV Import spec exists but was not implemented. Defer to post-EPIC-007 or fold into EPIC-008 operational tooling if needed.
 
 **Key files for orientation:**
 - Implementation plan: `/docs/architecture/IMPLEMENTATION-PLAN-V1.md`

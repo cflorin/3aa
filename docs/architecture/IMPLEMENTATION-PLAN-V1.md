@@ -11,11 +11,11 @@
 
 ## Status Summary
 - **Current Phase:** EPIC-008 — Valuation Regime Decoupling
-- **Active Epic:** EPIC-008 (STORY-089–094 ✅ done 2026-04-27)
-- **Active Story:** STORY-095 — Stock Detail Regime & Cyclicality Display
+- **Active Epic:** EPIC-008 ✅ COMPLETE (STORY-089–096 all done 2026-04-27)
+- **Active Story:** None — EPIC-008 complete; EPIC-006 needs story decomposition before any coding
 - **Overall Progress:** 6 epics fully done (EPIC-001 through EPIC-005, EPIC-003.1); EPIC-008 decomposed and ready; EPIC-006 and EPIC-007 remain after EPIC-008
 - **Baseline Status:** All 2026-04-27 amendments applied; 5 ChatGPT feedback fixes applied across ADR-017, ADR-018, RFC-003, PRD, model reference
-- **Unit Tests (last verified):** 1568/1568 passing (2026-04-26 baseline)
+- **Unit Tests (last verified):** 1803/1803 passing (2026-04-27, EPIC-008 complete)
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -482,8 +482,8 @@
   - STORY-092: RegimeSelectorService (selectRegime() Steps 0A–6) — status: **done** ✅
   - STORY-093: ThresholdAssigner regime decoupling (cyclicalConfidence as input, not computed here) — status: **done** ✅
   - STORY-094: Valuation pipeline integration (**StockDerivedMetrics join** documented, fcf_conversion field clarified) — status: **done** ✅
-  - STORY-095: Stock Detail regime & cyclicality display + Universe Screen filter — status: **validated**
-  - STORY-096: EPIC-008 regression & integration tests (golden-set BDD + baseline preservation) — status: **validated**
+  - STORY-095: Stock Detail regime & cyclicality display + Universe Screen filter — status: **done** ✅
+  - STORY-096: EPIC-008 regression & integration tests (golden-set BDD + baseline preservation) — status: **done** ✅
 
 ### EPIC-006 — Monitoring & Alerts Engine with Alerts UI
 - **Status:** planned
