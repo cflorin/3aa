@@ -4678,3 +4678,51 @@ Authored RFC-009 (Earnings Path Bucket Engine) based on ChatGPT input spec *Buck
 **Baseline Impact:** YES — RFC-009 supersedes §Bucket Scorer in RFC-001 and replaces ADR-013 scoring weights. No code changes yet.
 
 **Next Action:** PRD amendment (§bucket semantics), ADR-013 replacement, ADR-019 (Operating Leverage State Engine), then EPIC-009 story decomposition.
+
+---
+
+## 2026-04-27 — EPIC-009 Design: PRD Amendment + ADR-013 Superseded + ADR-017 Amended + ADR-019 New
+
+**Timestamp:** 2026-04-27T20:00:00Z
+**Epic/Story/Task:** EPIC-009 design phase (pre-implementation)
+
+### Action
+
+Completed all design-phase documentation for EPIC-009 (Earnings Path Bucket Engine). Four documents written/amended.
+
+### Files Changed
+
+**1. `docs/prd/3_aa_classification_workflow_prd_v_1.md` — amended**
+- Bucket definition updated: "business stage and earnings-growth structure" → "expected normalised medium-term per-share earnings growth regime"
+- §Classification Logic/Bucket: replaced with full 8-band table, 5-input-block architecture, key principles
+- §Inputs: added Earnings Path Engine fields (quarterly history, `eps_fy2_avg`, cyclicality, SBC); deprecated `pre_operating_leverage_flag`; added `operating_leverage_state`
+- Edge cases: "Transition names" → "Boundary names" (no tie-break needed)
+- Amendment log appended
+
+**2. `docs/adr/ADR-013-classification-scoring-algorithm-weights.md` — superseded + updated**
+- Status changed to SUPERSEDED by RFC-009
+- V1 point-scoring weights retained (active until EPIC-009 STORY-108)
+- V2 formula weights added: base growth (0.45 rev + 0.35 eps_fwd + 0.20 eps_hist) + modifiers
+- V2 bucket bands table added
+- EQ/BS scoring unchanged and retained
+
+**3. `docs/adr/ADR-017-valuation-regime-selection-logic.md` — amendment appended**
+- Amendment: 2026-04-27 — Bucket-Based Growth Gates (EPIC-009 prep)
+- Step 2 gate: `revenue_growth_fwd >= 0.20` → `bucket ∈ {4,5,6,7}`
+- Step 4 gate: `revenue_growth_fwd >= 0.15` → `bucket ∈ {3,4}`
+- Growth tier overlay re-keyed on bucket (B7/B6 → high, B5 → mid, B4 → standard)
+- Backward-compatibility fallback to raw gates during transition defined
+
+**4. `docs/adr/ADR-019-operating-leverage-state-engine.md` — created (ACCEPTED)**
+- 5-state enum: `none` / `gradual` / `emerging_now` / `cyclical_rebound` / `deteriorating`
+- Full derived metrics table (all computable from existing `StockQuarterlyHistory`)
+- State classification rules with precedence order
+- Numeric contributions: +8% / +3% / +2% / 0% / −4%
+- Interaction with ADR-018 cyclical peak penalty (cyclical_rebound capped at +2%)
+- Universal thresholds in V1; sector tuning deferred
+
+**Result/Status:** ✅ All EPIC-009 design documentation complete. RFC-009 + PRD amendment + ADR-013 superseded + ADR-017 amended + ADR-019 created.
+
+**Baseline Impact:** YES — RFC-009 + ADR-013 superseded define a new bucket engine. No code changes yet; all changes are documentation only.
+
+**Next Action:** EPIC-009 story decomposition (STORY-100–111) → begin STORY-100 (Schema Migration).

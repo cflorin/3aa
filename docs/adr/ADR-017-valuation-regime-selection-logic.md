@@ -357,3 +357,89 @@ The `threshold_family` label is extended to include tier: `profitable_growth_pe_
 ---
 
 **END ADR-017**
+
+---
+
+## Amendment: 2026-04-27 — Bucket-Based Growth Gates (EPIC-009 prep)
+
+**Status:** ACCEPTED (amendment to Steps 2 and 4)
+**Related:** RFC-009 §16 (Regime Selector Semantic Update)
+
+### Context
+
+RFC-009 redefines bucket as the **expected normalised medium-term per-share earnings growth regime** (a continuous growth-band classification). With this change, the bucket itself directly encodes the growth tier that Steps 2 and 4 were previously approximating via the raw `revenue_growth_fwd` gate.
+
+Using `revenue_growth_fwd >= 0.20` as the Step 2 gate is a proxy that breaks in two cases:
+1. A stock with structurally high expected earnings growth (e.g. NVIDIA during an inventory correction) may have temporarily muted single-year forward revenue, causing it to fall out of `profitable_growth_pe` into `mature_pe` — incorrect.
+2. A stock with a one-time revenue step-up (acquisition, divestiture) may pass the raw gate without warranting the `profitable_growth_pe` regime.
+
+Bucket, computed from the new Earnings Path Engine, is a more durable signal because it blends historical growth, forward estimates, and operating leverage — it is less sensitive to single-period noise.
+
+### Updated Step 2 Gate
+
+**Previous:**
+```
+revenue_growth_fwd >= 0.20
+AND operating_margin_ttm >= 0.25
+AND net_income_positive = true
+AND fcf_positive = true
+AND fcf_conversion_ttm >= 0.60
+```
+
+**New (effective when EPIC-009 Earnings Path Engine is live):**
+```
+bucket ∈ {4, 5, 6, 7}   (expected normalised EPS growth ≥ 10%)
+AND operating_margin_ttm >= 0.25
+AND net_income_positive = true
+AND fcf_positive = true
+AND fcf_conversion_ttm >= 0.60
+```
+
+Bucket 4 maps to 10–18% expected EPS growth — a durable compounder that deserves `profitable_growth_pe` treatment when all margin and profitability conditions are also met.
+
+### Updated Step 4 Gate
+
+**Previous:**
+```
+revenue_growth_fwd >= 0.15
+AND net_income_positive = true
+AND fcf_positive = true
+AND operating_margin_ttm >= 0.10 AND < 0.25
+```
+
+**New (effective when EPIC-009 Earnings Path Engine is live):**
+```
+bucket ∈ {3, 4}   (expected normalised EPS growth 5–18%)
+AND net_income_positive = true
+AND fcf_positive = true
+AND operating_margin_ttm >= 0.10 AND < 0.25
+```
+
+Bucket 3 (5–10% EPS growth) profitable names at 10–25% operating margin are the intended `profitable_growth_ev_ebit` universe — steady moderate compounders in a scaling phase.
+
+### Backward Compatibility (Transition Period)
+
+During EPIC-009 implementation, a `bucketGrowthTierGate(bucket)` helper function will be introduced. Until all stocks have been reprocessed by the new Earnings Path Engine, the raw `revenue_growth_fwd` conditions are retained as fallback: if `bucket` is null (stock not yet processed by EPIC-009 engine), the old raw gates apply. This ensures no stock loses a regime assignment during the transition.
+
+### Growth Tier Overlay (Step 2 — `profitable_growth_pe`)
+
+The existing three-tier overlay (high / mid / standard) was keyed on `revenue_growth_fwd` bands (≥35%, 25–35%, 20–25%). With the new gate, this is re-keyed on bucket:
+
+| Bucket | Growth tier | Rationale |
+|--------|------------|-----------|
+| 7 | `high` | > 50% expected EPS growth |
+| 6 | `high` | 30–50% expected EPS growth |
+| 5 | `mid` | 18–30% expected EPS growth |
+| 4 | `standard` | 10–18% expected EPS growth |
+
+`revenue_growth_fwd` bands are retained as tie-breaker within a bucket if needed but are no longer primary.
+
+### Inputs Table Update
+
+Add to the Required Inputs table:
+
+| Input | Source |
+|-------|--------|
+| `bucket` (from EPIC-009 engine) | `stock.bucket` (parsed from `active_code`) — already present; semantic meaning expands to growth-band under RFC-009 |
+
+The existing `revenue_growth_fwd` input is retained for Step 1 (sales-valued path), Step 3 (growth tier overlay fallback during transition), and Step 4.5 (no change).

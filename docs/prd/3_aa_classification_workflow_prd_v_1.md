@@ -37,7 +37,7 @@ Those are separate workflows and separate PRDs.
 
 ## Background / Framework Basis
 The framework defines a stock as a 3-part code:
-- **Bucket** = business stage and earnings-growth structure
+- **Bucket** = expected normalised medium-term per-share earnings growth regime *(amended 2026-04-27 — RFC-009)*
 - **First letter** = earnings quality / durability / moat quality
 - **Second letter** = balance-sheet resilience and financing quality
 
@@ -182,12 +182,35 @@ On future data refreshes, system may update `suggested_code`, but must leave `fi
 ## Classification Logic (high level)
 The exact rules are defined in the dedicated rules-engine spec. This PRD defines the workflow behavior around those rules.
 
-### Bucket
-Based on:
-- revenue growth profile
-- EPS growth profile
-- maturity of profit base
-- whether thesis is durable compounding, operating leverage, or optionality
+### Bucket *(amended 2026-04-27 — RFC-009)*
+
+Bucket represents a **band of expected normalised medium-term per-share earnings growth** (3–5 year horizon). It is computed by the Earnings Path Engine (RFC-009) from five input blocks:
+
+1. **Revenue engine** — normalised revenue growth (long history + recent window + forward estimate)
+2. **Earnings engine** — normalised EPS growth (historical TTM series + forward FY2/NTM estimates)
+3. **Operating leverage engine** — 5-state modifier (`none` / `gradual` / `emerging_now` / `cyclical_rebound` / `deteriorating`) with a numeric EPS-path contribution (ADR-019)
+4. **Cyclicality normalisation** — peak penalty matrix keyed on `structural_cyclicality_score` × `cycle_position` (ADR-018)
+5. **Qualitative support** — bounded ±2% modifier from existing LLM enrichment scores
+
+The final number — `expected_normalized_eps_growth` — maps directly to a bucket band:
+
+| Bucket | Meaning | Expected normalised per-share EPS growth |
+|--------|---------|------------------------------------------|
+| 1 | Earnings decline / impairment | < 0% |
+| 2 | Low growth | 0–5% |
+| 3 | Steady moderate growth | 5–10% |
+| 4 | Durable low-teens growth | 10–18% |
+| 5 | High-teens / 20s growth | 18–30% |
+| 6 | Very high earnings growth | 30–50% |
+| 7 | Extreme / optionality-heavy | > 50% or visibility-dependent |
+| 8 | Binary / not classifiable by earnings path | n/a (`binary_flag = true`) |
+
+**Key principles:**
+- Bucket is about earnings **path**, not valuation metric or business archetype (valuation is handled by the separate regime selector, ADR-017).
+- Per-share invariant: all EPS computations use per-share values; dilution and SBC are penalised explicitly.
+- Operating leverage is the most important single modifier; `emerging_now` state (+8% contribution) is the strongest positive signal in the engine.
+- Cyclical rebound is explicitly distinguished from structural compounding — `cyclical_rebound` is capped at +2%.
+- Missing data reduces `bucket_confidence`; the engine never invents precision.
 
 ### Earnings quality
 Based on:
@@ -212,37 +235,33 @@ The framework explicitly distinguishes these layers and requires them to be sepa
 
 ## Inputs
 
-### Required fields
-- `ticker`
-- `company_name`
-- `sector`
-- `industry`
-- `market_cap`
-- `country`
-- `revenue_growth_3y`
-- `revenue_growth_fwd`
-- `eps_growth_3y`
-- `eps_growth_fwd`
-- `gross_margin`
-- `operating_margin`
-- `gross_profit_growth`
-- `fcf_margin`
-- `fcf_conversion`
-- `roic`
-- `net_income_positive`
-- `fcf_positive`
-- `net_debt_to_ebitda`
-- `interest_coverage`
-- `share_count_growth_3y`
+### Required fields *(amended 2026-04-27 — RFC-009)*
 
-### Optional / manual flags
+**Bucket engine inputs (new / expanded):**
+- Last 20 quarters of: `revenue`, `gross_profit`, `operating_income`, `net_income`, `diluted_shares_outstanding`, `free_cash_flow`, `share_based_compensation` (all from `StockQuarterlyHistory`)
+- `revenue_growth_fwd` (single-year forward)
+- `eps_ntm` — NTM analyst consensus EPS
+- `eps_fy2_avg` — FY+2 analyst consensus EPS *(new in EPIC-009; 4-level fallback if absent)*
+- `structural_cyclicality_score` (0–3), `cycle_position` (from EPIC-008)
+- `share_count_growth_3y`
+- `sbc_as_pct_revenue_ttm` (already computed)
+
+**Retained inputs (used by EQ/BS scoring and regime selector):**
+- `ticker`, `company_name`, `sector`, `industry`, `market_cap`, `country`
+- `revenue_growth_3y`, `eps_growth_3y`
+- `gross_margin`, `operating_margin`, `fcf_margin`, `fcf_conversion`, `roic`
+- `net_income_positive`, `fcf_positive`
+- `net_debt_to_ebitda`, `interest_coverage`
+
+### Optional / manual flags *(amended 2026-04-27)*
 - `holding_company_flag`
 - `insurer_flag`
-- `cyclicality_flag`
+- `cyclicality_flag` *(legacy; replaced by `structural_cyclicality_score` for bucket engine)*
 - `optionality_flag`
-- `binary_flag`
+- `binary_flag` *(forces Bucket 8 unconditionally)*
 - `market_pessimism_flag`
-- `pre_operating_leverage_flag`
+- `pre_operating_leverage_flag` *(deprecated — replaced by `operating_leverage_state` enum in EPIC-009; retained as legacy override flag)*
+- `operating_leverage_state` *(new in EPIC-009 — 5-state enum; see ADR-019)*
 
 ### Missing-data behavior
 - Missing key growth fields lowers bucket confidence
@@ -366,7 +385,7 @@ Emit:
 
 ## Edge Cases
 - **Holding company / insurer**: may need special-case bucket handling; confidence should drop if flags conflict with generic growth rules
-- **Transition names**: if stock sits on 4/5 or 5/6 boundary, show medium confidence and explicit tie-break reason
+- **Boundary names**: if `expected_normalized_eps_growth` lands near a bucket boundary (±1%), show medium confidence and explicit `bucket_reason_codes`; no tie-break resolver needed (formula is continuous)
 - **Binary / speculation**: if `binary_flag = true`, system should force or strongly suggest Bucket 8
 - **Incomplete data**: must not fabricate precision; low confidence is preferred over forced classification
 
@@ -399,3 +418,32 @@ By the end of this workflow implementation, the product should let the investor:
 
 This workflow is the foundation for valuation, TSR comparison, and monitoring in later PRDs.
 
+
+---
+
+## Amendment Log
+
+### Amendment 2026-04-27 — RFC-009: Earnings Path Bucket Engine
+
+**Status:** ACCEPTED
+**Scope:** Bucket definition, bucket engine specification, inputs section, edge cases
+
+**What changed:**
+
+1. **Bucket definition** (§Background / Framework Basis): Changed from "business stage and earnings-growth structure" to "expected normalised medium-term per-share earnings growth regime."
+
+2. **Bucket classification logic** (§Classification Logic): Replaced single-paragraph description with full 8-bucket band table, 5-input-block architecture, and key design principles.
+
+3. **Inputs** (§Inputs): Added Earnings Path Engine inputs (20-quarter history, `eps_fy2_avg`, cyclicality inputs); annotated deprecated fields; added `operating_leverage_state` enum.
+
+4. **Edge cases**: Updated "Transition names" → "Boundary names"; removed tie-break reference (no longer needed in formula-based engine).
+
+**What did NOT change:**
+- Earnings Quality and Balance Sheet Quality logic and scoring
+- Workflow mechanics (suggestion, override, audit trail, state model)
+- Confidence, reason codes, and persistence requirements
+- Acceptance criteria
+
+**Related:** RFC-009, ADR-013 (superseded bucket weights), ADR-019 (Operating Leverage State Engine), ADR-017 Amendment 2026-04-27 (regime selector bucket gates)
+
+**Implementation epic:** EPIC-009 (STORY-100–111)
