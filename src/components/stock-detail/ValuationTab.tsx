@@ -650,6 +650,7 @@ export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag, 
             >
               <option value="">System default</option>
               <option value="forward_pe">Forward P/E</option>
+              <option value="forward_ev_ebitda">Fwd EV/EBITDA</option>
               <option value="forward_ev_ebit">EV/EBIT (Fwd)</option>
               <option value="ev_sales">EV/Sales</option>
               <option value="forward_operating_earnings_ex_excess_cash">Fwd Op. Earnings (ex-cash)</option>

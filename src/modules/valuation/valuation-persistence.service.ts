@@ -343,13 +343,16 @@ export async function getPersonalizedValuation(
   ticker: string,
   userId: string,
 ): Promise<PersonalizedValuationResult> {
-  const [systemState, classOverride, valuationOverride, anchors, hurdles, stock] =
+  // STORY-098/TASK-098-006: added regime fields + derivedMetrics + regimeThresholds so override
+  // recompute produces the correct regime-driven metric (e.g. forward_ev_ebitda for high_amortisation)
+  const [systemState, classOverride, valuationOverride, anchors, hurdles, regimeThresholds, stock] =
     await Promise.all([
       prisma.valuationState.findUnique({ where: { ticker } }),
       prisma.userClassificationOverride.findUnique({ where: { userId_ticker: { userId, ticker } } }),
       prisma.userValuationOverride.findUnique({ where: { userId_ticker: { userId, ticker } } }),
       prisma.anchoredThreshold.findMany(),
       prisma.tsrHurdle.findMany(),
+      prisma.valuationRegimeThreshold.findMany(),
       prisma.stock.findUnique({
         where: { ticker },
         select: {
@@ -359,6 +362,14 @@ export async function getPersonalizedValuation(
           materialDilutionFlag: true, holdingCompanyFlag: true, insurerFlag: true,
           cyclicalityFlag: true, preOperatingLeverageFlag: true,
           forwardOperatingEarningsExExcessCash: true,
+          // STORY-098: regime-detection inputs
+          ebitdaNtm: true, ebitNtm: true, forwardEvEbitda: true,
+          bankFlag: true, structuralCyclicalityScore: true,
+          cyclePosition: true, cyclicalConfidence: true,
+          revenueGrowthFwd: true, fcfConversion: true,
+          derivedMetrics: {
+            select: { netIncomeTtm: true, freeCashFlowTtm: true, operatingMarginTtm: true, grossMarginTtm: true },
+          },
         },
       }),
     ]);
@@ -408,6 +419,17 @@ export async function getPersonalizedValuation(
     balanceSheetCAdjustment: Number(h.balanceSheetCAdjustment),
   }));
 
+  const regimeThresholdRows: ValuationRegimeThresholdRow[] = regimeThresholds.map(r => ({
+    regime: r.regime,
+    primaryMetric: r.primaryMetric,
+    maxThreshold: r.maxThreshold !== null ? Number(r.maxThreshold) : null,
+    comfortableThreshold: r.comfortableThreshold !== null ? Number(r.comfortableThreshold) : null,
+    veryGoodThreshold: r.veryGoodThreshold !== null ? Number(r.veryGoodThreshold) : null,
+    stealThreshold: r.stealThreshold !== null ? Number(r.stealThreshold) : null,
+  }));
+
+  const dm = stock.derivedMetrics;
+
   // Build input, merging valuation override fields
   const input: ValuationInput = {
     activeCode,
@@ -429,6 +451,21 @@ export async function getPersonalizedValuation(
         : null,
     anchoredThresholds: anchoredRows,
     tsrHurdles: tsrHurdleRows,
+    // STORY-098: regime-driven fields so override recompute uses correct regime + metric
+    ebitdaNtm: stock.ebitdaNtm !== null && stock.ebitdaNtm !== undefined ? Number(stock.ebitdaNtm) : null,
+    ebitNtm: stock.ebitNtm !== null && stock.ebitNtm !== undefined ? Number(stock.ebitNtm) : null,
+    forwardEvEbitda: stock.forwardEvEbitda !== null && stock.forwardEvEbitda !== undefined ? Number(stock.forwardEvEbitda) : null,
+    bankFlag: stock.bankFlag ?? false,
+    structuralCyclicalityScore: stock.structuralCyclicalityScore ?? 0,
+    cyclePosition: (stock.cyclePosition ?? 'normal') as import('@/domain/valuation').CyclePosition,
+    cyclicalConfidence: (stock.cyclicalConfidence ?? 'insufficient_data') as 'high' | 'medium' | 'low' | 'insufficient_data',
+    revenueGrowthFwd: stock.revenueGrowthFwd !== null ? Number(stock.revenueGrowthFwd) / 100 : null,
+    fcfConversionTtm: stock.fcfConversion !== null ? Number(stock.fcfConversion) : null,
+    netIncomeTtm: dm?.netIncomeTtm !== null && dm?.netIncomeTtm !== undefined ? Number(dm.netIncomeTtm) : null,
+    freeCashFlowTtm: dm?.freeCashFlowTtm !== null && dm?.freeCashFlowTtm !== undefined ? Number(dm.freeCashFlowTtm) : null,
+    operatingMarginTtm: dm?.operatingMarginTtm !== null && dm?.operatingMarginTtm !== undefined ? Number(dm.operatingMarginTtm) : null,
+    grossMarginTtm: dm?.grossMarginTtm !== null && dm?.grossMarginTtm !== undefined ? Number(dm.grossMarginTtm) : null,
+    valuationRegimeThresholds: regimeThresholdRows,
   };
 
   // Apply user valuation override fields

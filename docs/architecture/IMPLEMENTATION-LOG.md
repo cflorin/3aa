@@ -8,6 +8,41 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-28 — EPIC-008/STORY-098: High Amortisation Earnings Regime — COMPLETE
+
+**Timestamp:** 2026-04-28T14:00:00Z
+**Epic/Story/Task:** EPIC-008 / STORY-098 / TASK-098-001 through TASK-098-007
+
+**Action:** Implemented the `high_amortisation_earnings` regime end-to-end (ADR-017 Step 4.5). Covers domain types, regime selector Step 4.5, metric selector routing, current multiple handler (forward_ev_ebitda), seed row, pipeline wiring, unit tests, and UI.
+
+**Files Changed:**
+- `src/domain/valuation/types.ts` — added `'high_amortisation_earnings'` to `ValuationRegime`, `'forward_ev_ebitda'` to `PrimaryMetric`, `ebitdaNtm`/`ebitNtm` to `RegimeSelectorInput`, `forwardEvEbitda`/`ebitdaNtm`/`ebitNtm` to `ValuationInput`
+- `src/domain/valuation/regime-selector.ts` — Step 4.5 inserted (after Steps 2–4, before Step 5): fires when `ebitdaNtm/ebitNtm >= 1.30 && netIncomePositive && fcfPositive`
+- `src/domain/valuation/metric-selector.ts` — regime-based early return: `high_amortisation_earnings → forward_ev_ebitda`
+- `src/domain/valuation/compute-valuation.ts` — Stage 0 computes regime before Stage 1 (so regime drives metric); Stage 2 `resolveCurrentMultiple` handles `forward_ev_ebitda`; Stage 3 fallback `selectRegime` guard for edge cases
+- `prisma/seed.ts` — 10th regime threshold row: `high_amortisation_earnings / forward_ev_ebitda` at 16/13/10/8
+- `src/modules/valuation/valuation-persistence.service.ts` — `loadValuationInput`: added `ebitdaNtm`, `ebitNtm`, `forwardEvEbitda` to select + mapping. Fixed pre-existing `revenueGrowthFwd` scaling bug (stored as %, divided by 100 for domain). `getPersonalizedValuation` override path: added all regime-detection fields + `valuationRegimeThresholds` so override recompute produces correct regime-driven metric
+- `src/components/stock-detail/ValuationTab.tsx` — added `forward_ev_ebitda: 'Fwd EV/EBITDA'` to metricLabels; added `forward_ev_ebitda` option to override dropdown
+- `src/components/valuation/RegimeBadge.tsx` — added `high_amortisation_earnings: '#f472b6'` color and `'High Amort. EV/EBITDA'` label
+
+**Tests Added:**
+- `tests/unit/domain/valuation/story-098-high-amortisation-regime.test.ts` — 9 tests, 6 BDD scenarios: ABBV-like (1.77x → routes), JNJ-like (1.35x → routes), MRK-like (1.19x → falls through), null guard, growth-path precedence, RegimeBadge labels/colors
+
+**Bugs Fixed:**
+- `revenueGrowthFwd` scaling bug: stored as percentage but used as decimal in regime selector — all pharma/large-cap stocks were incorrectly firing Step 2/4 (profitable_growth paths), making `mature_pe` and `high_amortisation_earnings` unreachable. Fix: `/ 100` in `loadValuationInput`
+- `getPersonalizedValuation` override path missing regime fields — users with classification/valuation overrides on high-amortisation stocks would get `forward_pe` instead of `forward_ev_ebitda`. Fixed by adding all regime-detection fields to override path select + input construction
+
+**Live Verification (2026-04-28):**
+- ABBV: `valuationRegime=high_amortisation_earnings`, `primaryMetric=forward_ev_ebitda`, `currentMultiple=18.02x`, `zone=above_max`
+- DB confirmed via direct query; UI shows "High Amort. EV/EBITDA" regime badge
+
+**Tests:** 9 new tests passing. All 1820+ prior passing (no regressions).
+**Result:** STORY-098 complete ✅
+**Baseline Impact:** NO
+**Next Action:** EPIC-006 — Monitoring & Alerts Engine (needs story decomposition first)
+
+---
+
 ## 2026-04-28 — EPIC-008/STORY-097: Forward EV/EBITDA Metric
 
 **Timestamp:** 2026-04-28T00:00:00Z
