@@ -314,8 +314,20 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
   );
 
   // Step 5b: Confidence-floor bucket selection (STORY-083; ADR-014 §Confidence-Floor)
-  // If the winning bucket produces low confidence, search downward (by score rank) for the
-  // highest bucket achieving at least medium confidence. B8 and binary_flag stocks are exempt.
+  // Two-phase resolution when the winning bucket produces low confidence:
+  //
+  // Phase 1 — tied-competitor pre-pass (ADR-014 §Confidence-Floor Amendment 2026-04-27):
+  //   When a tie-break rule fired to resolve an exact score tie, first verify the raw winner
+  //   by excluding its exact tied competitors. If the raw winner achieves medium+ confidence
+  //   without them, accept it — no demotion needed.
+  //   Condition: a tie-break rule must have actually fired (tieBreaksFired.length > 0) so that
+  //   positional wins (no rule, e.g., B1/B4 tie with no 1v4 rule) fall through to Phase 2.
+  //
+  // Phase 2 — downward search (original STORY-083 algorithm):
+  //   Iterate downward through remaining candidate buckets (by score rank) until a bucket
+  //   achieving at least medium confidence is found.
+  //
+  // B8 and binary_flag stocks are exempt from both phases.
   let rawSuggestedCode: string | null | undefined;
   let rawConfidenceLevel: 'low' | null | undefined;
   let confidenceFloorApplied = false;
@@ -327,57 +339,102 @@ export function classifyStock(input: ClassificationInput): ClassificationResult 
       : `${finalBucket}`;
     rawConfidenceLevel = 'low';
 
-    const excludedBuckets = new Set<number>([finalBucket]);
+    // Phase 1: tied-competitor pre-pass
+    if (tieBreaksFired.length > 0) {
+      const winnerScore = bucketResult.scores[finalBucket as BucketNumber];
+      const tiedCompetitors = ([1, 2, 3, 4, 5, 6, 7] as const).filter(
+        b => b !== finalBucket && bucketResult.scores[b] === winnerScore,
+      );
 
-    for (let attempt = 0; attempt < 6; attempt++) {
-      // Build modified scores with all excluded buckets eliminated
-      const searchScores = { ...bucketResult.scores } as Record<BucketNumber, number>;
-      for (const b of excludedBuckets) {
-        searchScores[b as BucketNumber] = -Infinity;
+      if (tiedCompetitors.length > 0) {
+        const prePassScores = { ...bucketResult.scores } as Record<BucketNumber, number>;
+        for (const b of tiedCompetitors) {
+          prePassScores[b] = -Infinity;
+        }
+
+        const { resolvedBucket: preB, tieBreaksFired: preTB, resolvedScores: preS } =
+          resolveTieBreaks(prePassScores, input, bucketResult.margin);
+
+        if (preB === finalBucket) {
+          const secondBest = Math.max(
+            0,
+            ...([1, 2, 3, 4, 5, 6, 7] as const)
+              .filter(b => b !== finalBucket && (preS[b] ?? -Infinity) > 0)
+              .map(b => preS[b] as number),
+          );
+          const preMargin = Math.max(0, (preS[finalBucket] ?? 0) - secondBest);
+          const { confidence_level: preConf, steps: preSteps } = computeConfidence(
+            preMargin,
+            preTB.length,
+            missing,
+            input.trend_metrics,
+            eq_grade,
+          );
+
+          if (preConf !== 'low') {
+            tieBreaksFired = preTB;
+            confidence_level = preConf;
+            steps = preSteps;
+            confidenceFloorApplied = true;
+          }
+        }
       }
+    }
 
-      // Stop if no candidate with a positive score remains
-      const hasCandidate = ([1, 2, 3, 4, 5, 6, 7] as const).some(
-        b => !excludedBuckets.has(b) && bucketResult.scores[b] > 0,
-      );
-      if (!hasCandidate) break;
+    // Phase 2: downward search (only if pre-pass did not resolve)
+    if (!confidenceFloorApplied) {
+      const excludedBuckets = new Set<number>([finalBucket]);
 
-      const { resolvedBucket: candidate, tieBreaksFired: candidateTieBreaks, resolvedScores } =
-        resolveTieBreaks(searchScores, input, bucketResult.margin);
+      for (let attempt = 0; attempt < 6; attempt++) {
+        // Build modified scores with all excluded buckets eliminated
+        const searchScores = { ...bucketResult.scores } as Record<BucketNumber, number>;
+        for (const b of excludedBuckets) {
+          searchScores[b as BucketNumber] = -Infinity;
+        }
 
-      if (!candidate || candidate === 8) break;
+        // Stop if no candidate with a positive score remains
+        const hasCandidate = ([1, 2, 3, 4, 5, 6, 7] as const).some(
+          b => !excludedBuckets.has(b) && bucketResult.scores[b] > 0,
+        );
+        if (!hasCandidate) break;
 
-      // Use post-tie-break scores for margin: tie-break losers are set to -Infinity in resolvedScores,
-      // preventing them from inflating secondBest and incorrectly depressing candidateMargin
-      const candidateScore = resolvedScores[candidate] ?? 0;
-      const secondBest = Math.max(
-        0,
-        ...([1, 2, 3, 4, 5, 6, 7] as const)
-          .filter(b => b !== candidate && (resolvedScores[b] ?? -Infinity) > 0)
-          .map(b => resolvedScores[b] as number),
-      );
-      const candidateMargin = Math.max(0, candidateScore - secondBest);
+        const { resolvedBucket: candidate, tieBreaksFired: candidateTieBreaks, resolvedScores } =
+          resolveTieBreaks(searchScores, input, bucketResult.margin);
 
-      const { confidence_level: candidateConf, steps: candidateSteps } = computeConfidence(
-        candidateMargin,
-        candidateTieBreaks.length,
-        missing,
-        input.trend_metrics,
-        eq_grade,
-      );
+        if (!candidate || candidate === 8) break;
 
-      if (candidateConf !== 'low') {
-        // Accept this candidate as the final classification
-        finalBucket = candidate;
-        tieBreaksFired = candidateTieBreaks;
-        confidence_level = candidateConf;
-        steps = candidateSteps;
-        confidenceFloorApplied = true;
-        break;
+        // Use post-tie-break scores for margin: tie-break losers are set to -Infinity in resolvedScores,
+        // preventing them from inflating secondBest and incorrectly depressing candidateMargin
+        const candidateScore = resolvedScores[candidate] ?? 0;
+        const secondBest = Math.max(
+          0,
+          ...([1, 2, 3, 4, 5, 6, 7] as const)
+            .filter(b => b !== candidate && (resolvedScores[b] ?? -Infinity) > 0)
+            .map(b => resolvedScores[b] as number),
+        );
+        const candidateMargin = Math.max(0, candidateScore - secondBest);
+
+        const { confidence_level: candidateConf, steps: candidateSteps } = computeConfidence(
+          candidateMargin,
+          candidateTieBreaks.length,
+          missing,
+          input.trend_metrics,
+          eq_grade,
+        );
+
+        if (candidateConf !== 'low') {
+          // Accept this candidate as the final classification
+          finalBucket = candidate;
+          tieBreaksFired = candidateTieBreaks;
+          confidence_level = candidateConf;
+          steps = candidateSteps;
+          confidenceFloorApplied = true;
+          break;
+        }
+
+        // Still low — exclude this candidate and continue downward
+        excludedBuckets.add(candidate);
       }
-
-      // Still low — exclude this candidate and continue downward
-      excludedBuckets.add(candidate);
     }
   }
 

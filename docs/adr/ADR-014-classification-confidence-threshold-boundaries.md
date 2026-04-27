@@ -226,6 +226,54 @@ The stock detail Classification tab shows the raw-to-floor transition when `conf
 
 ---
 
+## Amendment: Confidence-Floor Semantic Clarification + Pre-Pass Algorithm (2026-04-27)
+
+**Motivation (user-validated):** The original STORY-083 algorithm always excluded the raw winner and searched downward. For a B4/B5 exact-score tie where `pre_operating_leverage_flag=false` chooses B4, the old algorithm excluded B4 and assigned B5 — which is the *wrong direction*. MSFT with 15.48% revenue growth belongs in B4 (8–15% zone), not B5 (10–20% zone), because we are more confident MSFT meets B4's minimum threshold than B5's.
+
+### Semantic of `low` confidence (clarified)
+
+> **Low confidence** = we are not certain the company will meet the minimum performance requirement of the assigned bucket. We should prefer the highest-numbered bucket where we ARE at least medium confident the minimum will be met.
+
+When a principled tie-break rule chose the winner, that choice encodes specific fundamental evidence (e.g., FCF/ROIC qualification for B3v4; operating leverage thesis for B4v5). The floor algorithm should respect that choice if the winner can hold up independently.
+
+### Phase 1: Tied-Competitor Pre-Pass (new, inserted before Phase 2)
+
+**Trigger condition:** `confidence_level === 'low'` AND a tie-break rule actually fired (`tieBreaksFired.length > 0`) AND there are other buckets with the exact same raw score as `finalBucket`.
+
+The positional-win guard (`tieBreaksFired.length > 0`) ensures that cases where no tie-break rule exists (e.g., B1/B4 tie with no 1v4 rule → B1 wins by position) fall through to Phase 2 unchanged.
+
+**Algorithm:**
+
+1. Identify exact tied competitors: all buckets `b ≠ finalBucket` where `bucketResult.scores[b] === bucketResult.scores[finalBucket]`.
+2. Build a modified score set with all tied competitors set to `-Infinity`.
+3. Re-run `resolveTieBreaks()` on modified scores.
+4. If `finalBucket` still wins:
+   a. Compute its margin vs the next-best non-excluded bucket.
+   b. Re-run `computeConfidence(preMargin, preTB.length, missing, …)`.
+   c. If confidence ≥ medium → accept `finalBucket`: update `tieBreaksFired`, `confidence_level`, `steps`; set `confidenceFloorApplied = true`; **skip Phase 2**.
+5. If `finalBucket` does not win, or confidence is still `low` → fall through to Phase 2 unchanged.
+
+**Example (MSFT live, revenue_growth_fwd ≈ 15.48%):**
+
+| Step | Result |
+|---|---|
+| BucketScorer | B4 = B5 = 9 (exact tie, margin = 0) |
+| 4v5 tie-break | `pre_operating_leverage_flag=false` → B4 wins |
+| computeConfidence(0, 1, 0) | low (margin=0→low, 1 tie-break→degrade→low) |
+| Phase 1 pre-pass: exclude B5 | B4 alone, margin = 9 − 6 = 3 |
+| computeConfidence(3, 0, 0) | medium (margin=3≥2, no tie-breaks, no missing) |
+| **Outcome** | B4 retained with medium confidence |
+
+### Phase 2: Downward Search (unchanged)
+
+Runs only when Phase 1 does not resolve. Algorithm unchanged from the 2026-04-26 amendment.
+
+### `confidenceFloorApplied` semantics (updated)
+
+`confidenceFloorApplied = true` when **either** phase resolved low confidence, regardless of whether the final bucket changed. When Phase 1 succeeds with the same bucket, `rawSuggestedCode` equals the final `suggested_code`, indicating confidence was upgraded through tied-competitor exclusion.
+
+---
+
 ## Traceability
 
 - RFC-001 §Confidence Computation

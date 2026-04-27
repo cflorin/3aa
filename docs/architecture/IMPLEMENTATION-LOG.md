@@ -8,6 +8,32 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-27 — EPIC-005/STORY-083 Amendment: Confidence-Floor Pre-Pass (ADR-014 §2026-04-27)
+
+**Timestamp:** 2026-04-27T00:00:00Z
+**Epic/Story/Task:** EPIC-005 / STORY-083 (Confidence-Floor Bucket Selection) — algorithmic amendment
+
+**Action:** Amended the confidence-floor algorithm to add a Phase 1 "tied-competitor pre-pass" before the existing downward search (Phase 2). When a tie-break rule fired for an exact-score tie and the raw winner can achieve medium+ confidence by itself (excluding its tied competitors), it is retained — no bucket demotion occurs. The original downward search runs only when the pre-pass fails or does not apply.
+
+**Motivation:** MSFT (live: revenue_growth_fwd ≈ 15.48%) had B4=B5=9 (exact tie). The 4v5 tie-break chose B4 (pre_operating_leverage_flag=false). Old algorithm: excluded B4 → B5 assigned (wrong direction). New algorithm: exclude B5 → B4 achieves medium confidence → B4 retained. "Low confidence = not certain of minimum performance; go for highest quality bucket where minimum confidence is achievable."
+
+**Pre-pass trigger condition:** `tieBreaksFired.length > 0` AND exact tied competitors exist. Positional wins (e.g., UNH B1/B4 tie with no rule) fall through to Phase 2 unchanged.
+
+**Files Changed:**
+- `src/domain/classification/classifier.ts` — Phase 1 pre-pass inserted in Step 5b block; Phase 2 (existing loop) wrapped in `if (!confidenceFloorApplied)`
+- `docs/adr/ADR-014-classification-confidence-threshold-boundaries.md` — new amendment section documenting semantic + algorithm
+
+**Tests Updated:**
+- `tests/unit/classification/story-043-classify-stock.test.ts` — updated B3v4 (4 tests), B4v5 (1 test), B5v6 (2 tests) to expect tie-break winner retained instead of loser. B5/B6 flag=true case: BucketScorer adds +2 to B5 → outright win (no tie), pre-pass doesn't apply, Phase 2 still runs → B6.
+
+**Result:** 344 unit classification tests passing. Integration test failures are pre-existing DB-connection errors.
+
+**Baseline Impact:** YES — ADR-014 amended. Semantic of `confidenceFloorApplied` updated: true when either phase resolved confidence (not just when bucket changed). Existing STORY-083 behavior preserved for non-exact-tie and positional-win cases (golden fixtures unaffected, margin=1 inputs unchanged).
+
+**Next Action:** Run classification batch for MSFT in live DB to confirm MSFT is now classified as 4AA (bucket 4, medium confidence). Then proceed to EPIC-008 STORY-089.
+
+---
+
 ## 2026-04-27 — BUG: Growth metrics period misalignment — DOCUMENTED, UNRESOLVED
 
 **Bug ID:** BUG-DI-002

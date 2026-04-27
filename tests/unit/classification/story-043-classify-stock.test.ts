@@ -90,49 +90,49 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    // STORY-083: all B3v4 tie cases produce low confidence (margin=0, 1 tie-break → degrade to low).
-    // The confidence-floor search then finds the tie-break LOSER bucket (with no competition, higher
-    // margin, and ≥ medium confidence). rawSuggestedCode preserves the tie-break winner for audit.
+    // STORY-083 (amended 2026-04-27 ADR-014 §Confidence-Floor Pre-Pass):
+    // B3v4 exact-tie (margin=0) → 1 tie-break fires → low confidence.
+    // Phase 1 pre-pass: exclude tied competitor, verify tie-break winner alone.
+    // Winner achieves medium+ confidence alone → retained (not demoted to loser).
+    // rawSuggestedCode preserves the tie-break winner code for audit.
 
-    it('B3/B4 tie + fcf_conversion≤0.85 or roic≤0.20 → tie chose B3; floor elevates to B4', () => {
+    it('B3/B4 tie + fcf_conversion≤0.85 or roic≤0.20 → tie chose B3; pre-pass retains B3', () => {
       const r = classifyStock(makeInput({
         ...TIE_BASE,
         fcf_conversion: 0.65, roic: 0.15,
       }));
-      // Tie-break rule chose B3 (conservative); rawSuggestedCode captures that pre-floor code
+      // Tie-break rule chose B3 (conservative); pre-pass verifies B3 holds alone → retained
       expect(r.rawSuggestedCode).toMatch(/^3/);
-      // Floor search finds B4 (loser of 3v4) with no competition → high margin → accepted
-      expect(r.bucket).toBe(4);
-      expect(r.tieBreaksFired).toHaveLength(0); // floor replaced tie-breaks with candidate's (none)
+      expect(r.bucket).toBe(3);
+      expect(r.tieBreaksFired).toHaveLength(0); // pre-pass gives winner alone → no tie-breaks
       expect(r.confidenceFloorApplied).toBe(true);
-      expect(r.suggested_code).toMatch(/^4/);
+      expect(r.suggested_code).toMatch(/^3/);
     });
 
-    it('B3/B4 tie + fcf_conversion>0.85 AND roic>0.20 → tie chose B4; floor elevates to B3', () => {
+    it('B3/B4 tie + fcf_conversion>0.85 AND roic>0.20 → tie chose B4; pre-pass retains B4', () => {
       const r = classifyStock(makeInput({
         ...TIE_BASE,
         fcf_conversion: 0.90, roic: 0.25,
       }));
-      // Tie-break rule chose B4 (qualified); rawSuggestedCode captures that pre-floor code
+      // Tie-break rule chose B4 (qualified); pre-pass verifies B4 holds alone → retained
       expect(r.rawSuggestedCode).toMatch(/^4/);
-      // Floor search finds B3 (loser of 3v4) with no competition → accepted
-      expect(r.bucket).toBe(3);
+      expect(r.bucket).toBe(4);
       expect(r.tieBreaksFired).toHaveLength(0);
       expect(r.confidenceFloorApplied).toBe(true);
     });
 
-    it('B3/B4 tie + fcf_conversion exactly 0.85 → tie chose B3; floor elevates to B4', () => {
-      // 0.85 is NOT strictly greater → conservative B3 chosen by tie-break; floor finds B4
+    it('B3/B4 tie + fcf_conversion exactly 0.85 → tie chose B3; pre-pass retains B3', () => {
+      // 0.85 is NOT strictly greater → conservative B3 chosen by tie-break; pre-pass retains B3
       const r = classifyStock(makeInput({ ...TIE_BASE, fcf_conversion: 0.85, roic: 0.25 }));
-      expect(r.bucket).toBe(4);
+      expect(r.bucket).toBe(3);
       expect(r.confidenceFloorApplied).toBe(true);
       expect(r.rawSuggestedCode).toMatch(/^3/);
     });
 
-    it('B3/B4 tie + roic null (missing) → tie chose B3; floor elevates to B4', () => {
-      // roic=null → conservative B3 chosen; floor reverses to B4
+    it('B3/B4 tie + roic null (missing) → tie chose B3; pre-pass retains B3', () => {
+      // roic=null → conservative B3 chosen; pre-pass retains B3
       const r = classifyStock(makeInput({ ...TIE_BASE, fcf_conversion: 0.90, roic: null }));
-      expect(r.bucket).toBe(4);
+      expect(r.bucket).toBe(3);
       expect(r.confidenceFloorApplied).toBe(true);
       expect(r.rawSuggestedCode).toMatch(/^3/);
     });
@@ -167,16 +167,16 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    // STORY-083: TIE_BASE here has missing=4 (operating_margin, fcf_positive, net_income_positive,
-    // fcf_conversion all null). Confidence starts medium (margin≥2) then degrades to low via
-    // missing-field penalty (4 ≥ 3 → degrade). Floor search finds the tie-break loser bucket.
+    // STORY-083 (amended 2026-04-27 ADR-014 §Confidence-Floor Pre-Pass):
+    // TIE_BASE has missing=4. Confidence = low (margin=0→low, 1 tie-break→degrade, missing=4→degrade).
+    // Phase 1 pre-pass: exclude tied competitor, verify tie-break winner alone (margin high, medium after penalty).
 
-    it('B4/B5 tie + pre_operating_leverage_flag=false → tie chose B4; floor elevates to B5', () => {
-      // 4v5 fires, flag=false → B4 wins; initial low confidence → floor finds B5 with medium
+    it('B4/B5 tie + pre_operating_leverage_flag=false → tie chose B4; pre-pass retains B4', () => {
+      // 4v5 fires, flag=false → B4 wins; pre-pass excludes B5, B4 alone achieves medium → retained
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: false }));
       expect(r.rawSuggestedCode).toMatch(/^4/); // tie-break chose B4
-      expect(r.bucket).toBe(5);                // floor found B5 (tie-break loser)
-      expect(r.tieBreaksFired).toHaveLength(0); // floor replaced tie-breaks
+      expect(r.bucket).toBe(4);                // pre-pass retains B4 (tie-break winner)
+      expect(r.tieBreaksFired).toHaveLength(0); // pre-pass gives winner alone → no tie-breaks
       expect(r.confidenceFloorApplied).toBe(true);
     });
 
@@ -203,22 +203,27 @@ describe('EPIC-004/STORY-043/TASK-043-003: classifyStock', () => {
       net_debt_to_ebitda: 0.22, interest_coverage: 56.44,
     };
 
-    // STORY-083: same missing=4 pattern as B4v5 → confidence degrades to low → floor fires.
+    // STORY-083 (amended 2026-04-27 ADR-014 §Confidence-Floor Pre-Pass):
+    // Same missing=4 pattern → confidence degrades to low.
+    // Phase 1 pre-pass: exclude tied competitor, verify tie-break winner alone → retained.
 
-    it('B5/B6 tie + pre_operating_leverage_flag=false → tie chose B6; floor elevates to B5', () => {
-      // 5v6 fires, flag=false → B6 wins; low confidence → floor finds B5 (tie-break loser)
+    it('B5/B6 tie + pre_operating_leverage_flag=false → tie chose B6; pre-pass retains B6', () => {
+      // 5v6 fires, flag=false → B6 wins; pre-pass excludes B5, B6 alone achieves medium → retained
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: false }));
       expect(r.rawSuggestedCode).toMatch(/^6/); // tie-break chose B6
-      expect(r.bucket).toBe(5);                // floor found B5 (tie-break loser)
+      expect(r.bucket).toBe(6);                // pre-pass retains B6 (tie-break winner)
       expect(r.tieBreaksFired).toHaveLength(0);
       expect(r.confidenceFloorApplied).toBe(true);
     });
 
-    it('B5/B6 tie + pre_operating_leverage_flag=true → tie chose B5; floor elevates to B6', () => {
-      // 5v6 fires, flag=true → B5 wins; low confidence → floor finds B6 (tie-break loser)
+    it('pre_operating_leverage_flag=true → B5 wins outright (flag bonus +2, no tie fires) → low → floor finds B6', () => {
+      // flag=true adds +2 to B5 in BucketScorer: B5=10, B6=8, margin=2, no 5v6 tie fires, tieBreaks=0
+      // computeConfidence(2, 0, 4) = low (medium→low via missing=4). Pre-pass skipped (tieBreaks=0).
+      // Phase 2 downward: exclude B5 → B6 alone → margin=8 → medium → accept B6.
       const r = classifyStock(makeInput({ ...TIE_BASE, pre_operating_leverage_flag: true }));
-      expect(r.rawSuggestedCode).toMatch(/^5/); // tie-break chose B5
-      expect(r.bucket).toBe(6);                // floor found B6 (tie-break loser)
+      expect(r.rawSuggestedCode).toMatch(/^5/); // original outright winner was B5
+      expect(r.bucket).toBe(6);                // Phase 2 floor found B6
+      expect(r.tieBreaksFired).toHaveLength(0); // no tie-break fired originally
       expect(r.confidenceFloorApplied).toBe(true);
     });
   });
