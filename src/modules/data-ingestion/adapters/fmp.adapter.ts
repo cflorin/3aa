@@ -432,6 +432,11 @@ export class FMPAdapter implements VendorAdapter {
     const nonGaapEpsPreviousFy: number | null = previousFyEntry?.epsAvg != null
       ? Number(previousFyEntry.epsAvg) : null;
 
+    // STORY-097: NTM D&A estimate. FMP provides depreciationAvg in analyst-estimates for many US
+    // large-caps; absent for many non-US issuers. Null is the correct fallback — no error raised.
+    const depreciationNtm: number | null = ntmEntry.depreciationAvg != null
+      ? Number(ntmEntry.depreciationAvg) : null;
+
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
       ticker,
@@ -456,6 +461,7 @@ export class FMPAdapter implements VendorAdapter {
       nonGaapEpsPreviousFy,
       gaapEbitCompletedFy,
       nonGaapEbitMostRecentFy,
+      depreciationNtm,
     };
   }
 

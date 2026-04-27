@@ -143,6 +143,9 @@ export interface ForwardEstimates {
   /** Non-GAAP EBIT analyst consensus (FMP ebitAvg) for the most recently completed FY.
    *  Used as the denominator of ebitGaapAdjFactor — same period as gaapEbitCompletedFy. */
   nonGaapEbitMostRecentFy: number | null;
+  /** STORY-097: NTM D&A estimate (FMP depreciationAvg for the NTM period).
+   *  Null when FMP does not provide it (common for non-US issuers). */
+  depreciationNtm: number | null;
 }
 
 /**
