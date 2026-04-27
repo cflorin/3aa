@@ -125,7 +125,25 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     input.structuralCyclicalityScore !== undefined &&
     input.cyclePosition !== undefined
   ) {
-    // valuationRegime already computed in Stage 0; no need to call selectRegime again
+    // Regime was computed in Stage 0; if somehow still undefined (edge case), compute now
+    if (!valuationRegime) {
+      valuationRegime = selectRegime({
+        activeCode: input.activeCode,
+        bankFlag: input.bankFlag ?? false,
+        insurerFlag: input.insurerFlag ?? false,
+        holdingCompanyFlag: input.holdingCompanyFlag ?? false,
+        preOperatingLeverageFlag: preOpLev,
+        netIncomeTtm: input.netIncomeTtm ?? null,
+        freeCashFlowTtm: input.freeCashFlowTtm ?? null,
+        operatingMarginTtm: input.operatingMarginTtm ?? null,
+        grossMarginTtm: input.grossMarginTtm ?? null,
+        fcfConversionTtm: input.fcfConversionTtm ?? null,
+        revenueGrowthFwd: input.revenueGrowthFwd ?? null,
+        structuralCyclicalityScore: input.structuralCyclicalityScore ?? 0,
+        ebitdaNtm: input.ebitdaNtm ?? null,
+        ebitNtm: input.ebitNtm ?? null,
+      });
+    }
     thresholdResult = assignThresholdsRegimeDriven({
       regime: valuationRegime,
       thresholds: input.valuationRegimeThresholds,
