@@ -4642,3 +4642,39 @@ Re-synced 15 stocks. All changes within expected bounds:
 **Pipeline Impact:** Fix applies automatically to new stock additions (Stage 5 `syncForwardEstimates` calls `FMPAdapter.fetchForwardEstimates`). Existing stocks need re-sync via `POST /api/admin/sync/forward-estimates` to pick up corrected values.
 
 **Next Action:** STORY-089 (Schema Migration — Regime Decoupling).
+
+---
+
+## 2026-04-27 — RFC-009 Draft: Earnings Path Bucket Engine
+
+**Timestamp:** 2026-04-27T19:30:00Z
+**Epic/Story/Task:** EPIC-009 design phase (pre-implementation)
+
+### Action
+
+Authored RFC-009 (Earnings Path Bucket Engine) based on ChatGPT input spec *Bucket Classification Amendment — Earnings Path Engine Spec* (2026-04-27). Verified EPIC-008 STORY-089 and STORY-091 are confirmed live in codebase (`structural_cyclicality_score`, `cycle_position`, `CyclicalScoreService` all implemented).
+
+### RFC-009 Key Design Decisions
+
+1. **FY2 forward EPS fallback chain** (4 levels): FY2 direct → FY2 extrapolated from NTM → NTM single-year → eps_fwd excluded. Confidence penalty at each level.
+2. **Operating leverage states**: 5-state enum replacing boolean `pre_operating_leverage_flag`. Universal thresholds in V1.
+3. **No user override migration needed**: no overrides currently exist.
+4. **Regime selector semantic update**: bucket replaces `revenueGrowthFwd` as growth gate in ADR-017 Steps 2 and 4. Bucket ∈ {4,5,6,7} gates Step 2; bucket ∈ {3,4} gates Step 4.
+5. **Bucket 8 invariant preserved**: `binary_flag = true` → Bucket 8 unconditionally.
+
+### Files Changed
+
+- `docs/rfc/RFC-009-earnings-path-bucket-engine.md` — created (DRAFT)
+
+### EPIC-008 Blocker Confirmed Resolved
+
+- `structural_cyclicality_score`: ✅ live in schema (STORY-089)
+- `cycle_position`: ✅ live in schema (STORY-089)
+- `CyclicalScoreService.computeAndPersist()`: ✅ live (STORY-091)
+- EPIC-008 fully complete (commit `4c35a7b`)
+
+**Result/Status:** RFC-009 DRAFT complete. Ready for PRD amendment + ADR-013 replacement + ADR-019 authoring before EPIC-009 implementation.
+
+**Baseline Impact:** YES — RFC-009 supersedes §Bucket Scorer in RFC-001 and replaces ADR-013 scoring weights. No code changes yet.
+
+**Next Action:** PRD amendment (§bucket semantics), ADR-013 replacement, ADR-019 (Operating Leverage State Engine), then EPIC-009 story decomposition.
