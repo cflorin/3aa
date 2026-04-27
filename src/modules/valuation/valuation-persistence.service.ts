@@ -159,7 +159,8 @@ export async function loadValuationInput(
     structuralCyclicalityScore: stock.structuralCyclicalityScore ?? 0,
     cyclePosition: (stock.cyclePosition ?? 'normal') as import('@/domain/valuation').CyclePosition,
     cyclicalConfidence: (stock.cyclicalConfidence ?? 'insufficient_data') as 'high' | 'medium' | 'low' | 'insufficient_data',
-    revenueGrowthFwd: stock.revenueGrowthFwd !== null ? Number(stock.revenueGrowthFwd) : null,
+    // revenueGrowthFwd stored as percentage (e.g. 9.65 = 9.65%); divide by 100 for domain decimal (0-1 scale)
+    revenueGrowthFwd: stock.revenueGrowthFwd !== null ? Number(stock.revenueGrowthFwd) / 100 : null,
     // fcfConversionTtm from stock.fcf_conversion (pre-computed ratio by fundamentals sync)
     fcfConversionTtm: stock.fcfConversion !== null ? Number(stock.fcfConversion) : null,
     // TTM values from StockDerivedMetrics
