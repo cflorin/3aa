@@ -57,7 +57,7 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       // 4AA thresholds: max=22, comfortable=20, veryGood=18, steal=16
       // pe=18 → 16 < 18 <= 18 → very_good_zone
       expect(result.valuationZone).toBe('very_good_zone');
-      expect(result.valuationStateStatus).toBe('ready');
+      expect(result.valuationStateStatus).toBe('computed');
       expect(result.thresholdSource).toBe('anchored');
       expect(result.primaryMetric).toBe('forward_pe');
       expect(result.currentMultiple).toBe(18);
@@ -105,7 +105,7 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       expect(result.veryGoodThreshold).toBe(7.5);
       expect(result.stealThreshold).toBe(5.0);
       expect(result.valuationZone).toBe('max_zone');
-      expect(result.valuationStateStatus).toBe('ready');
+      expect(result.valuationStateStatus).toBe('computed');
     });
   });
 
@@ -167,7 +167,7 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       }));
       // 3AA thresholds: max=18.5, comfortable=17, veryGood=15.5, steal=14
       // multiple=16: 15.5 < 16 <= 17 → comfortable_zone
-      expect(result.valuationStateStatus).toBe('ready');
+      expect(result.valuationStateStatus).toBe('computed');
       expect(result.primaryMetric).toBe('forward_operating_earnings_ex_excess_cash');
       expect(result.valuationZone).toBe('comfortable_zone');
     });
@@ -190,7 +190,7 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       expect(result.currentMultipleBasis).toBe('trailing_fallback');
       expect(result.metricSource).toBe('fallback_trailing_pe');
       expect(result.valuationZone).toBe('comfortable_zone');
-      expect(result.valuationStateStatus).toBe('ready');
+      expect(result.valuationStateStatus).toBe('computed');
     });
 
     it('forwardPe=null, trailingPe=0 → not used (trailingPe must be > 0)', () => {
@@ -277,7 +277,7 @@ describe('EPIC-005/STORY-075/TASK-075-007: computeValuation()', () => {
       expect(result.primaryMetric).toBe('forward_ev_ebit');
       expect(result.currentMultiple).toBe(15);
       expect(result.valuationZone).toBe('comfortable_zone');
-      expect(result.valuationStateStatus).toBe('ready');
+      expect(result.valuationStateStatus).toBe('computed');
     });
   });
 });

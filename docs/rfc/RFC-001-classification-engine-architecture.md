@@ -808,4 +808,147 @@ RFC-008 (full quarterly history architecture), ADR-015 (storage), ADR-016 (caden
 
 ---
 
+---
+
+## Amendment — 2026-04-27: Data Model Extensions for Valuation Regime Decoupling (EPIC-008)
+
+**Related:** RFC-003 Amendment 2026-04-27, ADR-005 Amendment 2026-04-27, ADR-017, ADR-018
+
+This amendment defines the data model changes required to support the `valuation_regime` concept introduced in RFC-003 Amendment 2026-04-27.
+
+### New Table: `valuation_regime_thresholds`
+
+Replaces `anchored_thresholds` as the active threshold lookup source for the valuation engine. The old `anchored_thresholds` table is frozen (read-only; kept for audit continuity).
+
+```sql
+CREATE TABLE valuation_regime_thresholds (
+  valuation_regime       VARCHAR(30)   NOT NULL,
+  earnings_quality       CHAR(1)       NOT NULL CHECK (earnings_quality IN ('A', 'B', 'C')),
+  balance_sheet_quality  CHAR(1)       NOT NULL CHECK (balance_sheet_quality IN ('A', 'B', 'C')),
+  primary_metric         VARCHAR(50)   NOT NULL,
+  max_threshold          DECIMAL(10,2) NOT NULL,
+  comfortable_threshold  DECIMAL(10,2) NOT NULL,
+  very_good_threshold    DECIMAL(10,2) NOT NULL,
+  steal_threshold        DECIMAL(10,2) NOT NULL,
+  framework_version      VARCHAR(10)   NOT NULL DEFAULT 'v2.0',
+  effective_from         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  effective_until        TIMESTAMPTZ,
+  created_at             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (valuation_regime, earnings_quality, balance_sheet_quality)
+);
+```
+
+**Initial seed (9 rows — A/A base families only; all values provisional until calibration):**
+
+| valuation_regime | EQ | BS | metric | max | comfortable | very_good | steal |
+|-----------------|----|----|--------|-----|-------------|-----------|-------|
+| `mature_pe` | A | A | `forward_pe` | 22.0 | 20.0 | 18.0 | 16.0 |
+| `profitable_growth_pe` | A | A | `forward_pe` | 36.0 | 30.0 | 24.0 | 18.0 |
+| `profitable_growth_ev_ebit` | A | A | `forward_ev_ebit` | 24.0 | 20.0 | 16.0 | 12.0 |
+| `cyclical_earnings` | A | A | `forward_ev_ebit` | 16.0 | 13.0 | 10.0 | 7.0 |
+| `sales_growth_standard` | A | A | `ev_sales` | 12.0 | 10.0 | 8.0 | 6.0 |
+| `sales_growth_hyper` | A | A | `ev_sales` | 18.0 | 15.0 | 11.0 | 8.0 |
+| `financial_special_case` | A | A | `forward_operating_earnings_ex_excess_cash` | NULL | NULL | NULL | NULL |
+| `not_applicable` | A | A | `no_stable_metric` | NULL | NULL | NULL | NULL |
+| `manual_required` | A | A | `no_stable_metric` | NULL | NULL | NULL | NULL |
+
+Quality downgrades for non-A/A combinations are computed at runtime using the regime-specific downgrade config (see RFC-003 Amendment §Threshold Assigner). No additional rows are seeded.
+
+### Changes to `stock` Table
+
+```sql
+-- Remove: cyclicality_flag BOOLEAN DEFAULT false
+-- Add:
+ALTER TABLE stocks ADD COLUMN structural_cyclicality_score SMALLINT NOT NULL DEFAULT 0
+  CHECK (structural_cyclicality_score BETWEEN 0 AND 3);
+ALTER TABLE stocks ADD COLUMN cycle_position VARCHAR(20) NOT NULL DEFAULT 'insufficient_data'
+  CHECK (cycle_position IN ('depressed', 'normal', 'elevated', 'peak', 'insufficient_data'));
+
+-- Backward-compat computed column (keeps existing API consumers working):
+ALTER TABLE stocks ADD COLUMN cyclicality_flag BOOLEAN GENERATED ALWAYS AS
+  (structural_cyclicality_score >= 1) STORED;
+```
+
+### Changes to `stock_derived_metrics` Table
+
+```sql
+ALTER TABLE stock_derived_metrics ADD COLUMN fcf_conversion_ttm DECIMAL(10, 4);
+-- Computed value: free_cash_flow_ttm / net_income_ttm
+-- NULL when either is NULL or net_income_ttm <= 0
+```
+
+### Changes to `valuation_state` Table
+
+```sql
+ALTER TABLE valuation_state ADD COLUMN valuation_regime VARCHAR(30);
+ALTER TABLE valuation_state ADD COLUMN structural_cyclicality_score_snapshot SMALLINT;
+ALTER TABLE valuation_state ADD COLUMN cycle_position_snapshot VARCHAR(20);
+ALTER TABLE valuation_state ADD COLUMN cyclical_overlay_applied BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE valuation_state ADD COLUMN cyclical_overlay_value DECIMAL(5, 2);
+ALTER TABLE valuation_state ADD COLUMN cyclical_confidence VARCHAR(20);
+ALTER TABLE valuation_state ADD COLUMN threshold_family VARCHAR(40);
+-- current_multiple_basis extended: add 'mid_cycle' to existing enum
+-- derived_from_code deprecated for new records; threshold_family replaces it
+```
+
+### `anchored_thresholds` Table
+
+No schema changes. Table is frozen:
+- No new rows will be seeded
+- Existing rows preserved for audit continuity
+- Valuation engine no longer reads from this table for regime-based computation
+
+### Prisma Model Updates
+
+```prisma
+model ValuationRegimeThreshold {
+  valuationRegime      String   @db.VarChar(30) @map("valuation_regime")
+  earningsQuality      String   @db.Char(1)     @map("earnings_quality")
+  balanceSheetQuality  String   @db.Char(1)     @map("balance_sheet_quality")
+  primaryMetric        String   @db.VarChar(50) @map("primary_metric")
+  maxThreshold         Decimal? @db.Decimal(10, 2) @map("max_threshold")
+  comfortableThreshold Decimal? @db.Decimal(10, 2) @map("comfortable_threshold")
+  veryGoodThreshold    Decimal? @db.Decimal(10, 2) @map("very_good_threshold")
+  stealThreshold       Decimal? @db.Decimal(10, 2) @map("steal_threshold")
+  frameworkVersion     String   @default("v2.0") @db.VarChar(10) @map("framework_version")
+  effectiveFrom        DateTime @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveUntil       DateTime? @db.Timestamptz(6) @map("effective_until")
+  createdAt            DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  @@id([valuationRegime, earningsQuality, balanceSheetQuality])
+  @@map("valuation_regime_thresholds")
+}
+
+// Stock model additions:
+// structuralCyclicalityScore  Int      @default(0) @map("structural_cyclicality_score")
+// cyclePosition               String   @default("insufficient_data") @map("cycle_position")
+// cyclicalityFlag             Boolean  (generated: structuralCyclicalityScore >= 1)
+
+// StockDerivedMetrics addition:
+// fcfConversionTtm            Decimal? @db.Decimal(10, 4) @map("fcf_conversion_ttm")
+
+// ValuationState additions:
+// valuationRegime             String?  @db.VarChar(30) @map("valuation_regime")
+// structuralCyclicalityScoreSnapshot  Int? @map("structural_cyclicality_score_snapshot")
+// cyclePositionSnapshot       String?  @db.VarChar(20) @map("cycle_position_snapshot")
+// cyclicalOverlayApplied      Boolean  @default(false) @map("cyclical_overlay_applied")
+// cyclicalOverlayValue        Decimal? @db.Decimal(5, 2) @map("cyclical_overlay_value")
+// cyclicalConfidence          String?  @db.VarChar(20) @map("cyclical_confidence")
+// thresholdFamily             String?  @db.VarChar(40) @map("threshold_family")
+```
+
+### Entity Relationship Update
+
+```
+stocks (1) ──┬─→ (1) valuation_state (extended: + valuation_regime, cyclical fields)
+             │
+             ├─→ (framework_config)
+             │     ├─→ valuation_regime_thresholds  [NEW — active threshold source]
+             │     ├─→ anchored_thresholds  [FROZEN — audit only]
+             │     └─→ tsr_hurdles  [unchanged]
+```
+
+### Related
+RFC-003 Amendment 2026-04-27, ADR-005 Amendment 2026-04-27, ADR-017, ADR-018
+
 **END RFC-001**

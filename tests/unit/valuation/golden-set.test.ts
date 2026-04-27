@@ -75,7 +75,7 @@ describe('EPIC-005/STORY-081/TASK-081-001: Golden-set regression', () => {
           evSales:      metric === 'evSales'      ? multiple : undefined,
         }));
         expect(result.valuationZone).toBe('comfortable_zone');
-        expect(result.valuationStateStatus).toBe('ready');
+        expect(result.valuationStateStatus).toBe('computed');
         expect(result.thresholdSource).toBe('anchored');
         expect(result.derivedFromCode).toBeNull();
         expect(result.currentMultiple).toBe(multiple);

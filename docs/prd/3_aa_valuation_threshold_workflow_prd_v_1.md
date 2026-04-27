@@ -203,7 +203,7 @@ Store the full valuation block and render it on the stock page.
 - `pre_operating_leverage_flag`
 - `holding_company_flag`
 - `insurer_flag`
-- `cyclicality_flag`
+- ~~`cyclicality_flag`~~ *(replaced by `structural_cyclicality_score` + `cycle_position` — see Amendment 2026-04-27)*
 - `market_pessimism_flag`
 
 ### Optional / manual
@@ -333,10 +333,12 @@ Apply:
 - EV/Sales → subtract 1.0x sales
 
 ### Cyclicality context
-If `cyclicality_flag = true`:
-- keep metric unless user overrides basis
-- allow `current_multiple_basis = mid_cycle`
-- flag in UI that spot earnings may be misleading
+~~If `cyclicality_flag = true`:~~
+~~- keep metric unless user overrides basis~~
+~~- allow `current_multiple_basis = mid_cycle`~~
+~~- flag in UI that spot earnings may be misleading~~
+
+*(Superseded by Amendment 2026-04-27 — see §Cyclical Handling below)*
 
 ### Market pessimism
 Do not auto-change thresholds.
@@ -393,17 +395,26 @@ Must show:
 ---
 
 ## State Model
-Each stock valuation block should have one of:
-- `ready`
-- `manual_required`
-- `classification_required`
-- `not_applicable`
+
+**AMENDED 2026-04-27:** `ready` renamed to `computed`; `stale` added as a distinct intermediate state. Canonical vocabulary is now five states only.
+
+Each stock valuation block must carry exactly one `valuation_state_status`:
+
+| Status | Meaning |
+|--------|---------|
+| `classification_required` | No active classification code; valuation cannot run |
+| `not_applicable` | Bucket 8 / lottery; no valuation model applies |
+| `manual_required` | Regime identified but automated computation blocked (bank flag, missing metric, `financial_special_case` awaiting user inputs) |
+| `computed` | Thresholds fully derived and current |
+| `stale` | Previously computed but an upstream change (price, metric, regime input) has invalidated the result; recompute pending |
 
 ### Transition rules
-- valid code + metric + thresholds → `ready`
-- missing metric data → `manual_required`
+- valid code + metric + thresholds computed → `computed`
+- underlying data changes (price, metric input) → `stale` → (recompute) → `computed`
+- metric becomes invalid → `manual_required`
 - no active code → `classification_required`
 - Bucket 8 → `not_applicable`
+- bank flag, financial_special_case awaiting inputs → `manual_required`
 
 ---
 
@@ -479,4 +490,144 @@ By the end of this workflow implementation, the product should let the investor:
 - trust that all values are either anchored, derived, or manually overridden in a transparent way
 
 This workflow provides the valuation backbone for the stock-review and monitoring workflows.
+
+---
+
+## Amendment — 2026-04-27: Valuation Regime Decoupling (EPIC-008)
+
+**Status:** ACCEPTED  
+**Related:** RFC-003 Amendment 2026-04-27, ADR-017, ADR-018
+
+### Problem
+
+The V1 workflow over-couples classification bucket to metric selection and threshold family. This produces incorrect valuation treatment for:
+
+- Profitable high-growth companies (e.g. NVIDIA) forced into EV/Sales because of bucket placement
+- All P/E-regime stocks sharing a single threshold family regardless of growth profile
+- Cyclical stocks receiving no threshold adjustment for cycle position
+
+### Core Change
+
+**Before:** `bucket → primary_metric → threshold family`
+
+**After:** `bucket + stock characteristics + flags → valuation_regime → primary_metric → threshold family`
+
+Bucket remains an input and explanatory dimension. It is no longer the sole determinant of metric or threshold. It continues to determine: the Rule 0A hard exclusion (bucket 8), the TSR hurdle, the business archetype description, and the confidence-based demotion base.
+
+### New Concept: `valuation_regime`
+
+`valuation_regime` is a formal, persisted, computed field on the valuation state. It is the single coupling point between classification and threshold family.
+
+| Regime | Primary Metric | Purpose |
+|--------|---------------|---------|
+| `not_applicable` | none | Bucket 8 / lottery |
+| `financial_special_case` | `forward_operating_earnings_ex_excess_cash` | Insurer or holding company, any bucket |
+| `sales_growth_standard` | `ev_sales` | Immature / low-margin / pre-profit growth |
+| `sales_growth_hyper` | `ev_sales` | High-gross-margin high-growth sales name |
+| `profitable_growth_pe` | `forward_pe` | Profitable high-growth compounder |
+| `cyclical_earnings` | `forward_ev_ebit` | Cyclical with real earnings |
+| `profitable_growth_ev_ebit` | `forward_ev_ebit` | Profitable but scaling/transitional |
+| `mature_pe` | `forward_pe` | Stable profitable; classic P/E |
+| `manual_required` | none | Catch-all; no safe automated metric |
+
+### Updated Workflow
+
+The workflow gains a new **Step 2a: Regime Selection** between "determine active code" and "compute current multiple":
+
+1. Determine active code *(unchanged)*
+2. **Resolve confidence-based effective bucket** *(unchanged)*
+2a. **Select valuation regime** (replaces bucket-only metric selection; see ADR-017)
+3. Select primary metric (now a 1:1 lookup from regime; no independent logic)
+4. Compute current multiple *(unchanged)*
+5. Assign thresholds (now from `ValuationRegimeThreshold` keyed by regime; see ADR-005 Amendment)
+6. Apply cyclical overlay (new; see ADR-018)
+7. Apply secondary adjustments (dilution, gross margin; unchanged)
+8. Assign TSR hurdles *(unchanged — still bucket-keyed)*
+9. Assign valuation zone *(unchanged)*
+10. Persist and render *(new fields added)*
+
+### Updated Metric Selection Rules
+
+~~Buckets 1–4 default to `forward_pe`~~  
+~~Special case: Berkshire / holding company / insurer stalwart fires only for code starting with 3~~  
+~~Bucket 5 defaults to `forward_ev_ebit`~~  
+~~Buckets 6–7 use `ev_sales`~~
+
+**AMENDED 2026-04-27:** Metric is now determined solely by `valuation_regime` (see regime table above). The `valuation_regime` is computed by the regime selector (ADR-017) using stock financial characteristics and flags. The holding-company / insurer special case (`financial_special_case` regime) now fires for any bucket, not only bucket 3.
+
+### New Inputs Required by Regime Selector
+
+In addition to the existing inputs:
+- `net_income_ttm` — from `stock_derived_metrics` (used to derive `net_income_positive`)
+- `free_cash_flow_ttm` — from `stock_derived_metrics` (used to derive `fcf_positive`)
+- `operating_margin_ttm` — from `stock_derived_metrics`
+- `gross_margin_ttm` — from `stock_derived_metrics`
+- `revenue_growth_fwd` — from `stock`
+- `fcf_conversion_ttm` — from `stock_derived_metrics` (`free_cash_flow_ttm / net_income_ttm`)
+- `structural_cyclicality_score` — integer 0–3; replaces boolean `cyclicality_flag`
+- `cycle_position` — enum: `depressed / normal / elevated / peak / insufficient_data`
+
+### New Outputs
+
+- `valuation_regime` — persisted on valuation state
+- `structural_cyclicality_score` — copied from stock at computation time (audit)
+- `cycle_position` — at time of computation
+- `cyclical_overlay_applied` — boolean
+- `cyclical_overlay_value` — turns subtracted (nullable)
+- `cyclical_confidence` — `high / medium / low / insufficient_data`
+- `threshold_family` — human-readable label (e.g. `profitable_growth_pe_mid_BA`; includes growth tier for `profitable_growth_pe`)
+
+### Updated `valuation_state_status` Values
+
+Existing values unchanged. Added:
+- `missing_data` already exists — covers case where regime selector inputs are null
+
+### US-VAL-001 Updated Acceptance Criteria
+
+~~Buckets 1–4 default to `forward_pe`~~  
+~~Bucket 5 defaults to `forward_ev_ebit`~~  
+~~Buckets 6–7 use `ev_sales`~~  
+
+**AMENDED 2026-04-27:** Metric is determined by regime selector output. Holding-company / insurer path applies for any bucket. See ADR-017 for full regime selection rules.
+
+### Threshold Families
+
+~~Threshold families are metric-family-based (P/E, EV/EBIT, EV/Sales).~~
+
+**AMENDED 2026-04-27:** Each `valuation_regime` has its own base threshold family. Base families (A/A quality) are:
+
+| Regime | Growth Tier | Max | Comfortable | Very Good | Steal |
+|--------|-------------|-----|-------------|-----------|-------|
+| `mature_pe` | — | 22.0x | 20.0x | 18.0x | 16.0x |
+| `profitable_growth_pe` | `high` (≥35% growth) | 36.0x | 30.0x | 24.0x | 18.0x |
+| `profitable_growth_pe` | `mid` (25–35% growth) | 30.0x | 25.0x | 21.0x | 17.0x |
+| `profitable_growth_pe` | `standard` (20–25% growth) | 26.0x | 22.0x | 19.0x | 16.0x |
+| `profitable_growth_ev_ebit` | — | 24.0x | 20.0x | 16.0x | 12.0x |
+| `cyclical_earnings` | — | 16.0x | 13.0x | 10.0x | 7.0x |
+| `sales_growth_standard` | — | 12.0x | 10.0x | 8.0x | 6.0x |
+| `sales_growth_hyper` | — | 18.0x | 15.0x | 11.0x | 8.0x |
+
+**Provisional:** All base threshold values are provisional and subject to calibration-basket validation before freeze (see implementation plan).
+
+Quality downgrades are applied per-regime (see ADR-005 Amendment and ADR-017).
+
+### Cyclical Handling
+
+~~`cyclicality_flag = true` → keep metric, allow `mid_cycle` basis, flag in UI~~
+
+**AMENDED 2026-04-27:** Cyclicality is now a two-dimensional model:
+
+- `structural_cyclicality_score` (0–3): measures degree of inherent cyclicality
+- `cycle_position` (depressed / normal / elevated / peak / insufficient_data): estimates where current earnings sit relative to history
+
+Cyclical threshold overlay is applied when `structural_cyclicality_score > 0` and regime is `profitable_growth_pe`. High-quality profitable cyclicals (NVIDIA-like) remain in `profitable_growth_pe` with a cyclical threshold haircut; lower-quality cyclicals fall into `cyclical_earnings`. See ADR-018.
+
+`cyclicality_flag` boolean is preserved as a derived field (`structural_cyclicality_score >= 1`) for backward compatibility.
+
+### Required Badges (updated)
+
+Existing badges unchanged. Added:
+- `regime: [regime_name]` — shows active valuation regime
+- `cyclical overlay: −N turns` — shows overlay applied
+- `cycle: [position]` — shows inferred cycle position
 

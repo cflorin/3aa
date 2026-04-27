@@ -558,4 +558,104 @@ async function overrideThresholds(
 
 ---
 
-**END ADR-005**
+---
+
+## Amendment — 2026-04-27: Regime-Keyed Threshold Table (EPIC-008)
+
+**Related:** RFC-003 Amendment 2026-04-27, RFC-001 Amendment 2026-04-27, ADR-017
+
+### Context for Amendment
+
+The V1 `anchored_thresholds` table is keyed by `{bucket}{EQ}{BS}` code (e.g. `4AA`). The introduction of `valuation_regime` as a formal concept (RFC-003 Amendment 2026-04-27) makes this key incorrect: the threshold family is now determined by regime, not by bucket. Keeping the code-keyed table as the active lookup source would preserve the coupling problem that the amendment is designed to fix.
+
+### Decision
+
+Introduce a new `valuation_regime_thresholds` table as the **active threshold lookup source** for the valuation engine. The old `anchored_thresholds` table is **frozen** — no further seeding; existing rows preserved for audit continuity.
+
+### New Table Structure
+
+Primary key: `(valuation_regime, earnings_quality, balance_sheet_quality)`.
+
+**V2 seeding (9 rows — A/A base families only; see RFC-001 Amendment for schema):**
+
+All 9 rows use `earnings_quality = 'A'` and `balance_sheet_quality = 'A'`. These are the base families from which quality downgrades are computed at runtime.
+
+Quality downgrades for non-A/A combinations are **not stored in the table**. They are computed at runtime using regime-specific downgrade configs (see §Downgrade Configs below).
+
+This is simpler than both:
+- The old system (16 anchors + mechanical derivation from nearest anchor): replaced by 9 base rows + formula
+- A pre-seeded 81-row table: more rows than needed, harder to maintain
+
+### Downgrade Configs (Code-Level Constants)
+
+```typescript
+// Regime-specific quality downgrade step values.
+// eqAbStep: turns/x subtracted moving EQ from A to B
+// eqBcStep: turns/x subtracted moving EQ from B to C (additive)
+// bsAbStep: turns/x subtracted moving BS from A to B
+// bsBcStep: turns/x subtracted moving BS from B to C (additive)
+
+const REGIME_DOWNGRADE_CONFIG = {
+  mature_pe:                  { eqAbStep: 2.5, eqBcStep: 2.0, bsAbStep: 1.0, bsBcStep: 2.0 },
+  profitable_growth_pe:       { eqAbStep: 4.0, eqBcStep: 4.0, bsAbStep: 2.0, bsBcStep: 3.0 },
+  profitable_growth_ev_ebit:  { eqAbStep: 3.0, eqBcStep: 3.0, bsAbStep: 1.5, bsBcStep: 2.0 },
+  cyclical_earnings:          { eqAbStep: 2.0, eqBcStep: 2.0, bsAbStep: 1.0, bsBcStep: 1.5 },
+  sales_growth_standard:      { eqAbStep: 2.0, eqBcStep: 1.75, bsAbStep: 1.0, bsBcStep: 1.75 },
+  sales_growth_hyper:         { eqAbStep: 2.0, eqBcStep: 1.75, bsAbStep: 1.0, bsBcStep: 1.75 },
+  // financial_special_case, not_applicable, manual_required: no threshold derivation
+} as const;
+```
+
+**Rationale for larger steps in `profitable_growth_pe`:** The base multiple is 36x (vs 22x for `mature_pe`). The same percentage-style quality risk deserves larger absolute downgrade steps when the starting point is higher. This preserves the framework principle that quality differences matter proportionally.
+
+### Growth Tier Config (`profitable_growth_pe` only)
+
+The `profitable_growth_pe` regime supports three growth tiers. The base table row (36/30/24/18) represents the `high` tier (≥35% growth). `mid` and `standard` tiers substitute a different base quad before quality downgrade. Spread compresses alongside the maximum — see ADR-017 §Growth Tier Overlay for rationale.
+
+```typescript
+const GROWTH_TIER_CONFIG = {
+  high:     { minGrowth: 0.35, base: { max: 36, comfortable: 30, veryGood: 24, steal: 18 } },
+  mid:      { minGrowth: 0.25, base: { max: 30, comfortable: 25, veryGood: 21, steal: 17 } },
+  standard: { minGrowth: 0.20, base: { max: 26, comfortable: 22, veryGood: 19, steal: 16 } },
+} as const;
+```
+
+`null` `revenueGrowthFwd` → treated as `high` (data gap does not penalise). Applies only to `profitable_growth_pe`; all other regimes ignore this config.
+
+### Threshold Family Label
+
+Each computed threshold result is labeled with a `threshold_family` string. For `profitable_growth_pe`: `{regime}_{tier}_{EQ}{BS}` (e.g. `profitable_growth_pe_mid_BA`). For all other regimes: `{regime}_{EQ}{BS}` (e.g. `mature_pe_BA`). This replaces `derived_from_code` for new records. `derived_from_code` is preserved in the DB for historical records.
+
+### `threshold_source` Values (Extended)
+
+Existing values: `'anchored'`, `'derived'`, `'manual_override'`.
+
+Added: `'regime_derived'` — threshold was derived from a `ValuationRegimeThreshold` base row + quality downgrade formula. The label `'anchored'` is preserved for any stock whose threshold was previously computed from the old `anchored_thresholds` table and has not been recomputed.
+
+### Lookup Resolution Order (updated)
+
+```
+1. Manual override? → use it (source: 'manual_override')
+2. Regime is not_applicable, financial_special_case, manual_required? → no thresholds
+3. Lookup base family row from valuation_regime_thresholds by (valuation_regime, 'A', 'A')
+4. Apply growth tier overlay (profitable_growth_pe only): substitute base quad from
+   GROWTH_TIER_CONFIG for 'mid' or 'standard' tier; all other regimes skip this step
+5. Apply quality downgrade formula using regime's downgrade config (REGIME_DOWNGRADE_CONFIG)
+6. Apply cyclical overlay (RFC-003 Amendment §Cyclical Overlay)
+7. Apply secondary adjustments (dilution, gross margin — unchanged)
+8. Persist with source: 'regime_derived',
+   threshold_family: '{regime}_{tier}_{EQ}{BS}' for profitable_growth_pe,
+                     '{regime}_{EQ}{BS}' for all others
+```
+
+### AnchoredThreshold Freeze Protocol
+
+- `anchored_thresholds` table: no new INSERT or UPDATE after 2026-04-27
+- Existing 16 rows: preserved indefinitely for audit continuity
+- Valuation engine: does not query `anchored_thresholds` after EPIC-008 migration
+- Historical `valuation_state` records referencing `derived_from_code`: preserved; no backfill needed
+- Migration: when EPIC-008 recomputes valuation for all tickers, `threshold_source` updates to `'regime_derived'` and `threshold_family` is populated; `derived_from_code` may be null for new records
+
+### Provisional Values Notice
+
+All base threshold values in `valuation_regime_thresholds` are **provisional** until calibration-basket validation is complete (EPIC-008 Step 7). Values must not be treated as final until that validation pass is approved.

@@ -749,7 +749,7 @@ interface ValuationResult {
   tsr_reason_codes: string[];
 
   valuation_zone: string;
-  valuation_state_status: string; // 'ready' | 'manual_required' | etc.
+  valuation_state_status: string; // 'classification_required' | 'not_applicable' | 'manual_required' | 'computed' | 'stale'
 }
 ```
 
@@ -888,7 +888,7 @@ Valuation recompute needed when:
 1. **Classification change:** System `suggested_code` changed (not user override)
 2. **Price change:** `current_price` changed (affects current_multiple)
 3. **Metric value change:** Forward P/E, EV/EBIT, EV/Sales changed materially
-4. **Flag change:** `pre_operating_leverage_flag`, `cyclicality_flag` changed
+4. **Flag change:** `pre_operating_leverage_flag`, ~~`cyclicality_flag`~~ (`structural_cyclicality_score` — see Amendment 2026-04-27) changed
 5. **Framework config update:** New framework version activated
 
 **Note:** User classification overrides do NOT trigger valuation recompute (V1 scope). Valuation always uses system `suggested_code`.
@@ -931,11 +931,12 @@ function shouldRecompute(
 ## State Transitions
 
 ```
-classification_required → (classification completes) → ready
-ready → (price changes) → ready (new valuation)
-ready → (metric becomes invalid) → manual_required
-ready → (bucket 8) → not_applicable
-manual_required → (user provides manual multiple) → ready
+classification_required → (classification completes) → computed
+computed → (price changes) → computed (new valuation)
+computed → (metric becomes invalid) → manual_required
+computed → (underlying data changes) → stale → (recompute) → computed
+computed → (bucket 8) → not_applicable
+manual_required → (user provides manual multiple) → computed
 ```
 
 ---
@@ -1035,5 +1036,478 @@ logger.warn('valuation.derived_thresholds', {
 2. **ADR-010: Cyclicality Mid-Cycle Handling** (deferred to V1.1 if no formula available)
 
 ---
+
+---
+
+## Amendment — 2026-04-27: Valuation Regime Decoupling (EPIC-008)
+
+**Related:** PRD Amendment 2026-04-27, ADR-017 (Regime Selection), ADR-018 (Cyclical Overlay), ADR-005 Amendment 2026-04-27, RFC-001 Amendment 2026-04-27
+
+### Motivation
+
+The V1 architecture couples bucket → primary_metric → threshold family in a single pipeline step. This produces:
+
+1. Profitable high-growth names forced into EV/Sales (wrong metric, wrong family)
+2. All P/E names sharing one threshold family regardless of growth profile
+3. Cyclical names receiving no threshold adjustment for cycle position
+
+### New Concept: `valuation_regime`
+
+`valuation_regime` is introduced as a formal intermediate stage between classification output and valuation metric/threshold selection. It is a persisted, computed field on `valuation_state`.
+
+The metric is a 1:1 deterministic lookup from regime. No independent metric selection logic remains.
+
+```
+bucket + stock characteristics + flags
+    ↓
+[Cyclical Score Pre-computation — separate service, runs before valuation batch]
+    ↓
+[Regime Selector — deterministic Steps 0–6]
+    ↓
+valuation_regime  (persisted)
+    ↓
+primary_metric  (1:1 lookup)
+    ↓
+ValuationRegimeThreshold: base family lookup + quality downgrade formula
+    ↓
+Cyclical Overlay (if applicable)
+    ↓
+Secondary Adjustments (dilution, gross margin — unchanged)
+    ↓
+TSR Hurdle (bucket-keyed — unchanged)
+    ↓
+Zone Assignment (unchanged)
+```
+
+### Updated High-Level Architecture
+
+```
+Input: active_code, stock fundamentals, flags, derived metrics, cyclical scores
+    ↓
+┌──────────────────────────────────────────┐
+│  Effective Code Resolver                 │
+│  - Confidence-based bucket demotion      │  (unchanged, 2026-04-26)
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Regime Selector  [NEW]                  │
+│  - Steps 0–6 deterministic rules         │
+│  - Inputs: financial characteristics     │
+│            + flags + cyclical scores     │
+│  - Returns: valuation_regime             │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Metric Resolver  [SIMPLIFIED]           │
+│  - 1:1 lookup: regime → primary_metric   │
+│  - No conditional logic                  │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Current Multiple Computor               │  (unchanged)
+│  - Cyclicality context preserved         │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Threshold Assigner  [AMENDED]           │
+│  - Lookup: ValuationRegimeThreshold      │
+│    by (valuation_regime, A/A base)       │
+│  - Apply quality downgrade formula       │
+│    (regime-specific step config)         │
+│  - Returns: thresholds, threshold_family │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Cyclical Overlay  [NEW]                 │
+│  - Fires when: score > 0 AND             │
+│    regime = profitable_growth_pe         │
+│  - Applies haircut from overlay matrix   │
+│  - Returns: adjusted thresholds,         │
+│    overlay_value, cyclical_confidence    │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Secondary Adjustments                   │  (unchanged)
+│  - Dilution, gross margin                │
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  TSR Hurdle Calculator                   │  (unchanged — bucket-keyed)
+└──────────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────────┐
+│  Valuation Zone Assigner                 │  (unchanged)
+└──────────────────────────────────────────┘
+    ↓
+Output: valuation_state (extended — see §Updated Interface Contracts)
+```
+
+### Regime Selector — Full Specification
+
+See ADR-017 for the authoritative decision record. Reproduced here for completeness.
+
+**Inputs required (additions to ValuationInput):**
+
+```typescript
+interface ValuationInput {
+  // ... existing fields ...
+  // New regime-selector inputs:
+  netIncomeTtm: number | null;          // from stock_derived_metrics
+  freeCashFlowTtm: number | null;       // from stock_derived_metrics
+  operatingMarginTtm: number | null;    // from stock_derived_metrics
+  grossMarginTtm: number | null;        // from stock_derived_metrics
+  fcfConversionTtm: number | null;      // freeCashFlowTtm / netIncomeTtm
+  revenueGrowthFwd: number | null;      // from stock
+  structuralCyclicalityScore: number;   // 0–3; replaces cyclicality_flag
+  cyclePosition: CyclePosition;         // depressed|normal|elevated|peak|insufficient_data
+}
+```
+
+**Regime 1:1 metric map:**
+
+```typescript
+const REGIME_METRIC: Record<ValuationRegime, PrimaryMetric> = {
+  not_applicable:              'no_stable_metric',
+  financial_special_case:      'forward_operating_earnings_ex_excess_cash',
+  sales_growth_standard:       'ev_sales',
+  sales_growth_hyper:          'ev_sales',
+  profitable_growth_pe:        'forward_pe',
+  cyclical_earnings:           'forward_ev_ebit',
+  profitable_growth_ev_ebit:   'forward_ev_ebit',
+  mature_pe:                   'forward_pe',
+  manual_required:             'no_stable_metric',
+};
+```
+
+**Regime selector logic (Steps 0–6):**
+
+```typescript
+function selectRegime(input: ValuationInput): ValuationRegime {
+  const bucket = parseBucket(input.activeCode);
+  const netIncomePositive = input.netIncomeTtm != null && input.netIncomeTtm > 0;
+  const fcfPositive = input.freeCashFlowTtm != null && input.freeCashFlowTtm > 0;
+  const opMargin = input.operatingMarginTtm ?? null;
+  const revGrowthFwd = input.revenueGrowthFwd ?? null;
+  const fcfConversion = input.fcfConversionTtm ?? null;
+  const grossMargin = input.grossMarginTtm ?? null;
+  const cyclical = input.structuralCyclicalityScore >= 1;
+
+  // Step 0A — Bucket 8
+  if (bucket === 8) return 'not_applicable';
+
+  // Step 0B — Bank flag (any bucket)
+  // Banks/financial institutions: EV/EBIT meaningless; P/E requires loan-loss normalisation
+  // outside framework scope. Always manual_required regardless of profitability.
+  if (input.bankFlag) return 'manual_required';
+
+  // Step 0C — Insurer / Step 0D — Holding company (any bucket)
+  if (input.insurerFlag || input.holdingCompanyFlag) return 'financial_special_case';
+
+  // Step 1 — Sales-valued growth path
+  // Note: fcfPositive=false alone does NOT trigger Step 1.
+  // A profitable company with negative FCF falls to manual_required via Step 6.
+  // The op_margin gate is conditioned on growth to protect mature low-margin businesses.
+  const step1Fires =
+    !netIncomePositive ||
+    (opMargin !== null && opMargin < 0.10 && revGrowthFwd !== null && revGrowthFwd >= 0.10) ||
+    input.preOperatingLeverageFlag;
+
+  if (step1Fires) {
+    // Hyper-growth sales variant
+    if (
+      revGrowthFwd !== null && revGrowthFwd >= 0.40 &&
+      grossMargin !== null && grossMargin >= 0.70
+    ) {
+      return 'sales_growth_hyper';
+    }
+    return 'sales_growth_standard';
+  }
+
+  // Step 2 — Profitable high-growth PE path
+  if (
+    revGrowthFwd !== null && revGrowthFwd >= 0.20 &&
+    opMargin !== null && opMargin >= 0.25 &&
+    netIncomePositive &&
+    fcfPositive &&
+    fcfConversion !== null && fcfConversion >= 0.60
+  ) {
+    return 'profitable_growth_pe';
+  }
+
+  // Step 3 — Cyclical earnings path
+  if (
+    cyclical &&
+    netIncomePositive &&
+    opMargin !== null && opMargin >= 0.10
+  ) {
+    return 'cyclical_earnings';
+  }
+
+  // Step 4 — Profitable transitional EV/EBIT
+  if (
+    revGrowthFwd !== null && revGrowthFwd >= 0.15 &&
+    netIncomePositive &&
+    fcfPositive &&
+    opMargin !== null && opMargin >= 0.10 && opMargin < 0.25
+  ) {
+    return 'profitable_growth_ev_ebit';
+  }
+
+  // Step 5 — Mature PE default
+  if (netIncomePositive && fcfPositive) {
+    return 'mature_pe';
+  }
+
+  // Step 6 — Catch-all
+  return 'manual_required';
+}
+```
+
+**Precedence rationale (must be preserved):**
+- Bucket 8 first — no valuation model applies to lottery stocks
+- Bank flag before other special cases — banks are fully outside the automated framework
+- Insurer / holding company before income tests — non-standard earnings bases
+- Immature/sales-valued path before anything else — unprofitable names must not reach PE regimes
+- Profitable high-growth PE before cyclical — NVIDIA-like names qualify Step 2 before reaching Step 3
+- Cyclical earnings before profitable transitional — cyclical names have different risk profile
+- Mature PE as final automated path — stable profitable names that didn't qualify anything else
+
+### Threshold Assigner — Amendment
+
+~~Lookup: `anchored_thresholds` table by exact `code` match; derive mechanically from nearest anchor.~~
+
+**AMENDED 2026-04-27:** Threshold resolution now uses `ValuationRegimeThreshold` table (see ADR-005 Amendment and RFC-001 Amendment for schema). Logic:
+
+1. Lookup base family row by `valuation_regime` (all base rows use A/A tier_high as reference)
+2. Apply growth tier overlay for `profitable_growth_pe`: substitute base quad from `GROWTH_TIER_CONFIG` if tier ≠ `high`
+3. Apply regime-specific quality downgrade formula:
+
+```typescript
+interface RegimeDowngradeConfig {
+  eqAbStep: number;   // turns/x subtracted per EQ grade A→B
+  eqBcStep: number;   // turns/x subtracted per EQ grade B→C
+  bsAbStep: number;   // turns/x subtracted per BS grade A→B
+  bsBcStep: number;   // turns/x subtracted per BS grade B→C
+}
+
+const REGIME_DOWNGRADE_CONFIG: Record<string, RegimeDowngradeConfig> = {
+  mature_pe:                  { eqAbStep: 2.5, eqBcStep: 2.0, bsAbStep: 1.0, bsBcStep: 2.0 },
+  profitable_growth_pe:       { eqAbStep: 4.0, eqBcStep: 4.0, bsAbStep: 2.0, bsBcStep: 3.0 },
+  profitable_growth_ev_ebit:  { eqAbStep: 3.0, eqBcStep: 3.0, bsAbStep: 1.5, bsBcStep: 2.0 },
+  cyclical_earnings:          { eqAbStep: 2.0, eqBcStep: 2.0, bsAbStep: 1.0, bsBcStep: 1.5 },
+  sales_growth_standard:      { eqAbStep: 2.0, eqBcStep: 1.75, bsAbStep: 1.0, bsBcStep: 1.75 },
+  sales_growth_hyper:         { eqAbStep: 2.0, eqBcStep: 1.75, bsAbStep: 1.0, bsBcStep: 1.75 },
+};
+
+type GrowthTier = 'high' | 'mid' | 'standard';
+
+interface GrowthTierEntry {
+  minGrowth: number;
+  base: ThresholdQuad;
+}
+
+// Growth tier base quads for profitable_growth_pe only.
+// Spread compresses alongside the maximum as growth decreases — lower-growth names have
+// lower fair-value uncertainty. Steal floors at 16–17x (≈ mature_pe steal) because the
+// Step 2 quality gates are still met regardless of growth tier.
+const GROWTH_TIER_CONFIG: Record<GrowthTier, GrowthTierEntry> = {
+  high:     { minGrowth: 0.35, base: { max: 36, comfortable: 30, veryGood: 24, steal: 18 } },
+  mid:      { minGrowth: 0.25, base: { max: 30, comfortable: 25, veryGood: 21, steal: 17 } },
+  standard: { minGrowth: 0.20, base: { max: 26, comfortable: 22, veryGood: 19, steal: 16 } },
+};
+
+function resolveGrowthTier(revenueGrowthFwd: number): GrowthTier {
+  // Null cannot occur here: Step 2 requires non-null revenueGrowthFwd >= 0.20.
+  // A stock reaching profitable_growth_pe always has a known forward growth value.
+  if (revenueGrowthFwd >= 0.35) return 'high';
+  if (revenueGrowthFwd >= 0.25) return 'mid';
+  return 'standard';
+}
+
+function applyGrowthTierOverlay(
+  regime: ValuationRegime,
+  revenueGrowthFwd: number | null,
+  baseFromTable: ThresholdQuad,
+): { base: ThresholdQuad; tier: GrowthTier | null } {
+  if (regime !== 'profitable_growth_pe') return { base: baseFromTable, tier: null };
+  // revenueGrowthFwd is non-null here: Step 2 guarantees it
+  const tier = resolveGrowthTier(revenueGrowthFwd!);
+  return { base: GROWTH_TIER_CONFIG[tier].base, tier };
+}
+
+function applyQualityDowngrade(
+  base: ThresholdQuad,
+  eqGrade: string,
+  bsGrade: string,
+  config: RegimeDowngradeConfig,
+): ThresholdQuad {
+  let eqAdj = 0;
+  if (eqGrade === 'B') eqAdj = config.eqAbStep;
+  if (eqGrade === 'C') eqAdj = config.eqAbStep + config.eqBcStep;
+
+  let bsAdj = 0;
+  if (bsGrade === 'B') bsAdj = config.bsAbStep;
+  if (bsGrade === 'C') bsAdj = config.bsAbStep + config.bsBcStep;
+
+  const totalAdj = eqAdj + bsAdj;
+  return enforceFloorAndOrder({
+    max: base.max - totalAdj,
+    comfortable: base.comfortable - totalAdj,
+    veryGood: base.veryGood - totalAdj,
+    steal: base.steal - totalAdj,
+  });
+}
+```
+
+4. Result: `threshold_family` label (e.g. `profitable_growth_pe_mid_BA`), `threshold_source = 'regime_derived'`
+
+The `derived_from_code` field is deprecated for new records. `threshold_family` replaces it.  
+The old `AnchoredThreshold` table is frozen; existing records remain for audit continuity.
+
+### Cyclical Overlay — New Component
+
+See ADR-018 for the authoritative decision record.
+
+**Fires when:** `structural_cyclicality_score >= 1` AND `valuation_regime = 'profitable_growth_pe'`
+
+**Does not fire for:** `cyclical_earnings` regime — that regime's base family already reflects cyclical risk discount.
+
+**Interaction with growth tier overlay:** Growth tier and cyclical overlay are independent. Growth tier substitutes the base quad (step 2 above) before quality downgrade. Cyclical overlay is a scalar subtraction applied after quality downgrade (step 4). A `mid`-tier company with cyclicality will receive both adjustments independently.
+
+**Overlay matrix for `profitable_growth_pe`:**
+
+```typescript
+function computeCyclicalOverlay(
+  score: number,          // 0–3
+  position: CyclePosition,
+): number {             // turns to subtract from all thresholds
+  if (score === 0) return 0;
+  if (score === 1) {
+    return position === 'elevated' || position === 'peak' ? 4.0 : 2.0;
+  }
+  if (score === 2) {
+    return position === 'elevated' || position === 'peak' ? 6.0 : 4.0;
+  }
+  // score === 3: force to manual_required or cyclical_earnings — do not apply overlay
+  return 0; // handled upstream: score=3 re-routes to cyclical_earnings
+}
+```
+
+**Cyclical_earnings regime overlays** (cycle_position → threshold reduction):
+
+```typescript
+function computeCyclicalEarningsOverlay(position: CyclePosition): number {
+  if (position === 'elevated') return 2.0;
+  if (position === 'peak') return 3.5;   // 3–4 range; use 3.5 as default
+  return 0; // depressed, normal, insufficient_data: use base family as-is
+}
+```
+
+For `cyclical_earnings` + `depressed`: no automatic tightening; system logs a basis warning that spot earnings may be below normal (conservative signal for user).
+
+### Updated ValuationInput Interface
+
+```typescript
+interface ValuationInput {
+  ticker: string;
+  activeCode: string;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  primaryMetricOverride?: PrimaryMetric;
+
+  // Valuation multiples (unchanged)
+  forwardPe: number | null;
+  forwardEvEbit: number | null;
+  evSales: number | null;
+  trailingPe: number | null;
+  trailingEvEbit: number | null;
+  forwardOperatingEarningsExExcessCash: number | null;
+
+  // Existing flags (unchanged)
+  holdingCompanyFlag: boolean;
+  insurerFlag: boolean;
+  preOperatingLeverageFlag: boolean;
+  materialDilutionFlag: boolean;
+  grossMargin: number | null;          // spot, for secondary adjustments
+  shareCountGrowth3y: number | null;
+
+  // NEW: regime selector inputs (from stock_derived_metrics + stock)
+  netIncomeTtm: number | null;
+  freeCashFlowTtm: number | null;
+  operatingMarginTtm: number | null;
+  grossMarginTtm: number | null;
+  fcfConversionTtm: number | null;     // freeCashFlowTtm / netIncomeTtm
+  revenueGrowthFwd: number | null;
+
+  // NEW: cyclical score inputs (pre-computed by CyclicalScoreService)
+  structuralCyclicalityScore: number;  // 0–3; replaces cyclicality_flag
+  cyclePosition: CyclePosition;        // depressed|normal|elevated|peak|insufficient_data
+
+  // Framework config (unchanged)
+  valuationRegimeThresholds: ValuationRegimeThresholdRow[];
+  tsrHurdles: TsrHurdleRow[];
+}
+```
+
+**Note:** `cyclicalityFlag` (boolean) is removed from `ValuationInput`. Downstream references to `cyclicalityFlag` use `structuralCyclicalityScore >= 1`.
+
+### Updated ValuationResult Interface
+
+```typescript
+interface ValuationResult {
+  // ... all existing fields preserved ...
+
+  // NEW fields:
+  valuationRegime: ValuationRegime;
+  structuralCyclicalityScore: number;
+  cyclePosition: CyclePosition;
+  cyclicalOverlayApplied: boolean;
+  cyclicalOverlayValue: number | null;
+  cyclicalConfidence: 'high' | 'medium' | 'low' | 'insufficient_data';
+  growthTier: GrowthTier | null;       // null for non-profitable_growth_pe regimes
+  thresholdFamily: string;             // e.g. 'profitable_growth_pe_mid_BA'
+}
+```
+
+### New Pre-computation Layer: CyclicalScoreService
+
+A new service analogous to `computeDerivedMetrics`, running before the valuation batch:
+
+**Responsibility:** Derive `structuralCyclicalityScore` (0–3) and `cyclePosition` from `stock_quarterly_history`.
+
+**Conservative inference rules (explicit):**
+- Fewer than 8 quarters of history → `cyclePosition = 'insufficient_data'`; `structuralCyclicalityScore` uses classification flag only (0 if no `cyclicality_flag`, 1 if flag set)
+- `elevated`: current TTM operating margin > 12Q trailing average × 1.15 AND consistent revenue growth above history midpoint
+- `peak`: current TTM operating margin > 12Q trailing average × 1.25 AND revenue at history-window high
+- `depressed`: current TTM operating margin < 12Q trailing average × 0.85
+- Default (neither condition met clearly): `normal`
+- When in doubt: assign `normal`, not elevated or peak
+
+**LLM signal integration:**  
+`marginDurabilityScore` and `pricingPowerScore` from `ClassificationEnrichmentScore` (EPIC-003.1) may modulate `structuralCyclicalityScore` by ±1 level. Cap: max ±1. LLM signals never override the profitability gates in Steps 1–5 of the regime selector.
+
+**Persists to:** `stock.structural_cyclicality_score` and `stock.cycle_position`.
+
+### Updated Recomputation Triggers
+
+```typescript
+// New triggers added to shouldRecompute():
+if (current.structuralCyclicalityScore !== previous.structuralCyclicalityScore) {
+  reasons.push('cyclicality_score_changed');
+}
+if (current.cyclePosition !== previous.cyclePosition) {
+  reasons.push('cycle_position_changed');
+}
+if (current.operatingMarginTtm !== previous.operatingMarginTtm) {
+  reasons.push('operating_margin_ttm_changed');
+}
+```
+
+### Backward Compatibility
+
+- `cyclicality_flag` is preserved in the database as a computed column (`structural_cyclicality_score >= 1`) — no API breakage
+- Existing `derived_from_code` field on `valuation_state` is preserved for historical records; new records use `threshold_family` instead
+- TSR hurdle calculation is unchanged — still bucket-keyed
+- Zone assignment is unchanged
+- Dilution and gross-margin secondary adjustments are unchanged
 
 **END RFC-003**
