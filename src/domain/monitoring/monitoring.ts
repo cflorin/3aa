@@ -5,6 +5,7 @@
 // STORY-049: Extended getUniverseStocks with filter/sort params; added getSectors
 // STORY-070: Extended UniverseStockSummary with optional trend metrics; getUniverseStocks includeTrend option
 // STORY-080: Extended UniverseStockSummary with valuation fields; valuationZone filter/sort
+// EPIC-008/STORY-095/TASK-095-005: Added valuationRegime to UniverseStockSummary + filter
 // RFC-003 §Monitor List API (all-default-monitored, per-user deactivation); ADR-007
 // RFC-008 §Classifier-Facing Derived Fields; RFC-002 Amendment 2026-04-25
 
@@ -47,6 +48,8 @@ export interface UniverseStockSummary {
   currentMultipleBasis: string | null;
   adjustedTsrHurdle: number | null;
   valuationStateStatus: string | null;
+  // EPIC-008/STORY-095: Regime field — null when no valuation_state or legacy record
+  valuationRegime: string | null;
 }
 
 export interface UniverseQueryOpts {
@@ -67,6 +70,8 @@ export interface UniverseQueryOpts {
   minQuartersAvailable?: number;
   // Valuation zone filter (STORY-080) — multi-select; 'not_computed' = no valuation_state row
   valuationZone?: string[];
+  // Valuation regime filter (EPIC-008/STORY-095) — multi-select
+  valuationRegime?: string[];
 }
 
 // Maps API sort param names to Prisma field names
@@ -131,6 +136,7 @@ function makeStockSelect(userId: string, includeTrend = false) {
     netDebtToEbitda: true,
     forwardPe: true,
     forwardEvEbit: true,
+    forwardEvSales: true,
     evSales: true,
     classificationState: { select: { suggestedCode: true, confidenceLevel: true } },
     userClassificationOverrides: { where: { userId }, select: { finalCode: true } },
@@ -143,6 +149,7 @@ function makeStockSelect(userId: string, includeTrend = false) {
         currentMultipleBasis: true,
         adjustedTsrHurdle: true,
         valuationStateStatus: true,
+        valuationRegime: true,
       },
     },
     // LEFT JOIN stock_derived_metrics when trend columns requested (STORY-070)
@@ -172,6 +179,7 @@ type StockSelectRow = {
   netDebtToEbitda: { toString(): string } | null;
   forwardPe: { toString(): string } | null;
   forwardEvEbit: { toString(): string } | null;
+  forwardEvSales: { toString(): string } | null;
   evSales: { toString(): string } | null;
   classificationState: { suggestedCode: string | null; confidenceLevel: string } | null;
   userClassificationOverrides: { finalCode: string }[];
@@ -180,9 +188,10 @@ type StockSelectRow = {
   valuationState: {
     valuationZone: string;
     currentMultiple: { toString(): string } | null;
-    currentMultipleBasis: string;
+    currentMultipleBasis: string | null;
     adjustedTsrHurdle: { toString(): string } | null;
     valuationStateStatus: string;
+    valuationRegime: string | null;
   } | null;
   // Optional trend metrics (STORY-070)
   derivedMetrics?: {
@@ -224,7 +233,7 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     net_debt_to_ebitda: row.netDebtToEbitda !== null ? Number(row.netDebtToEbitda) : null,
     forward_pe: row.forwardPe !== null ? Number(row.forwardPe) : null,
     forward_ev_ebit: row.forwardEvEbit !== null ? Number(row.forwardEvEbit) : null,
-    ev_sales: row.evSales !== null ? Number(row.evSales) : null,
+    ev_sales: row.forwardEvSales !== null ? Number(row.forwardEvSales) : (row.evSales !== null ? Number(row.evSales) : null),
     is_active: row.userDeactivatedStocks.length === 0,
     active_code: activeCode,
     effective_code: effectiveCode,
@@ -234,6 +243,7 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     currentMultipleBasis: row.valuationState?.currentMultipleBasis ?? null,
     adjustedTsrHurdle: row.valuationState?.adjustedTsrHurdle != null ? Number(row.valuationState.adjustedTsrHurdle) : null,
     valuationStateStatus: row.valuationState?.valuationStateStatus ?? null,
+    valuationRegime: row.valuationState?.valuationRegime ?? null,
   };
   if (row.derivedMetrics !== undefined) {
     const dm = row.derivedMetrics;
@@ -295,6 +305,7 @@ export async function getUniverseStocks(
     dilutionFlagOnly,
     minQuartersAvailable,
     valuationZone,
+    valuationRegime,
   } = opts;
 
   // Build AND conditions for DB-level filtering
@@ -375,6 +386,11 @@ export async function getUniverseStocks(
     if (zoneOrs.length > 0) {
       andConditions.push({ OR: zoneOrs });
     }
+  }
+
+  // Valuation regime filter (EPIC-008/STORY-095)
+  if (valuationRegime && valuationRegime.length > 0) {
+    andConditions.push({ valuationState: { is: { valuationRegime: { in: valuationRegime } } } });
   }
 
   const where: Prisma.StockWhereInput =
