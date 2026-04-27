@@ -35,6 +35,24 @@ model FrameworkVersion {
   @@map("framework_version")
 }
 
+// EPIC-008/STORY-089: Regime-keyed threshold base families (ADR-005 amended, ADR-017)
+// Replaces code-keyed anchored_thresholds as the primary source for regime-driven threshold computation.
+// 9 rows, one per ValuationRegime. profitable_growth_pe row represents the high-tier base (≥35% growth);
+// mid/standard tiers are runtime constants in GROWTH_TIER_CONFIG (not additional DB rows).
+model ValuationRegimeThreshold {
+  regime               String    @id @db.VarChar(40)
+  primaryMetric        String    @db.VarChar(50) @map("primary_metric")
+  maxThreshold         Decimal?  @db.Decimal(10, 2) @map("max_threshold")
+  comfortableThreshold Decimal?  @db.Decimal(10, 2) @map("comfortable_threshold")
+  veryGoodThreshold    Decimal?  @db.Decimal(10, 2) @map("very_good_threshold")
+  stealThreshold       Decimal?  @db.Decimal(10, 2) @map("steal_threshold")
+  effectiveFrom        DateTime  @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveUntil       DateTime? @db.Timestamptz(6) @map("effective_until")
+  notes                String?   @db.Text
+
+  @@map("valuation_regime_thresholds")
+}
+
 model AnchoredThreshold {
   id                    Int       @id @default(autoincrement())
   code                  String    @unique @db.VarChar(5)
@@ -190,6 +208,12 @@ model Stock {
   gaapEpsCompletedFy   Decimal? @db.Decimal(10, 4) @map("gaap_eps_completed_fy")
   // STORY-031: GAAP/non-GAAP adjustment factor = gaapEpsCompletedFy / nonGaapEpsFy
   gaapAdjustmentFactor Decimal? @db.Decimal(5, 4)  @map("gaap_adjustment_factor")
+  // GAAP/non-GAAP EBIT adjustment factor = gaapEbitCompletedFy / nonGaapEbitMostRecentFy
+  // Applied to ebitNtm to produce GAAP-equivalent forward EBIT for EV/EBIT computation.
+  ebitGaapAdjFactor    Decimal? @db.Decimal(5, 4)  @map("ebit_gaap_adj_factor")
+  // BUG-DI-002: Revenue from FMP income statement for the most recently completed fiscal year.
+  // Used as the FY-aligned denominator for revenue_growth_fwd (next FY estimate / prev FY actuals).
+  revenuePreviousFy    Decimal? @db.Decimal(20, 2) @map("revenue_previous_fy")
 
   // EPIC-003.1: STORY-039 — LLM qualitative enrichment scores (E1–E6); half-integer precision 1.0–5.0
   moatStrengthScore             Decimal? @db.Decimal(3, 2) @map("moat_strength_score")
@@ -213,6 +237,12 @@ model Stock {
 
   forwardOperatingEarningsExExcessCash         Decimal? @db.Decimal(8, 2) @map("forward_operating_earnings_ex_excess_cash")
   forwardOperatingEarningsExExcessCashSource   String?  @db.VarChar(20) @map("forward_operating_earnings_ex_excess_cash_source")
+
+  // EPIC-008: Valuation regime decoupling flags + cyclical score (STORY-089, ADR-017, ADR-018)
+  bankFlag                    Boolean  @default(false) @map("bank_flag")
+  structuralCyclicalityScore  Int?     @map("structural_cyclicality_score")
+  cyclePosition               String?  @db.VarChar(30) @map("cycle_position")
+  cyclicalConfidence          String?  @db.VarChar(20) @map("cyclical_confidence")
 
   // Manual flags
   holdingCompanyFlag          Boolean? @default(false) @map("holding_company_flag")
@@ -443,7 +473,18 @@ model ValuationState {
   hurdleSource            String    @db.VarChar(20) @map("hurdle_source")
   tsrReasonCodes          Json      @default("[]") @map("tsr_reason_codes")
   valuationZone           String    @db.VarChar(20) @map("valuation_zone")
-  valuationStateStatus    String    @default("ready") @db.VarChar(20) @map("valuation_state_status")
+  // EPIC-008/STORY-089: status default changed from 'ready' → 'computed' (5-state canonical vocab)
+  // Backward compat: existing 'ready' rows treated as 'computed' by application logic
+  valuationStateStatus    String    @default("computed") @db.VarChar(20) @map("valuation_state_status")
+  // EPIC-008/STORY-089: regime decoupling fields (ADR-017, ADR-018)
+  valuationRegime         String?   @db.VarChar(40) @map("valuation_regime")
+  thresholdFamily         String?   @db.VarChar(60) @map("threshold_family")
+  structuralCyclicalityScoreSnapshot Int? @map("structural_cyclicality_score_snapshot")
+  cyclePositionSnapshot   String?   @db.VarChar(30) @map("cycle_position_snapshot")
+  cyclicalOverlayApplied  Boolean?  @map("cyclical_overlay_applied")
+  cyclicalOverlayValue    Decimal?  @db.Decimal(5, 2) @map("cyclical_overlay_value")
+  cyclicalConfidence      String?   @db.VarChar(20) @map("cyclical_confidence")
+  growthTier              String?   @db.VarChar(20) @map("growth_tier")
   valuationOverrideReason String?   @db.Text @map("valuation_override_reason")
   valuationOverrideTimestamp DateTime? @db.Timestamptz(6) @map("valuation_override_timestamp")
   valuationLastUpdatedAt  DateTime  @default(now()) @db.Timestamptz(6) @map("valuation_last_updated_at")
@@ -457,6 +498,7 @@ model ValuationState {
   @@index([activeCode], name: "idx_valuation_active_code")
   @@index([thresholdSource], name: "idx_valuation_threshold_source")
   @@index([valuationStateStatus], name: "idx_valuation_state_status")
+  @@index([valuationRegime], name: "idx_valuation_regime")
   // Partial index for steal/very_good/comfortable zones added via raw SQL migration
   @@map("valuation_state")
 }

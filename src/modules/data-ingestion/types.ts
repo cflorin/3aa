@@ -129,6 +129,20 @@ export interface ForwardEstimates {
   /** Fiscal year end date for the NTM (next twelve months) estimates window — ISO string.
    *  e.g. "2026-09-27" for Apple's FY2026. Used as period_end in NTM provenance entries. */
   ntmFiscalYearEnd: string | null;
+  /** BUG-DI-002: Revenue for the FY immediately before the NTM entry (consecutive year).
+   *  Actuals from income statement if that FY is completed; analyst consensus otherwise.
+   *  Used as FY-aligned denominator: (revenueNtm − revenuePreviousFy) / revenuePreviousFy. */
+  revenuePreviousFy: number | null;
+  /** BUG-DI-002: NonGAAP EPS consensus (FMP epsAvg) for the FY immediately before the NTM entry.
+   *  The gaapAdjustmentFactor cancels when applied to both NTM and prevFY, so NonGAAP growth
+   *  equals GAAP growth. Used as EPS denominator instead of epsTtm (period-consistent). */
+  nonGaapEpsPreviousFy: number | null;
+  /** GAAP operating income from FMP income statement for the most recently completed FY.
+   *  Used as the numerator of ebitGaapAdjFactor to convert NTM Non-GAAP EBIT to GAAP-equivalent. */
+  gaapEbitCompletedFy: number | null;
+  /** Non-GAAP EBIT analyst consensus (FMP ebitAvg) for the most recently completed FY.
+   *  Used as the denominator of ebitGaapAdjFactor — same period as gaapEbitCompletedFy. */
+  nonGaapEbitMostRecentFy: number | null;
 }
 
 /**

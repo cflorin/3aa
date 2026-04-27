@@ -161,10 +161,11 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
     expect(mockPrisma.stock.update).toHaveBeenCalledTimes(1);
     const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
     expect(updateCall.data.epsNtm).toBe(8.49);
-    // forwardPe = 213.49 / 8.49 ≈ 25.15
-    expect(Number(updateCall.data.forwardPe)).toBeCloseTo(213.49 / 8.49, 2);
+    // forwardPe = price / epsNtmGaapEquiv = 213.49 / (8.49 * factor); factor = 6.13/7.20 ≈ 0.8514
+    const factor = 6.13 / 7.20;
+    expect(Number(updateCall.data.forwardPe)).toBeCloseTo(213.49 / (8.49 * factor), 2);
     // STORY-031: gaapAdjustmentFactor = gaapEpsCompletedFy(6.13) / nonGaapEps(7.20) ≈ 0.8514
-    expect(Number(updateCall.data.gaapAdjustmentFactor)).toBeCloseTo(6.13 / 7.20, 4);
+    expect(Number(updateCall.data.gaapAdjustmentFactor)).toBeCloseTo(factor, 4);
   });
 
   it('STORY-031: gaapAdjustmentFactor not written when nonGaapEpsMostRecentFy is null', async () => {
@@ -342,5 +343,62 @@ describe('EPIC-003/STORY-021/TASK-021-002: syncForwardEstimates()', () => {
         revenueTtm: true,
       },
     });
+  });
+
+  it('[BUG-DI-002] forward_ev_ebit uses ebitGaapAdjFactor when gaapEbitCompletedFy and nonGaapEbitMostRecentFy are available', async () => {
+    // MSFT-like values: GAAP operatingIncome ~90B, NonGAAP ebitAvg ~100B → factor 0.90
+    const gaapEbitCompletedFy = 90_000_000_000;
+    const nonGaapEbitMostRecentFy = 100_000_000_000;
+    const ebitNtm = 110_000_000_000;
+    const expectedFactor = Math.max(0.10, Math.min(1.50, gaapEbitCompletedFy / nonGaapEbitMostRecentFy)); // 0.90
+    const ebitNtmGaapEquiv = ebitNtm * expectedFactor;
+    const ev = 3282000000000 + 123930000000 - 29965000000; // marketCap + totalDebt - cash
+
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL',
+        eps_ntm: null,
+        ebit_ntm: ebitNtm,
+        revenue_ntm: null,
+        gaapEbitCompletedFy,
+        nonGaapEbitMostRecentFy,
+      },
+      source_provider: 'fmp',
+      synced_at: FIXED_NOW,
+      fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(Number(updateCall.data.ebitGaapAdjFactor)).toBeCloseTo(expectedFactor, 4);
+    expect(Number(updateCall.data.forwardEvEbit)).toBeCloseTo(ev / ebitNtmGaapEquiv, 2);
+    const prov = updateCall.data.dataProviderProvenance as Record<string, Record<string, unknown>>;
+    expect(prov['ebit_gaap_adj_factor']['provider']).toBe('computed_fmp');
+  });
+
+  it('[BUG-DI-002] forward_ev_ebit falls back to raw ebitNtm when gaapEbitCompletedFy is null', async () => {
+    const ebitNtm = 130_000_000_000;
+    const ev = 3282000000000 + 123930000000 - 29965000000;
+
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL',
+        eps_ntm: null,
+        ebit_ntm: ebitNtm,
+        revenue_ntm: null,
+        gaapEbitCompletedFy: null,
+        nonGaapEbitMostRecentFy: null,
+      },
+      source_provider: 'fmp',
+      synced_at: FIXED_NOW,
+      fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data.ebitGaapAdjFactor).toBeUndefined();
+    expect(Number(updateCall.data.forwardEvEbit)).toBeCloseTo(ev / ebitNtm, 2);
   });
 });

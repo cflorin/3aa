@@ -384,6 +384,7 @@ export class FMPAdapter implements VendorAdapter {
     // The income statement date may not exactly match the estimates date (fiscal year boundary
     // rounding differences) — match by finding the closest entry within a 90-day window.
     let gaapEpsCompletedFy: number | null = null;
+    let gaapEbitCompletedFy: number | null = null;
     if (mostRecentCompletedFy && Array.isArray(incomeRaw) && incomeRaw.length > 0) {
       const completedDate = new Date(String(mostRecentCompletedFy.date)).getTime();
       const ninetyDays = 90 * 24 * 60 * 60 * 1000;
@@ -393,7 +394,43 @@ export class FMPAdapter implements VendorAdapter {
       if (matchingEntry?.epsDiluted != null) {
         gaapEpsCompletedFy = Number(matchingEntry.epsDiluted);
       }
+      // GAAP operating income (≈ EBIT) for the same completed FY — used to compute ebitGaapAdjFactor.
+      if (matchingEntry?.operatingIncome != null) {
+        gaapEbitCompletedFy = Number(matchingEntry.operatingIncome);
+      }
     }
+    // Non-GAAP EBIT analyst consensus for most recently completed FY (denominator of ebitGaapAdjFactor).
+    const nonGaapEbitMostRecentFy: number | null = mostRecentCompletedFy?.ebitAvg != null
+      ? Number(mostRecentCompletedFy.ebitAvg) : null;
+
+    // BUG-DI-002: Previous FY = entry immediately before ntmEntry in sorted array.
+    // Ensures consecutive-year comparison (NTM = year N+1, previousFY = year N) regardless of
+    // how many completed fiscal years exist between today and the NTM entry. Using
+    // mostRecentCompletedFy would span 2+ years when NTM skips one fiscal year (e.g. in
+    // April 2026, NTM = FY2027 but mostRecentCompleted = FY2025 → 2-year span → inflated growth).
+    const ntmIndex = sorted.indexOf(ntmEntry);
+    const previousFyEntry = ntmIndex > 0 ? sorted[ntmIndex - 1] : null;
+
+    // Revenue: prefer income statement actuals for previousFY (if year already completed);
+    // fall back to analyst consensus for that year (converged for completed years, proxy for partial).
+    let revenuePreviousFy: number | null = null;
+    if (previousFyEntry != null) {
+      const prevFyDate = new Date(String(previousFyEntry.date)).getTime();
+      const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+      const incomeMatch = Array.isArray(incomeRaw)
+        ? incomeRaw.find(e => Math.abs(new Date(String(e.date)).getTime() - prevFyDate) <= ninetyDays)
+        : undefined;
+      if (incomeMatch?.revenue != null) {
+        revenuePreviousFy = Number(incomeMatch.revenue);
+      } else if (previousFyEntry.revenueAvg != null) {
+        revenuePreviousFy = Number(previousFyEntry.revenueAvg);
+      }
+    }
+
+    // EPS: NonGAAP consensus for previousFY. GAAP adjustment factor is applied in sync service;
+    // since factor applies equally to both NTM and prevFY, it cancels in the growth ratio.
+    const nonGaapEpsPreviousFy: number | null = previousFyEntry?.epsAvg != null
+      ? Number(previousFyEntry.epsAvg) : null;
 
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
@@ -415,6 +452,10 @@ export class FMPAdapter implements VendorAdapter {
       gaapEpsCompletedFy,
       nonGaapEarningsMostRecentFy,
       ntmFiscalYearEnd: String(ntmEntry.date),
+      revenuePreviousFy,
+      nonGaapEpsPreviousFy,
+      gaapEbitCompletedFy,
+      nonGaapEbitMostRecentFy,
     };
   }
 

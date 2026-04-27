@@ -154,16 +154,6 @@ export async function syncForwardEstimates(
         ? marketCapNum + (totalDebtNum ?? 0) - (cashNum ?? 0)
         : null;
 
-      // forward_pe = current_price / eps_ntm (null if eps_ntm ≤ 0 or price unavailable)
-      const forwardPeFromProvider = epsNtm != null && epsNtm > 0 && currentPriceNum != null
-        ? currentPriceNum / epsNtm
-        : null;
-
-      // forward_ev_ebit = ev / ebit_ntm; both in absolute USD
-      const forwardEvEbitComputed = ev != null && ebitNtm != null && ebitNtm > 0
-        ? ev / ebitNtm
-        : null;
-
       // forward_ev_sales = ev / revenue_ntm; both in absolute USD
       const forwardEvSalesComputed = ev != null && revenueNtm != null && revenueNtm > 0
         ? ev / revenueNtm
@@ -177,6 +167,31 @@ export async function syncForwardEstimates(
       const gaapEpsCompletedFy: number | null = estimatesResult.value?.gaapEpsCompletedFy ?? null;
       const nonGaapEarningsMostRecentFy: number | null = estimatesResult.value?.nonGaapEarningsMostRecentFy ?? null;
       const nonGaapEarningsNtm: number | null = estimatesResult.value?.nonGaapEarningsNtm ?? null;
+      // BUG-DI-002: Previous FY fields — entry immediately before NTM, ensuring consecutive-year growth.
+      const revenuePreviousFy: number | null = estimatesResult.value?.revenuePreviousFy ?? null;
+      const nonGaapEpsPreviousFy: number | null = estimatesResult.value?.nonGaapEpsPreviousFy ?? null;
+      // BUG-DI-002: GAAP EV/EBIT — adjust NonGAAP ebit_ntm to GAAP-equivalent using completed-FY ratio.
+      // Factor = GAAP operatingIncome (FMP income statement) / NonGAAP ebitAvg (FMP analyst consensus).
+      // Both from the same completed fiscal year — symmetric with gaapAdjustmentFactor for EPS.
+      const gaapEbitCompletedFy: number | null = estimatesResult.value?.gaapEbitCompletedFy ?? null;
+      const nonGaapEbitMostRecentFy: number | null = estimatesResult.value?.nonGaapEbitMostRecentFy ?? null;
+      let ebitGaapAdjFactor: number | null = null;
+      if (gaapEbitCompletedFy !== null && nonGaapEbitMostRecentFy !== null && Math.abs(nonGaapEbitMostRecentFy) >= 1_000_000) {
+        const rawEbitFactor = gaapEbitCompletedFy / nonGaapEbitMostRecentFy;
+        // Cap between 0.10 and 1.50: GAAP EBIT is always ≤ NonGAAP (no stock comp in GAAP);
+        // floor prevents division by a near-zero nonGAAP denominator from producing huge values.
+        ebitGaapAdjFactor = Math.max(0.10, Math.min(1.50, rawEbitFactor));
+      }
+      const ebitNtmGaapEquiv = ebitNtm !== null && ebitGaapAdjFactor !== null
+        ? ebitNtm * ebitGaapAdjFactor
+        : ebitNtm;
+
+      // forward_ev_ebit = ev / ebitNtmGaapEquiv; both in absolute USD.
+      // Uses GAAP-equivalent EBIT when ebitGaapAdjFactor is available; raw ebit_ntm otherwise.
+      const forwardEvEbitComputed = ev != null && ebitNtmGaapEquiv != null && ebitNtmGaapEquiv > 0
+        ? ev / ebitNtmGaapEquiv
+        : null;
+
       let gaapAdjustmentFactor: number | null = null;
       if (gaapEpsCompletedFy !== null && nonGaapEpsMostRecentFy !== null && Math.abs(nonGaapEpsMostRecentFy) >= 0.10) {
         const raw = gaapEpsCompletedFy / nonGaapEpsMostRecentFy;
@@ -190,15 +205,38 @@ export async function syncForwardEstimates(
         ? epsNtm * gaapAdjustmentFactor
         : epsNtm;
 
-      // eps_growth_fwd = (eps_ntm_gaap_equiv − eps_ttm) / |eps_ttm| × 100 (stored as percentage)
-      const epsGrowthFwdComputed = epsNtmGaapEquiv != null && epsTtmNum != null && Math.abs(epsTtmNum) > 0.001
-        ? ((epsNtmGaapEquiv - epsTtmNum) / Math.abs(epsTtmNum)) * 100
+      // forward_pe = price / epsNtmGaapEquiv (GAAP-equivalent NTM EPS).
+      // Computed after GAAP adjustment so the multiple is on a GAAP basis, consistent with
+      // valuation thresholds which are calibrated to GAAP P/E multiples.
+      const forwardPeFromProvider = epsNtmGaapEquiv != null && epsNtmGaapEquiv > 0 && currentPriceNum != null
+        ? currentPriceNum / epsNtmGaapEquiv
         : null;
 
-      // revenue_growth_fwd = (revenue_ntm − revenue_ttm) / revenue_ttm × 100 (percentage)
-      // Both revenue_ntm and revenue_ttm are in absolute USD (STORY-028 invariant)
-      const revenueGrowthFwdComputed = revenueNtm != null && revenueTtmNum != null && revenueTtmNum > 0
-        ? ((revenueNtm - revenueTtmNum) / revenueTtmNum) * 100
+      // BUG-DI-002: eps_growth_fwd — consecutive FY comparison: (epsNtm − nonGaapEpsPreviousFy) / nonGaapEpsPreviousFy
+      // nonGaapEpsPreviousFy is the FY immediately before ntmEntry (year N vs year N+1).
+      // gaapAdjustmentFactor cancels when applied to both sides, so NonGAAP growth = GAAP growth.
+      // Falls back to gaapEpsCompletedFy denominator, then epsTtm if neither FY-aligned value is available.
+      const epsBase = epsNtmGaapEquiv ?? epsNtm;
+      const epsGrowthFwdComputed = epsBase != null
+        ? (nonGaapEpsPreviousFy != null && Math.abs(nonGaapEpsPreviousFy) > 0.001
+            ? ((epsNtm! - nonGaapEpsPreviousFy) / Math.abs(nonGaapEpsPreviousFy)) * 100
+            : (gaapEpsCompletedFy != null && Math.abs(gaapEpsCompletedFy) > 0.001
+                ? ((epsBase - gaapEpsCompletedFy) / Math.abs(gaapEpsCompletedFy)) * 100
+                : (epsTtmNum != null && Math.abs(epsTtmNum) > 0.001
+                    ? ((epsBase - epsTtmNum) / Math.abs(epsTtmNum)) * 100
+                    : null)))
+        : null;
+
+      // BUG-DI-002: revenue_growth_fwd — FY-aligned: (revenueNtm − revenuePreviousFy) / revenuePreviousFy
+      // revenuePreviousFy is actual revenue from FMP income statement for the most recently completed FY —
+      // period-consistent with revenueNtm which is the next FY analyst consensus.
+      // Falls back to revenueTtm (old NTM-vs-TTM method) when FMP income statement data is unavailable.
+      const revenueGrowthFwdComputed = revenueNtm != null
+        ? (revenuePreviousFy != null && revenuePreviousFy > 0
+            ? ((revenueNtm - revenuePreviousFy) / revenuePreviousFy) * 100
+            : (revenueTtmNum != null && revenueTtmNum > 0
+                ? ((revenueNtm - revenueTtmNum) / revenueTtmNum) * 100
+                : null))
         : null;
 
       let fwdPeValue: number | null = forwardPeFromProvider;
@@ -278,6 +316,10 @@ export async function syncForwardEstimates(
         updateData.gaapEpsCompletedFy = gaapEpsCompletedFy;
         provenanceUpdates['gaap_eps_completed_fy'] = fmpProvenance;
       }
+      if (revenuePreviousFy !== null) {
+        updateData.revenuePreviousFy = revenuePreviousFy;
+        provenanceUpdates['revenue_previous_fy'] = fmpProvenance;
+      }
 
       // Computed forward ratios
       if (fwdPeValue !== null) {
@@ -309,6 +351,14 @@ export async function syncForwardEstimates(
       if (gaapAdjustmentFactor !== null) {
         updateData.gaapAdjustmentFactor = gaapAdjustmentFactor;
         provenanceUpdates['gaap_adjustment_factor'] = {
+          provider: 'computed_fmp',
+          synced_at: provenanceNow,
+          fallback_used: false,
+        };
+      }
+      if (ebitGaapAdjFactor !== null) {
+        updateData.ebitGaapAdjFactor = ebitGaapAdjFactor;
+        provenanceUpdates['ebit_gaap_adj_factor'] = {
           provider: 'computed_fmp',
           synced_at: provenanceNow,
           fallback_used: false,

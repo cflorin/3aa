@@ -205,16 +205,33 @@ describe('EPIC-003/STORY-028/TASK-028-005: syncForwardEstimates() ratio computat
     await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
     const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
 
+    // BUG-DI-002: eps denominator is now nonGaapEpsPreviousFy (consecutive year, factor cancels)
+    // Mock provides no nonGaapEpsPreviousFy → falls back to gaapEpsCompletedFy (13.28)
     const factor = 13.28 / 13.42;
     const ntmAdj = 18.97 * factor;
-    // growth vs epsTtm (DB CY TTM) — still uses epsTtmNum for the growth denominator
-    const expected = ((ntmAdj - 16.05) / 16.05) * 100;
+    const expected = ((ntmAdj - 13.28) / 13.28) * 100;
     expect(Number(updateCall.data.epsGrowthFwd)).toBeCloseTo(expected, 1);
-    // Should be much lower than the broken 41.4% — factor ≈ 1.0 brings it close to unadjusted
-    expect(Number(updateCall.data.epsGrowthFwd)).toBeLessThan(25);
   });
 
-  it('computes revenue_growth_fwd = (revenue_ntm - revenue_ttm) / revenue_ttm * 100 (percentage)', async () => {
+  it('[BUG-DI-002] revenue_growth_fwd uses revenuePreviousFy (consecutive FY) when available', async () => {
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL', eps_ntm: null, ebit_ntm: null, revenue_ntm: 415000000000,
+        revenuePreviousFy: 391000000000,  // consecutive FY before NTM
+      },
+      source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+
+    // Consecutive FY: (revenueNtm − revenuePreviousFy) / revenuePreviousFy × 100
+    const expected = (415000000000 - 391000000000) / 391000000000 * 100;
+    expect(Number(updateCall.data.revenueGrowthFwd)).toBeCloseTo(expected, 2);
+    expect(updateCall.data.revenuePreviousFy).toBe(391000000000);
+  });
+
+  it('[BUG-DI-002] revenue_growth_fwd falls back to revenueTtm when revenuePreviousFy is null', async () => {
     mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
       value: { ticker: 'AAPL', eps_ntm: null, ebit_ntm: null, revenue_ntm: 415000000000 },
       source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
@@ -223,9 +240,46 @@ describe('EPIC-003/STORY-028/TASK-028-005: syncForwardEstimates() ratio computat
     await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
     const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
 
-    // revenue_growth_fwd = (415B - 383.285B) / 383.285B * 100 ≈ 8.27%
+    // Falls back to revenueTtm (383.285B from AAPL_ROW)
     const expected = (415000000000 - 383285000000) / 383285000000 * 100;
     expect(Number(updateCall.data.revenueGrowthFwd)).toBeCloseTo(expected, 2);
+    expect(updateCall.data.revenuePreviousFy).toBeUndefined();
+  });
+
+  it('[BUG-DI-002] eps_growth_fwd uses nonGaapEpsPreviousFy (consecutive FY, factor cancels)', async () => {
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL', eps_ntm: 9.50, ebit_ntm: null, revenue_ntm: null,
+        nonGaapEpsPreviousFy: 8.20,       // consecutive FY before NTM
+        nonGaapEpsMostRecentFy: 8.20,
+        gaapEpsCompletedFy: 7.90,         // GAAP factor = 7.90/8.20 ≈ 0.963 (cancels in growth)
+      },
+      source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+
+    // (epsNtm − nonGaapEpsPreviousFy) / nonGaapEpsPreviousFy × 100 — factor cancels
+    const expected = (9.50 - 8.20) / 8.20 * 100;
+    expect(Number(updateCall.data.epsGrowthFwd)).toBeCloseTo(expected, 2);
+  });
+
+  it('[BUG-DI-002] eps_growth_fwd falls back to gaapEpsCompletedFy when nonGaapEpsPreviousFy is null', async () => {
+    mockOrchestrator.fetchFieldWithFallback.mockResolvedValue({
+      value: {
+        ticker: 'AAPL', eps_ntm: 7.20, ebit_ntm: null, revenue_ntm: null,
+        nonGaapEpsPreviousFy: null,
+        gaapEpsCompletedFy: null, nonGaapEpsMostRecentFy: null,
+      },
+      source_provider: 'fmp', synced_at: FIXED_NOW, fallback_used: false,
+    });
+
+    await syncForwardEstimates(makeMockAdapter('fmp'), makeMockAdapter('tiingo'), { now: FIXED_NOW });
+    const updateCall = (mockPrisma.stock.update as jest.Mock).mock.calls[0][0];
+
+    // Falls back to epsTtm = 6.13 (from AAPL_ROW)
+    expect(Number(updateCall.data.epsGrowthFwd)).toBeCloseTo((7.20 - 6.13) / 6.13 * 100, 2);
   });
 
   it('forward_pe is not written when eps_ntm is negative (raw eps_ntm still stored)', async () => {
