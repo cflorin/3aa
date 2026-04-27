@@ -2,16 +2,18 @@
 // STORY-033: Deterministic Classification Flags
 // TASK-033-001: computeDeterministicFlags() pure function
 // TASK-033-002: syncDeterministicClassificationFlags() job
+// EPIC-008/STORY-090/TASK-090-003: bank_flag added to computeDeterministicFlags and sync job
 //
-// Authoritative writer for material_dilution_flag, insurer_flag, pre_operating_leverage_flag.
+// Authoritative writer for material_dilution_flag, insurer_flag, pre_operating_leverage_flag, bank_flag.
 // [BUG-CE-003] pre_operating_leverage_flag rule was too restrictive (only fired for revenue < $200M).
 // Fixed to also flag profitable large-cap companies with operating_margin < 15%. See docs/bugs/CLASSIFICATION-ENGINE-BUG-REGISTRY.md.
-// All three derived from existing DB fields — no new API calls.
+// All four flags derived from existing DB fields — no new API calls.
 // RFC-001: flag rules and thresholds
 // RFC-002: stocks table column mapping, data_provider_provenance per field
 
 import { prisma } from '@/infrastructure/database/prisma';
 import type { Prisma } from '@prisma/client';
+import { deriveBankFlag } from '@/domain/classification/flags/bank-flag';
 
 // Case-insensitive exact-match set — includes "Managed Care" for Cigna/UHC (RFC-001 §insurer_flag)
 const INSURER_INDUSTRIES = new Set([
@@ -40,6 +42,7 @@ const STRUCTURAL_THIN_MARGIN_INDUSTRIES = new Set([
 ]);
 
 export interface DeterministicFlagsInput {
+  sector?: string | null;   // EPIC-008/STORY-090: added for bank_flag derivation
   industry: string | null;
   shareCountGrowth3y: number | null;
   revenueTtm: number | null;
@@ -51,6 +54,7 @@ export interface DeterministicFlagsResult {
   materialDilutionFlag: boolean | null;
   insurerFlag: boolean | null;
   preOperatingLeverageFlag: boolean | null;
+  bankFlag: boolean;   // EPIC-008/STORY-090: always deterministic (never null)
 }
 
 export function computeDeterministicFlags(input: DeterministicFlagsInput): DeterministicFlagsResult {
@@ -91,7 +95,10 @@ export function computeDeterministicFlags(input: DeterministicFlagsInput): Deter
     preOperatingLeverageFlag = false;
   }
 
-  return { materialDilutionFlag, insurerFlag, preOperatingLeverageFlag };
+  // EPIC-008/STORY-090: bank_flag — always deterministic, never null
+  const bankFlag = deriveBankFlag({ sector: input.sector, industry: input.industry });
+
+  return { materialDilutionFlag, insurerFlag, preOperatingLeverageFlag, bankFlag };
 }
 
 export interface DeterministicFlagsSyncResult {
@@ -111,6 +118,7 @@ export async function syncDeterministicClassificationFlags(
     where: { inUniverse: true, ...(opts.tickerFilter ? { ticker: opts.tickerFilter } : {}) },
     select: {
       ticker: true,
+      sector: true,     // EPIC-008/STORY-090: needed for bank_flag derivation
       industry: true,
       shareCountGrowth3y: true,
       revenueTtm: true,
@@ -123,6 +131,7 @@ export async function syncDeterministicClassificationFlags(
   for (const stock of stocks) {
     // Prisma Decimal → number (toNumber() preserves precision; Number() on Decimal object is NaN)
     const input: DeterministicFlagsInput = {
+      sector: stock.sector,
       industry: stock.industry,
       shareCountGrowth3y: stock.shareCountGrowth3y !== null ? stock.shareCountGrowth3y.toNumber() : null,
       revenueTtm: stock.revenueTtm !== null ? stock.revenueTtm.toNumber() : null,
@@ -149,6 +158,9 @@ export async function syncDeterministicClassificationFlags(
       data.preOperatingLeverageFlag = flags.preOperatingLeverageFlag;
       provenanceUpdates['pre_operating_leverage_flag'] = flagProvenance;
     }
+    // EPIC-008/STORY-090: bank_flag always deterministic — always written
+    data.bankFlag = flags.bankFlag;
+    provenanceUpdates['bank_flag'] = flagProvenance;
 
     if (Object.keys(data).length === 0) {
       skipped++;

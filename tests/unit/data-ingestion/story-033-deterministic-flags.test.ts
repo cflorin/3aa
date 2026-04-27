@@ -237,6 +237,7 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
     (prisma.stock.findMany as jest.Mock).mockResolvedValue([
       {
         ticker: 'AAPL',
+        sector: 'Technology',
         industry: 'Technology',
         shareCountGrowth3y: d(-0.04),    // buybacks → materialDilutionFlag = false
         revenueTtm: d(400_000_000_000),  // large revenue, high margin → preOperatingLeverageFlag = false
@@ -269,10 +270,13 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
     }
   });
 
-  it('skips stock when all flags resolve to null (all inputs null)', async () => {
+  // EPIC-008/STORY-090: bank_flag is always written (never null), so a stock with all
+  // other flags null still triggers an update (bankFlag=false gets written).
+  it('always writes at least bank_flag even when other inputs are null', async () => {
     (prisma.stock.findMany as jest.Mock).mockResolvedValue([
       {
         ticker: 'EMPTY',
+        sector: null,
         industry: null,
         shareCountGrowth3y: null,
         revenueTtm: null,
@@ -284,14 +288,18 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
 
     const result = await realSync();
 
-    expect(result).toEqual({ updated: 0, skipped: 1 });
-    expect(prisma.stock.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ updated: 1, skipped: 0 });
+    const call = (prisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(call.data.bankFlag).toBe(false);
+    const prov = call.data.dataProviderProvenance as Record<string, unknown>;
+    expect(prov['bank_flag']).toBeDefined();
   });
 
-  it('partial write: only non-null flags written when some inputs are null', async () => {
+  it('partial write: non-null flags + bankFlag written when some inputs are null', async () => {
     (prisma.stock.findMany as jest.Mock).mockResolvedValue([
       {
         ticker: 'CI',
+        sector: 'Healthcare',
         industry: 'Managed Care',     // insurerFlag = true → written
         shareCountGrowth3y: null,      // materialDilutionFlag = null → NOT written
         revenueTtm: null,              // preOperatingLeverageFlag = null → NOT written
@@ -306,11 +314,13 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
     expect(result).toEqual({ updated: 1, skipped: 0 });
     const call = (prisma.stock.update as jest.Mock).mock.calls[0][0];
     expect(call.data.insurerFlag).toBe(true);
+    expect(call.data.bankFlag).toBe(false);  // EPIC-008: Healthcare sector → bank_flag = false
     expect(call.data.materialDilutionFlag).toBeUndefined();
     expect(call.data.preOperatingLeverageFlag).toBeUndefined();
 
     const prov = call.data.dataProviderProvenance as Record<string, unknown>;
     expect(prov['insurer_flag']).toBeDefined();
+    expect(prov['bank_flag']).toBeDefined();
     expect(prov['material_dilution_flag']).toBeUndefined();
     expect(prov['pre_operating_leverage_flag']).toBeUndefined();
   });
