@@ -47,6 +47,7 @@ export async function loadValuationInput(
         ticker: true,
         forwardPe: true,
         forwardEvEbit: true,
+        forwardEvSales: true,
         evSales: true,
         trailingPe: true,
         trailingEvEbit: true,
@@ -126,7 +127,8 @@ export async function loadValuationInput(
     activeCode,
     forwardPe: stock.forwardPe !== null ? Number(stock.forwardPe) : null,
     forwardEvEbit: stock.forwardEvEbit !== null ? Number(stock.forwardEvEbit) : null,
-    evSales: stock.evSales !== null ? Number(stock.evSales) : null,
+    // Prefer forward EV/Sales (NTM revenue) over trailing; fall back to trailing for Tiingo-only stocks.
+    evSales: stock.forwardEvSales !== null ? Number(stock.forwardEvSales) : (stock.evSales !== null ? Number(stock.evSales) : null),
     trailingPe: stock.trailingPe !== null ? Number(stock.trailingPe) : null,
     trailingEvEbit: stock.trailingEvEbit !== null ? Number(stock.trailingEvEbit) : null,
     // grossMargin stored as fraction (0.45 = 45%) — same convention as operatingMargin
@@ -342,7 +344,7 @@ export async function getPersonalizedValuation(
       prisma.stock.findUnique({
         where: { ticker },
         select: {
-          forwardPe: true, forwardEvEbit: true, evSales: true,
+          forwardPe: true, forwardEvEbit: true, forwardEvSales: true, evSales: true,
           trailingPe: true, trailingEvEbit: true,
           grossMargin: true, shareCountGrowth3y: true, epsGrowthFwd: true,
           materialDilutionFlag: true, holdingCompanyFlag: true, insurerFlag: true,
@@ -402,7 +404,7 @@ export async function getPersonalizedValuation(
     activeCode,
     forwardPe: stock.forwardPe !== null ? Number(stock.forwardPe) : null,
     forwardEvEbit: stock.forwardEvEbit !== null ? Number(stock.forwardEvEbit) : null,
-    evSales: stock.evSales !== null ? Number(stock.evSales) : null,
+    evSales: stock.forwardEvSales !== null ? Number(stock.forwardEvSales) : (stock.evSales !== null ? Number(stock.evSales) : null),
     trailingPe: stock.trailingPe !== null ? Number(stock.trailingPe) : null,
     trailingEvEbit: stock.trailingEvEbit !== null ? Number(stock.trailingEvEbit) : null,
     grossMargin: stock.grossMargin !== null ? Number(stock.grossMargin) : null,
