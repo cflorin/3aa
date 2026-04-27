@@ -4,6 +4,7 @@
 // EPIC-004/STORY-054/TASK-054-004: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-070: Added trend metric filters and column chooser toggle
 // EPIC-005/STORY-080: Added valuationZone multi-select filter
+// EPIC-008/STORY-095/TASK-095-005: Added valuationRegime filter
 // EPIC-005/STORY-084: Added onRecomputeClassification prop + RecomputeClassificationButton
 // EPIC-005/STORY-086: Added onRecomputeValuation prop + RecomputeValuationButton
 
@@ -28,6 +29,8 @@ export interface FilterState {
   minQuarters: '' | '4' | '8';
   // Valuation zone filter (STORY-080)
   valuationZone: string[];
+  // Valuation regime filter (EPIC-008/STORY-095)
+  valuationRegime: string[];
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -40,6 +43,7 @@ export const EMPTY_FILTERS: FilterState = {
   dilutionFlagOnly: false,
   minQuarters: '',
   valuationZone: [],
+  valuationRegime: [],
 };
 
 interface FilterBarProps {
@@ -69,6 +73,7 @@ function activeFilterCount(f: FilterState): number {
   if (f.dilutionFlagOnly) n++;
   if (f.minQuarters) n++;
   if (f.valuationZone.length > 0) n++;
+  if (f.valuationRegime.length > 0) n++;
   return n;
 }
 
@@ -95,6 +100,7 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
   const confidenceValue = filters.confidence.length === 1 ? filters.confidence[0] : 'All';
   const monitoringValue = filters.monitoring === '' ? 'All' : filters.monitoring;
   const valuationZoneValue = filters.valuationZone.length === 1 ? filters.valuationZone[0] : 'All';
+  const valuationRegimeValue = filters.valuationRegime.length === 1 ? filters.valuationRegime[0] : 'All';
 
   return (
     <div
@@ -205,6 +211,27 @@ export default function FilterBar({ filters, sectors, total, onChange, onClear, 
         <option value="above_max">Above Max</option>
         <option value="not_applicable">N/A</option>
         <option value="not_computed">Not Computed</option>
+      </select>
+
+      <select
+        data-testid="filter-valuation-regime"
+        value={valuationRegimeValue}
+        onChange={e => {
+          const v = e.target.value;
+          set('valuationRegime', v === 'All' ? [] : [v]);
+        }}
+        style={ctrlStyle}
+      >
+        <option value="All">All regimes</option>
+        <option value="sales_growth_standard">Growth (Std)</option>
+        <option value="sales_growth_hyper">Growth (Hyper)</option>
+        <option value="profitable_growth_pe">Profitable P/E</option>
+        <option value="profitable_growth_ev_ebit">Profitable EV/EBIT</option>
+        <option value="cyclical_earnings">Cyclical</option>
+        <option value="mature_pe">Mature P/E</option>
+        <option value="financial_special_case">Financial Special</option>
+        <option value="manual_required">Manual Required</option>
+        <option value="not_applicable">N/A</option>
       </select>
 
       {count > 0 && (

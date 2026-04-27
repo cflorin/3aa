@@ -6,6 +6,7 @@
 // STORY-055: Added handleRemoveConfirm — optimistic stock removal + error revert
 // STORY-070: Added trend column chooser and trend filter state
 // EPIC-005/STORY-080: Added valuationZone filter wiring
+// EPIC-008/STORY-095/TASK-095-005: Added valuationRegime filter wiring
 // EPIC-005/STORY-084: Added handleRecomputeClassification — refreshes universe after batch re-class
 // EPIC-005/STORY-086: Added handleRecomputeValuation — refreshes universe after valuation recompute
 // PRD §Screen 2; RFC-003 §Universe Screen; RFC-003 §Filtering and Sort; RFC-008
@@ -46,6 +47,7 @@ function filtersToParams(
   if (f.confidence.length > 0) p.set('confidence', f.confidence.join(','));
   if (f.monitoring) p.set('monitoring', f.monitoring);
   if (f.valuationZone.length > 0) p.set('valuationZone', f.valuationZone.join(','));
+  if (f.valuationRegime.length > 0) p.set('valuationRegime', f.valuationRegime.join(','));
   p.set('sort', sort);
   p.set('dir', dir);
   p.set('page', String(page));
@@ -72,6 +74,7 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
     dilutionFlagOnly: params.get('dilution_flag') === 'true',
     minQuarters: (params.get('min_quarters') as FilterState['minQuarters']) ?? '',
     valuationZone: params.get('valuationZone') ? params.get('valuationZone')!.split(',') : [],
+    valuationRegime: params.get('valuationRegime') ? params.get('valuationRegime')!.split(',') : [],
   };
 }
 
@@ -145,6 +148,7 @@ export default function UniversePageClient() {
       filters.eqTrendPreset, filters.dilutionFlagOnly, filters.minQuarters,
       // eslint-disable-next-line react-hooks/exhaustive-deps
       JSON.stringify(filters.valuationZone),
+      JSON.stringify(filters.valuationRegime),
       sort, dir, page, visibleTrendColumns, refreshKey]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;

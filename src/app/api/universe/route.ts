@@ -5,6 +5,7 @@
 // STORY-070: Extended with ?include=trend; trend filter/sort params
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-080: Extended with valuation zone columns; valuationZone filter + sort
+// EPIC-008/STORY-095/TASK-095-005: Added valuationRegime filter param
 // RFC-003 §Monitor List API; RFC-003 §Filtering and Sort; ADR-007; ADR-006 (session auth)
 // RFC-008 §Classifier-Facing Derived Fields
 
@@ -74,6 +75,10 @@ export async function GET(req: NextRequest) {
   const valuationZoneRaw = searchParams.get('valuationZone');
   const valuationZone = valuationZoneRaw ? valuationZoneRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
+  // Valuation regime filter (EPIC-008/STORY-095) — comma-separated regime keys
+  const valuationRegimeRaw = searchParams.get('valuationRegime');
+  const valuationRegime = valuationRegimeRaw ? valuationRegimeRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
   const { stocks, total } = await getUniverseStocks(user.userId, {
     page,
     limit,
@@ -90,6 +95,7 @@ export async function GET(req: NextRequest) {
     dilutionFlagOnly: dilutionFlagOnly || undefined,
     minQuartersAvailable: minQuartersAvailable !== undefined && !isNaN(minQuartersAvailable) ? minQuartersAvailable : undefined,
     valuationZone,
+    valuationRegime,
   });
 
   return NextResponse.json({ stocks, total, page, limit });

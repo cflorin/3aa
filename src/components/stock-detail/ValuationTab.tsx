@@ -1,11 +1,14 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-079: Stock Detail Page: Valuation Tab
 // TASK-079-001: ValuationTab — zone badge, gauge, TSR hurdle, override panel
+// EPIC-008/STORY-095/TASK-095-003: Added Valuation Regime section (RegimeBadge, CyclePositionBadge)
 
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { T } from '@/lib/theme';
+import RegimeBadge from '@/components/valuation/RegimeBadge';
+import CyclePositionBadge from '@/components/valuation/CyclePositionBadge';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +36,14 @@ interface ValuationResult {
   grossMarginAdjustmentApplied: boolean;
   dilutionAdjustmentApplied: boolean;
   cyclicalityContextFlag: boolean;
+  // EPIC-008/STORY-095: Regime-driven output fields
+  valuationRegime?: string | null;
+  growthTier?: string | null;
+  thresholdFamily?: string | null;
+  structuralCyclicalityScoreSnapshot?: number | null;
+  cyclePositionSnapshot?: string | null;
+  cyclicalOverlayApplied?: boolean | null;
+  cyclicalOverlayValue?: number | null;
 }
 
 interface SystemState {
@@ -91,11 +102,16 @@ const ZONE_LABELS: Record<string, string> = {
   not_applicable: 'N/A',
 };
 
+// EPIC-008/STORY-089/TASK-089-005: canonical 5-state vocabulary
 const STATUS_LABELS: Record<string, string> = {
-  ready: 'Ready',
+  computed: 'Computed',
   manual_required: 'Manual Input Required',
-  missing_data: 'Missing Data',
   not_applicable: 'Not Applicable',
+  classification_required: 'Classification Required',
+  stale: 'Stale',
+  // Backward-compat: keep old labels so existing DB values render gracefully
+  ready: 'Computed',
+  missing_data: 'Manual Input Required',
 };
 
 function ZoneBadge({ zone }: { zone: string }) {
@@ -416,12 +432,14 @@ export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag }
         </button>
       </div>
 
-      {/* ── Status message for non-ready states ───────────────────────────── */}
-      {result.valuationStateStatus !== 'ready' && (
+      {/* ── Status message for non-computed states ─────────────────────────── */}
+      {result.valuationStateStatus !== 'computed' && result.valuationStateStatus !== 'ready' && (
         <div data-testid="status-message" style={{ padding: '12px 0', fontSize: 12, color: '#eab308' }}>
-          {result.valuationStateStatus === 'manual_required' && 'Primary metric unavailable; manual threshold input required.'}
-          {result.valuationStateStatus === 'missing_data' && 'Missing market data needed for valuation computation.'}
+          {(result.valuationStateStatus === 'manual_required' || result.valuationStateStatus === 'missing_data') &&
+            'Primary metric unavailable; manual threshold input required.'}
           {result.valuationStateStatus === 'not_applicable' && 'Bucket 8 stocks do not receive a valuation zone.'}
+          {result.valuationStateStatus === 'classification_required' && 'Stock classification required before valuation.'}
+          {result.valuationStateStatus === 'stale' && 'Valuation data is stale; recompute recommended.'}
         </div>
       )}
 
@@ -443,6 +461,57 @@ export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag }
               <div>Source: {result.metricSource}</div>
               <div>Reason: {result.metricReason}</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Valuation Regime (EPIC-008) ───────────────────────────────────── */}
+      {result.valuationRegime && (
+        <div style={{ marginTop: 16, borderBottom: `1px solid ${T.border}`, paddingBottom: 12 }}>
+          <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Valuation Regime</div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>REGIME</div>
+              <RegimeBadge regime={result.valuationRegime} />
+            </div>
+            {result.growthTier && (
+              <div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>GROWTH TIER</div>
+                <span data-testid="growth-tier-label" style={{ fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                  {result.growthTier}
+                </span>
+              </div>
+            )}
+            {result.cyclePositionSnapshot && (
+              <div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>CYCLE POSITION</div>
+                <CyclePositionBadge position={result.cyclePositionSnapshot} />
+              </div>
+            )}
+            {result.structuralCyclicalityScoreSnapshot != null && (
+              <div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>CYCLICALITY SCORE</div>
+                <span data-testid="cyclicality-score-label" style={{ fontSize: 11, color: T.textMuted, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                  {result.structuralCyclicalityScoreSnapshot}
+                </span>
+              </div>
+            )}
+            {result.cyclicalOverlayApplied && result.cyclicalOverlayValue != null && (
+              <div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>CYCLICAL OVERLAY</div>
+                <span data-testid="cyclical-overlay-label" style={{ fontSize: 11, color: '#fb923c', fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                  {result.cyclicalOverlayValue > 0 ? '+' : ''}{result.cyclicalOverlayValue.toFixed(1)}
+                </span>
+              </div>
+            )}
+            {result.thresholdFamily && (
+              <div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>THRESHOLD FAMILY</div>
+                <span data-testid="threshold-family-label" style={{ fontSize: 10, color: T.textDim, fontFamily: 'var(--font-dm-mono, monospace)' }}>
+                  {result.thresholdFamily}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@
 // EPIC-004/STORY-054/TASK-054-005: Applied dark terminal theme (screen-universe.jsx spec)
 // STORY-055: Added Remove button per row + RemoveStockDialog confirmation
 // STORY-070: Added optional quarterly trend columns (togglable; hidden by default)
+// EPIC-008/STORY-095/TASK-095-005: Added valuationRegime column
 // PRD §Screen 2 columns; RFC-003 §Universe Screen; RFC-008 §Classifier-Facing Derived Fields
 
 'use client';
@@ -18,6 +19,7 @@ import ConfidenceBadge from './ConfidenceBadge';
 import MonitoringToggle from './MonitoringToggle';
 import ClassificationModal from './ClassificationModal';
 import RemoveStockDialog from './RemoveStockDialog';
+import RegimeBadge from '@/components/valuation/RegimeBadge';
 import type { UniverseStockSummary } from '@/domain/monitoring';
 import { T } from '@/lib/theme';
 
@@ -340,6 +342,7 @@ export default function StockTable({
           >
             Zone{onSort ? sortIcon('valuationZone', sort, dir) : ''}
           </th>
+          <th scope="col" style={TH}>Regime</th>
           <th scope="col" style={{ ...TH, textAlign: 'right' }}>Fwd P/E</th>
           <th scope="col" style={{ ...TH, textAlign: 'right' }}>EV/EBIT</th>
           <th scope="col" style={{ ...TH, textAlign: 'right' }}>EV/Sales</th>
@@ -445,6 +448,9 @@ export default function StockTable({
               </td>
               <td style={TD}>
                 <ValuationZoneBadge zone={s.valuationZone ?? null} />
+              </td>
+              <td style={TD}>
+                <RegimeBadge regime={s.valuationRegime} />
               </td>
               <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {s.forward_pe != null ? `${s.forward_pe.toFixed(1)}×` : '—'}
