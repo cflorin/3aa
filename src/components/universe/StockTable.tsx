@@ -77,7 +77,9 @@ const ZONE_LABELS: Record<string, string> = {
 // STORY-082: effective_code is the confidence-demoted code from the domain layer.
 // Both label and value use effective_code directly — no client-side re-derivation needed.
 
-function valMetricLabel(s: { effective_code?: string | null; active_code: string | null; currentMultipleBasis: string | null }): string {
+function valMetricLabel(s: { effective_code?: string | null; active_code: string | null; currentMultipleBasis: string | null; primaryMetric?: string | null }): string {
+  // Regime-driven: primaryMetric takes precedence over basis/bucket fallback
+  if (s.primaryMetric === 'forward_ev_ebitda') return 'Fwd EV/EBITDA';
   const basis = s.currentMultipleBasis;
   if (basis === 'forward_pe' || basis === 'trailing_fallback') return 'Fwd P/E';
   if (basis === 'forward_ev_ebit') return 'EV/EBIT';
@@ -101,7 +103,12 @@ function valMetricValue(s: {
   forward_pe: number | null;
   forward_ev_ebit: number | null;
   ev_sales: number | null;
+  primaryMetric?: string | null;
 }): string {
+  // Regime-driven: use stored currentMultiple directly (e.g. forward_ev_ebitda = 18.0×)
+  if (s.primaryMetric === 'forward_ev_ebitda') {
+    return s.currentMultiple != null ? `${s.currentMultiple.toFixed(1)}×` : '—';
+  }
   // 'trailing_fallback' / 'manual' can't be re-derived from raw fields — use stored value
   if (s.currentMultiple != null && s.currentMultipleBasis !== 'spot' && s.currentMultipleBasis !== null) {
     return `${s.currentMultiple.toFixed(1)}×`;

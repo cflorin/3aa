@@ -50,6 +50,8 @@ export interface UniverseStockSummary {
   valuationStateStatus: string | null;
   // EPIC-008/STORY-095: Regime field — null when no valuation_state or legacy record
   valuationRegime: string | null;
+  // STORY-098: Primary metric from valuation_state — drives METRIC column label + value
+  primaryMetric: string | null;
 }
 
 export interface UniverseQueryOpts {
@@ -150,6 +152,7 @@ function makeStockSelect(userId: string, includeTrend = false) {
         adjustedTsrHurdle: true,
         valuationStateStatus: true,
         valuationRegime: true,
+        primaryMetric: true,
       },
     },
     // LEFT JOIN stock_derived_metrics when trend columns requested (STORY-070)
@@ -192,6 +195,7 @@ type StockSelectRow = {
     adjustedTsrHurdle: { toString(): string } | null;
     valuationStateStatus: string;
     valuationRegime: string | null;
+    primaryMetric: string | null;
   } | null;
   // Optional trend metrics (STORY-070)
   derivedMetrics?: {
@@ -244,6 +248,7 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     adjustedTsrHurdle: row.valuationState?.adjustedTsrHurdle != null ? Number(row.valuationState.adjustedTsrHurdle) : null,
     valuationStateStatus: row.valuationState?.valuationStateStatus ?? null,
     valuationRegime: row.valuationState?.valuationRegime ?? null,
+    primaryMetric: row.valuationState?.primaryMetric ?? null,
   };
   if (row.derivedMetrics !== undefined) {
     const dm = row.derivedMetrics;
