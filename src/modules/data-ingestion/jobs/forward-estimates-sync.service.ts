@@ -148,8 +148,8 @@ export async function syncForwardEstimates(
       const epsNtm: number | null = estimatesResult.value?.eps_ntm ?? null;
       const ebitNtm: number | null = estimatesResult.value?.ebit_ntm ?? null;
       const revenueNtm: number | null = estimatesResult.value?.revenue_ntm ?? null;
-      // STORY-097: NTM D&A from FMP depreciationAvg; null for non-US stocks where FMP omits it.
-      const depreciationNtm: number | null = estimatesResult.value?.depreciationNtm ?? null;
+      // STORY-097: NTM EBITDA from FMP ebitdaAvg (direct consensus; available for US and ADRs).
+      const ebitdaNtm: number | null = estimatesResult.value?.ebitdaNtm ?? null;
 
       // EV = marketCap + totalDebt − cashAndEquivalents (null when marketCap unavailable)
       const ev = marketCapNum != null
@@ -194,13 +194,8 @@ export async function syncForwardEstimates(
         ? ev / ebitNtmGaapEquiv
         : null;
 
-      // STORY-097: forward_ev_ebitda = ev / (ebitNtm + depreciationNtm).
-      // Uses raw (non-GAAP-adjusted) ebitNtm because D&A is already a non-cash item present in
-      // both GAAP and non-GAAP — no GAAP adjustment needed for the EBITDA denominator.
-      const ebitdaNtm =
-        ebitNtm !== null && depreciationNtm !== null
-          ? ebitNtm + depreciationNtm
-          : null;
+      // STORY-097: forward_ev_ebitda = ev / ebitdaNtm (FMP ebitdaAvg directly — no D&A reconstruction).
+      // ebitdaAvg is the analyst EBITDA consensus; available for both US stocks and ADRs.
       const forwardEvEbitdaComputed =
         ev != null && ebitdaNtm != null && ebitdaNtm > 0
           ? ev / ebitdaNtm
@@ -354,9 +349,9 @@ export async function syncForwardEstimates(
         updateData.forwardEvSales = forwardEvSalesComputed;
         provenanceUpdates['forward_ev_sales'] = computedProvenance;
       }
-      if (depreciationNtm !== null) {
-        updateData.depreciationNtm = depreciationNtm;
-        provenanceUpdates['depreciation_ntm'] = {
+      if (ebitdaNtm !== null) {
+        updateData.ebitdaNtm = ebitdaNtm;
+        provenanceUpdates['ebitda_ntm'] = {
           provider: estimatesResult.source_provider as ProvenanceEntry['provider'],
           synced_at: provenanceNow,
           fallback_used: estimatesResult.fallback_used,

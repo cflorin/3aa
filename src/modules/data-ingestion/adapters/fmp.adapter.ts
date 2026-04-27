@@ -432,10 +432,10 @@ export class FMPAdapter implements VendorAdapter {
     const nonGaapEpsPreviousFy: number | null = previousFyEntry?.epsAvg != null
       ? Number(previousFyEntry.epsAvg) : null;
 
-    // STORY-097: NTM D&A estimate. FMP provides depreciationAvg in analyst-estimates for many US
-    // large-caps; absent for many non-US issuers. Null is the correct fallback — no error raised.
-    const depreciationNtm: number | null = ntmEntry.depreciationAvg != null
-      ? Number(ntmEntry.depreciationAvg) : null;
+    // STORY-097: NTM EBITDA consensus. FMP provides ebitdaAvg directly in analyst-estimates for
+    // all stocks (confirmed: US large-caps and ADRs like AZN). No D&A reconstruction needed.
+    const ebitdaNtm: number | null = ntmEntry.ebitdaAvg != null
+      ? Number(ntmEntry.ebitdaAvg) : null;
 
     console.log(JSON.stringify({
       event: 'fmp_forward_estimates_fetched',
@@ -461,7 +461,7 @@ export class FMPAdapter implements VendorAdapter {
       nonGaapEpsPreviousFy,
       gaapEbitCompletedFy,
       nonGaapEbitMostRecentFy,
-      depreciationNtm,
+      ebitdaNtm,
     };
   }
 
