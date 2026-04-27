@@ -32,7 +32,7 @@ so that every stock in the universe receives a deterministic, formula-based, aud
 - Write `bucketConfidence`, `expectedNormalizedEpsGrowth`, `operatingLeverageState`, `fwdEpsFallbackLevel` to `ClassificationState` (new columns from STORY-100)
 - Write confidence_level String (high/medium/low) derived from numeric bucketConfidence:
   - ≥ 0.80 → "high"; 0.60–0.80 → "medium"; < 0.60 → "low"
-- Retire V1 `BucketScorer` from the active classification path (do not delete the file yet — STORY-111 regression tests may reference it)
+- Retire V1 `BucketScorer` from the active classification path. **Archive** the file to `src/domain/classification/_deprecated/bucket-scorer.ts` — do NOT delete it. STORY-111 regression tests use it for V1 vs V2 comparison. Deletion is gated on STORY-111 passing.
 - `ClassificationInput` types extended to carry quarterly history arrays needed by sub-services
 
 ## Scope Out

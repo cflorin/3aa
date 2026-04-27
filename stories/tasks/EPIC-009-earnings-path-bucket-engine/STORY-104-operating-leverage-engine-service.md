@@ -35,7 +35,7 @@ so that structural leverage inflections are distinguished from cyclical rebounds
 - Not responsible for the cyclical peak penalty (STORY-105)
 - Not responsible for DB writes
 - Not responsible for interpreting `structural_cyclicality_score` for bucket purposes (that is STORY-105)
-- `gradual` state persistence requirement ("persisted ≥ 3 consecutive quarters"): defer to V2 if not already detectable from the quarterly series passed in; for V1, fire `gradual` if current window meets criteria regardless of history
+- `gradual` state persistence requirement: **in scope**. `gradual` fires only if the current-window metrics have met the `gradual` criteria for ≥ 3 consecutive trailing quarters. Implementation: compute the operating leverage metrics for the last N quarters and count how many consecutive quarters satisfy the `gradual` thresholds. If < 3 consecutive, classify as `none` instead. This prevents transient margin bumps from triggering `gradual`. **No new inputs required:** the `gradual` persistence check is derived internally from the same quarterly series already passed in (`grossProfitSeries`, `operatingIncomeSeries`, `revenueSeries`). The service computes per-quarter OL metrics internally and checks consecutive-quarter persistence before returning the state.
 
 ## Dependencies
 - Epic: EPIC-009
@@ -87,7 +87,8 @@ interface OperatingLeverageEngineResult {
 - [ ] `deteriorating` fires on any single negative trigger (margin ≤ −2pp, opex > GP spread, incremental OM < 0)
 - [ ] `deteriorating` takes precedence over all other states
 - [ ] `emerging_now` check is bypassed when cyclicality ≥ 2 (routes to `cyclical_rebound` instead)
-- [ ] `gradual` fires on modest but real margin improvement (2–6pp expansion, incremental OM 0.15–0.35)
+- [ ] `gradual` fires only when modest improvement (2–6pp expansion, incremental OM 0.15–0.35) has persisted ≥ 3 consecutive trailing quarters
+- [ ] `gradual` does NOT fire if criteria met for only 1 or 2 consecutive quarters (returns `none`)
 - [ ] `none` is the default when no other state fires
 - [ ] Numeric contributions exactly match ADR-019: 0/+3%/+8%/+2%/−4%
 - [ ] Unit test coverage ≥ 80%
@@ -99,7 +100,8 @@ interface OperatingLeverageEngineResult {
   - `cyclical_rebound` (V2.1 tightened): cyclicality ≥ 2, cycle_position = 'normal', both margin conditions → state + +2%
   - `cyclical_rebound` does NOT fire at cycle_position = 'elevated' → falls to `gradual` or `none`
   - `deteriorating`: margin compression ≥ 2pp → −4%, takes precedence over `emerging_now` metrics
-  - `gradual`: modest improvement meeting 2–6pp and 0.15–0.35 incremental → +3%
+  - `gradual` persistence: 3 consecutive qualifying quarters → +3%; only 2 consecutive → `none`
+  - `gradual` non-persistent: meets criteria now but < 3 consecutive quarters in history → `none`
   - `none`: flat margins → 0 contribution
   - Uber-like scenario: high margin expansion + emerging leverage + low cyclicality → `emerging_now`
   - Ford-like scenario: normal cycle, cyclicality = 3, moderate margin improvement → `cyclical_rebound`

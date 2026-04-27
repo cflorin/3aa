@@ -21,12 +21,15 @@ The stock-add pipeline runs the V2 bucket engine for new stocks. The nightly bat
   - Fetches all active stocks with their last 20 quarters of history and derived metrics
   - Runs `EarningsPathEngineService.classify()` for each stock
   - Writes output to `ClassificationState` (new fields) and updates `suggestedCode`
-  - After full fleet reprocessing: sets all stocks as `v2BucketAvailable = true` (via updating ClassificationState)
-  - Transaction: migration is per-stock (not one giant transaction), but the `v2BucketAvailable` flip is done atomically after all stocks processed
-  - Logs: emit structured logs per-stock (ticker, old bucket, new bucket, confidence, reason codes)
+  - After full fleet reprocessing: all stocks have non-null `expectedNormalizedEpsGrowth` (this is the `v2BucketAvailable` signal)
+  - Transaction: migration is per-stock (idempotent), not one giant transaction
+  - Status transition: apply **standard classification transition semantics** — if the new `suggestedCode` differs from the current one, status → `needs_review`; if unchanged, preserve existing `accepted`/`overridden` status
+  - Do NOT blanket-set `needs_review` for all stocks — only for those whose suggested bucket actually changed
+  - `final_code` (user override) is never touched
+  - Logs: emit structured logs per-stock (ticker, old bucket, new bucket, confidence, reason codes, status transition)
   - Error handling: if a stock fails, log and continue — do not abort the whole batch
 - Remove V1 fallback code paths from `RegimeSelectorService` after migration completes (or gate with a feature flag that is disabled post-migration)
-- Delete (or archive) `bucket-scorer.ts` and the V1 bucket weight constants from `scoring-weights.ts` once STORY-111 regression tests confirm no regression
+- **Archive** (do not delete) `bucket-scorer.ts` to `src/domain/classification/_deprecated/bucket-scorer.ts`. STORY-111 regression tests reference it for V1 vs V2 comparison. Permanent deletion is gated on STORY-111 passing.
 - Nightly classification batch already runs for all stocks; ensure it calls the V2 engine
 - Stock-add pipeline (`POST /api/universe/stocks`) already triggers classification; ensure it calls V2 engine with quarterly history
 
@@ -57,7 +60,7 @@ The stock-add pipeline runs the V2 bucket engine for new stocks. The nightly bat
 ## Outputs
 - All active `ClassificationState` rows updated with V2 engine outputs
 - `suggestedCode` reflects V2 bucket + existing EQ/BS grades
-- `classificationStatus` set to `needs_review` for all stocks (trigger user review of new bucket assignments)
+- `classificationStatus` → `needs_review` only for stocks whose `suggestedCode` changed; unchanged stocks preserve existing `accepted`/`overridden` status
 - Structured migration log: per-stock old/new bucket, confidence, fallback level
 - `v2BucketAvailable` = true for all stocks (enforced by non-null `expectedNormalizedEpsGrowth`)
 
@@ -84,7 +87,7 @@ The stock-add pipeline runs the V2 bucket engine for new stocks. The nightly bat
 - Contract tests:
   - Post-migration: query all active `ClassificationState` rows → verify no null `bucketConfidence`
 - BDD:
-  - `Given` the fleet migration batch runs; `When` it completes; `Then` all active stocks have non-null expectedNormalizedEpsGrowth and classificationStatus = needs_review
+  - `Given` the fleet migration batch runs; `When` it completes; `Then` all active stocks have non-null expectedNormalizedEpsGrowth; stocks with changed bucket have classificationStatus = needs_review; stocks with unchanged bucket preserve prior status
 - E2E: STORY-111 runs post-migration golden-set verification
 
 ## Regression / Invariant Risks

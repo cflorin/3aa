@@ -24,7 +24,7 @@ so that bucket-gated regime logic is more durable than single-year revenue growt
 - **Step 4 update:** `bucket ∈ {3,4}` replaces `revenueGrowthFwd >= 0.15` when `v2BucketAvailable = true`
 - **Precedence table updated:** Step 2.5 inserted at priority 6 (between Step 2 and Step 3)
 - V1 fallback: when `v2BucketAvailable = false`, original `revenue_growth_fwd` gates apply unchanged
-- `v2BucketAvailable` flag: initially false for all stocks; set to true after fleet-wide migration (STORY-110)
+- `v2BucketAvailable` derivation: computed by the caller as `classificationState.expectedNormalizedEpsGrowth != null` — **not a separate DB flag**. No new column needed. The regime selector receives this as a boolean in its input.
 - Score-3 exception in Step 2: `structural_cyclicality_score = 3` re-routes to `cyclical_earnings` even if Step 2 conditions met — unchanged
 
 ## Scope Out
