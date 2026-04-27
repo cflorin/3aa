@@ -1,7 +1,7 @@
 # 3AA Investment Framework — Model Reference V2
 
-**Version:** 2.0 DRAFT (incorporating all amendments through 2026-04-27; RFC-009 Earnings Path Engine)
-**Status:** Draft — submitted for adversarial critique
+**Version:** 2.1 DRAFT (amended 2026-04-27 post-adversarial review; 8 issues resolved)
+**Status:** Draft — adversarial critique applied; pending TSR hurdle recalibration before full freeze
 **Audience:** Human investors (primary) · LLM implementation (secondary)
 **Supersedes:** Version 1.0 (2026-04-27)
 
@@ -82,7 +82,13 @@ Layer 2 — Valuation
   TSR hurdle = minimum required return (§9)
 ```
 
-**Bucket does not determine the valuation metric.** That is regime's job. Bucket determines TSR hurdle and provides growth-tier input to the regime selector — but the regime is computed from financial fundamentals (profitability, margins, FCF), not bucket alone.
+**Bucket does not directly assign a valuation metric.** The metric family (P/E vs EV/EBIT vs EV/Sales) is determined by profitability, margin, and FCF conditions in the regime selector — not bucket alone.
+
+**However, V2 is a partially re-coupled model by design.** Bucket now plays two explicit roles in valuation:
+1. **Regime gate:** Steps 2 and 4 require `bucket ∈ {4,5,6,7}` and `bucket ∈ {3,4}` respectively. A stock with excellent margins and FCF but Bucket 3 will not reach `profitable_growth_pe` regardless of other signals.
+2. **Threshold tier:** Within `profitable_growth_pe`, the threshold quad (max/comfortable/very_good/steal) is keyed directly off bucket.
+
+This is intentional: bucket, computed from the full earnings-path engine, is a richer signal than single-year forward revenue growth. Using it as a gate is more durable than using raw `revenue_growth_fwd`. The V1 claim of "clean separation between classification and valuation" does not apply to V2. Classification feeds valuation as a structured gate.
 
 ---
 
@@ -405,9 +411,12 @@ States are evaluated in precedence order. First match wins.
 
 **State: `cyclical_rebound`** — operating metrics resemble `emerging_now` or `gradual` BUT:
 - `structural_cyclicality_score ≥ 2`
-- AND cycle position is recovering from depressed toward normal or elevated
+- AND `cycle_position = normal` (the company has recovered from depressed; `elevated` and `peak` are excluded — a company at the top of its cycle is not rebounding)
+- AND **both** `operating_margin_expansion ≥ 0.02` AND `gross_profit_minus_opex_growth_spread_recent > 0` (not just either — avoiding triggering on minor one-sided improvements)
 
-*The operating metrics are improving, but the structural cyclicality score signals that part of the improvement is cycle recovery, not durable structural leverage.*
+*The operating metrics are improving, but the structural cyclicality score signals that part of the improvement is cycle recovery, not durable structural leverage. Requiring `cycle_position = normal` ensures the state only fires for companies transitioning out of a trough, not for cyclicals already at the top of their cycle.*
+
+> **Why not `elevated` or `peak`?** A cyclical business at elevated or peak cycle is likely near maximum earnings; what looks like "improving margins" is the cycle itself. Labelling that as `cyclical_rebound` would produce a spurious +2% contribution on top of already-elevated earnings — and the cyclical peak penalty would partially offset it, but the interaction is inconsistent. At `normal` cycle, the recovery interpretation is defensible. At `elevated`/`peak`, the correct state is `none` or `gradual` depending on the operating metrics.
 
 ---
 
@@ -600,7 +609,7 @@ These invariants must hold in every implementation:
 
 1. **`emerging_now` is the strongest single positive modifier (+8%).** No other signal in the engine may produce a larger positive effect.
 2. **`cyclical_rebound` is hard-capped at +2%.** No data combination may elevate this.
-3. **Revenue gate.** A stock cannot reach Bucket ≥ 4 (`expected_normalized_eps_growth ≥ 10%`) if `normalized_revenue_growth < 5%`, regardless of EPS signals. Floor the bucket at 3 in this case.
+3. **Revenue-EPS divergence signal.** If `normalized_revenue_growth < 5%` but the formula computes `expected_normalized_eps_growth ≥ 10%` (Bucket ≥ 4), reduce `bucket_confidence` by 0.15 and add `revenue_eps_divergence` to `bucket_reason_codes`. **Do not hard-cap the bucket.** Durable per-share compounding via buybacks, pricing power, or margin expansion without strong revenue growth is a real phenomenon (e.g. late-stage AAPL). The divergence signal prompts human review; it does not veto the formula output.
 4. **Per-share invariant.** All EPS computations use per-share values. Aggregate earnings growth must not substitute for per-share in any formula component.
 5. **Missing data → reduce confidence, not precision.** Missing or unreliable forward data reduces `bucket_confidence` and widens reason codes. The engine must not fabricate estimates.
 6. **LLM cap enforced absolutely.** The qualitative visibility modifier is capped at ±2%. The cap is not a soft guideline.
@@ -630,6 +639,51 @@ These invariants must hold in every implementation:
 | `incremental_operating_margin` | decimal | Trailing 4Q incremental margin |
 | `gross_profit_drop_through` | decimal | Trailing 4Q GP drop-through |
 | `operating_margin_expansion` | decimal | TTM vs 4Q-ago margin delta |
+
+### 3.12 Confidence Model
+
+`bucket_confidence` is the single output that captures all uncertainty in the bucket computation. It is a decimal in [0, 1], computed as follows.
+
+#### 3.12.1 Baseline and Aggregation
+
+**Baseline:** `bucket_confidence = 1.0`
+
+**Aggregation:** Confidence reductions are **additive subtractions** from the baseline. They accumulate independently and are floored at 0.0. There is no multiplicative combination; reductions from different sources simply sum.
+
+```
+bucket_confidence = max(0.0, 1.0 − sum_of_all_applicable_reductions)
+```
+
+#### 3.12.2 Reduction Schedule
+
+| Trigger | Reduction | Source |
+|---------|-----------|--------|
+| Revenue history: recent window < 8 quarters | −0.10 | §3.2.2 |
+| Revenue history: long window < 12 quarters | −0.10 | §3.2.2 |
+| Revenue forward (`revenue_growth_fwd`) absent | −0.05 | §3.2.3 |
+| Single quarter contributes > 50% of period growth (`data_quality_flag`) | −0.10 | §3.2.3 |
+| Both history components absent (fwd-only base) | −0.20 | §3.2.3 |
+| EPS fallback series used (operating EPS in place of GAAP EPS) | −0.10 | §3.3.1 |
+| Forward EPS: L2 fallback used | −0.10 | §3.3.3 |
+| Forward EPS: L3 fallback used | −0.15 | §3.3.3 |
+| Forward EPS: L4 fallback used (no forward EPS) | −0.25 | §3.3.3 |
+| EPS immature path: all EPS negative, revenue-only base | −0.30 | §3.9 |
+| Revenue-EPS divergence: `normalized_revenue_growth < 5%` but formula → Bucket ≥ 4 | −0.15 | §3.10 |
+
+Reductions are not mutually exclusive: a stock with L4 fallback AND revenue-EPS divergence accumulates −0.25 − 0.15 = −0.40 total reduction.
+
+**Maximum possible reduction** (worst-case missing-data profile): exceeds 1.0; the floor at 0.0 ensures `bucket_confidence` is never negative.
+
+#### 3.12.3 Low-Confidence Threshold
+
+**`bucket_confidence < 0.60` → classified as low confidence.**
+
+Downstream effects of low confidence:
+- **Effective bucket demotion** (§4.4): the valuation engine uses a one-bucket-down effective bucket for metric and threshold selection.
+- **Review queue surfacing:** classification status is set to `needs_review` when confidence is low.
+- **Reason codes mandatory:** at least one reason code explaining the confidence reduction must be recorded in `bucket_reason_codes`.
+
+The threshold of 0.60 means a stock can sustain up to two moderate reductions (e.g. L2 fallback + revenue history gap) before triggering demotion. A single L4 fallback (−0.25) alone does not trigger demotion; the engine still produces a result with moderate confidence.
 
 ---
 
@@ -692,6 +746,15 @@ Six qualitative scores (E1–E6) from the classification enrichment pipeline:
 | E6 `qualitative_cyclicality_score` | Cyclicality | 1–5 | Structural cyclicality score modifier |
 
 LLM signals adjust EQ/BS scoring and contribute up to ±2% to the qualitative visibility modifier. They cannot override hard profitability gates or the Bucket 8 invariant.
+
+**Multi-layer signal use — intentional design:** The same LLM scores are used in multiple layers: EQ scoring, BS scoring, structural cyclicality adjustment, and the qualitative visibility modifier. This is intentional and bounded:
+
+1. **EQ/BS scoring** determines the quality letter grade (A/B/C), which affects threshold step-downs — not the bucket or regime.
+2. **Qualitative visibility modifier** is hard-capped at ±2%. This is the maximum marginal impact of any LLM score on `expected_normalized_eps_growth`.
+3. **Cyclicality score** (`structural_cyclicality_score`) is derived from qualitative inputs but produces a discrete integer (0–3) with constrained downstream effects — it cannot produce open-ended amplification.
+4. **Layers serve different analytical purposes.** Moat strength in EQ scoring answers "how durable are the margins?"; moat strength in the visibility modifier answers "how visible is the future EPS path?" The same data point, different question.
+
+The worst-case scenario from double-counting is a ±2% bucket influence (from visibility modifier) on a stock that also benefits from a moat-driven EQ-A grade (which improves threshold steps but not bucket). This is deemed acceptable given the hard cap and layer separation.
 
 ### 4.4 Confidence-Based Effective Bucket Demotion
 
@@ -874,6 +937,37 @@ revenue_growth_fwd >= 0.20  (in place of bucket gate)
 
 ---
 
+#### Step 2.5 — High Amortisation Earnings *(true override — fires before cyclical check)*
+
+```
+IF all of:
+  ebitda_ntm is not null
+  ebit_ntm is not null and > 0
+  ebitda_ntm / ebit_ntm >= 1.30   (implied D&A >= 30% of EBIT)
+  net_income_positive = true
+  fcf_positive = true
+THEN regime = high_amortisation_earnings
+```
+
+Companies with ≥ 30% D&A burden relative to EBIT carry large acquired-intangible amortisation charges that depress GAAP EPS without affecting cash earnings. EV/EBITDA at the enterprise level adds back these non-cash charges and is the sell-side standard for pharma and large-cap acquirers.
+
+**Why this step is positioned before Step 3 (cyclical):** D&A distortion is more fundamental than cyclicality for metric selection. A pharma company like ABBV with `structural_cyclicality_score = 1` (patent cliff) would otherwise reach Step 3 and be routed to EV/EBIT — but EV/EBIT, which is *after* D&A, is the wrong metric for a company whose GAAP earnings are materially distorted by acquired-intangible amortisation. The D&A burden is a structural accounting fact; it overrides the cyclical routing.
+
+**Why Step 2 still fires first:** High-growth profitable compounders that pass Step 2 (bucket ∈ {4,5,6,7}, margin ≥ 25%, FCF ≥ 60%) use forward P/E on adjusted/non-GAAP EPS — the market already prices out acquired D&A in their consensus estimates. Step 2.5 therefore only catches names that failed Step 2, which are exactly the mature/mid-growth names where EV/EBITDA is appropriate.
+
+**Calibration examples:**
+
+| Stock | ebitda/ebit | Fires? | Reason |
+|-------|-------------|--------|--------|
+| ABBV | 1.76× | Yes | Allergan acquisition amortisation |
+| PFE | 1.38× | Yes | Large acquired-intangible base |
+| JNJ | 1.35× | Yes | Large acquired-intangible base |
+| MRK | 1.19× | No | D&A < 30% of EBIT |
+| AZN | 1.17× | No | D&A < 30% of EBIT |
+| MSFT | 1.19× | No | Would reach Step 2 anyway (bucket 4, >25% margin) |
+
+---
+
 #### Step 3 — Cyclical Earnings Path
 
 ```
@@ -911,33 +1005,6 @@ Profitable, growing, but still in a scaling phase. EV/EBIT captures value at the
 
 ---
 
-#### Step 4.5 — High Amortisation Earnings
-
-```
-IF all of:
-  ebitda_ntm is not null
-  ebit_ntm is not null and > 0
-  ebitda_ntm / ebit_ntm >= 1.30   (implied D&A >= 30% of EBIT)
-  net_income_positive = true
-  fcf_positive = true
-THEN regime = high_amortisation_earnings
-```
-
-Companies with ≥ 30% D&A burden relative to EBIT carry large acquired-intangible amortisation charges that depress GAAP EPS without affecting cash earnings. EV/EBITDA at the enterprise level adds back these non-cash charges and is the sell-side standard for pharma and large-cap acquirers.
-
-**Calibration examples:**
-
-| Stock | ebitda/ebit | Triggers? |
-|-------|-------------|-----------|
-| ABBV | 1.76× | Yes |
-| PFE | 1.38× | Yes |
-| JNJ | 1.35× | Yes |
-| MRK | 1.19× | No |
-| AZN | 1.17× | No |
-| MSFT | 1.19× | No |
-
----
-
 #### Step 5 — Mature PE Default
 
 ```
@@ -965,10 +1032,10 @@ ELSE regime = manual_required
 | 2 | Bank flag (0B) | Banks fully outside automated framework |
 | 3 | Financial special cases (0C/0D) | Non-standard earnings base; metric type known but inputs manual |
 | 4 | Sales-valued path (1) | Cannot fake profitability; unprofitable names must not reach P/E regimes |
-| 5 | Profitable high-growth PE (2) | NVIDIA/MSFT must reach Step 2 before Step 3 |
-| 6 | Cyclical earnings (3) | Cyclical risk is distinct from transitional growth |
-| 7 | Profitable transitional (4) | Moderate-growth names in scaling phase; not ready for premium P/E |
-| 8 | High amortisation (4.5) | Mature names with D&A distortion; after growth paths checked |
+| 5 | Profitable high-growth PE (2) | NVIDIA/MSFT must reach Step 2 before cyclical or amortisation checks |
+| 6 | High amortisation (2.5) | D&A distortion overrides cyclical routing; must fire before Step 3 |
+| 7 | Cyclical earnings (3) | Cyclical risk is distinct from transitional growth |
+| 8 | Profitable transitional (4) | Moderate-growth names in scaling phase; not ready for premium P/E |
 | 9 | Mature PE (5) | Final automated path for stable profitable names |
 
 ### 6.6 Growth Tier within `profitable_growth_pe` (V2)
@@ -1009,6 +1076,23 @@ Directional expectations; actual regime depends on live financial data at comput
 | ABBV | 3 | `high_amortisation_earnings` | Mature, profitable, ebitda/ebit = 1.76× |
 | DE | 2 or 3 | `cyclical_earnings` | Cyclical; modest normalised EPS growth |
 | Uber (post-leverage) | 5 | `profitable_growth_pe` or `sales_growth_standard` | Depends on current op margin vs 10% / 25% gates |
+
+### 6.8 Transition Strategy — V2 Bucket Engine Cutover
+
+**Decision: fleet-wide batch migration, not per-stock hybrid.**
+
+Permitting a mixed state where some stocks are routed via V2 bucket gates and others via V1 `revenue_growth_fwd` gates violates the "identical inputs → identical outputs" principle. Two stocks with similar live economics but different migration status could reach different regimes solely due to processing order. This is not acceptable.
+
+**Cutover protocol:**
+
+1. EPIC-009 deploys the V2 bucket engine to the production codebase.
+2. On the same deployment day, a fleet-wide batch job recomputes `expected_normalized_eps_growth` and all engine outputs for every stock in the active universe.
+3. After the batch completes, `v2BucketAvailable = true` is set for all stocks atomically.
+4. Only then does the regime selector switch to bucket-gated logic for Steps 2 and 4.
+5. **The mixed-mode window is bounded to the duration of the batch job** (expected < 24 hours for the active universe). It is not a permanent operational state.
+6. After migration, the V1 fallback code paths (`revenue_growth_fwd >= 0.20` and `>= 0.15`) are inactivated and the `v2BucketAvailable` flag is retired as a migration scaffold — all live stocks have it set.
+
+**In-code:** The `v2BucketAvailable` flag in the regime selector is therefore a temporary migration toggle, not a permanent configuration option. It is removed from the interface once migration is complete and backward-compatibility is no longer needed.
 
 ---
 
@@ -1217,24 +1301,33 @@ At `depressed` cycle position: no tightening. System surfaces basis warning: *"S
 
 ## 9. TSR Hurdles
 
-**Unchanged from V1.**
+**⚠️ Known inconsistency: TSR hurdles have not been recalibrated for V2 bucket semantics.**
+
+### 9.0 V1/V2 Semantic Mismatch
+
+V1 bucket labels described business archetypes (e.g. Bucket 5 = "Operating Leverage Grower"). TSR hurdles were calibrated to those archetypes. V2 buckets describe pure normalised EPS growth bands (Bucket 5 = 18–30% expected EPS growth). The mapping between old archetypes and new growth bands is not 1:1.
+
+**Concrete example of the inconsistency:** Under V1, a Bucket 1 stock was a "Decline/Harvest" archetype — a mature, low-return business. A 15% hurdle makes sense for such a name. Under V2, Bucket 1 means `expected_normalized_eps_growth < 0%` — which could include a cyclical company at elevated cycle whose normalised path is negative, or a structurally declining business. These two cases arguably deserve different hurdles.
+
+**How this is being handled:**
+- The V1 hurdle table is retained as-is for the duration of EPIC-009 implementation.
+- Hurdle recalibration is explicitly deferred to a dedicated future EPIC, to be undertaken once the V2 engine is live and production bucket distributions can be assessed empirically.
+- **This framework should not be described as "fully frozen V2" until the TSR hurdle recalibration is complete.** The current state is a staged rollout: engine and regime are V2; hurdles are V1-compatible placeholders.
 
 ### 9.1 Base TSR Hurdles by Bucket
 
 The TSR hurdle remains bucket-keyed. Under V2, the bucket numbers carry different earnings-growth semantics but the hurdle table is unchanged pending V2 calibration.
 
-| Bucket | Base Hurdle Range | Deterministic Default |
-|--------|------------------|----------------------|
-| 1 | 14–16%+ | 15.0% |
-| 2 | 10–11% | 10.5% |
-| 3 | 11–12% | 11.5% |
-| 4 | 12–13% | 12.5% |
-| 5 | 14–16% | 15.0% |
-| 6 | 18–20%+ | 19.0% |
-| 7 | 25%+ | 25.0% |
-| 8 | No normal hurdle | null |
-
-> **Note for V2 calibration:** The TSR hurdle bands were calibrated against V1 bucket archetypes. Under V2, bucket semantics are narrower (pure growth bands). A recalibration pass is deferred until the engine is live and a production dataset can be assessed. For now, the V1 table is used as-is.
+| Bucket | Base Hurdle Range | Deterministic Default | V1 archetype that drove calibration |
+|--------|------------------|----------------------|-------------------------------------|
+| 1 | 14–16%+ | 15.0% | Decline / Harvest |
+| 2 | 10–11% | 10.5% | Defensive Cash Machine |
+| 3 | 11–12% | 11.5% | Durable Stalwart |
+| 4 | 12–13% | 12.5% | Elite Compounder |
+| 5 | 14–16% | 15.0% | Operating Leverage Grower |
+| 6 | 18–20%+ | 19.0% | High-Growth Emerging Compounder |
+| 7 | 25%+ | 25.0% | Hypergrowth / Venture-Like |
+| 8 | No normal hurdle | null | Lottery / Binary |
 
 ### 9.2 Quality Adjustments
 
@@ -1515,9 +1608,12 @@ function computeOperatingLeverageState(
     return 'emerging_now';
   }
 
+  // cyclical_rebound: only fires at normal cycle (recovering from depressed), not elevated/peak
+  // Both margin conditions required (AND), not just one (OR), to avoid triggering on minor one-sided improvements
   const rebounding = cyclicalityScore >= 2
-    && ['normal', 'elevated', 'peak'].includes(cyclePosition)
-    && (opMarginExpansion >= 0.02 || gpMinusOpexSpreadRecent > 0);
+    && cyclePosition === 'normal'
+    && opMarginExpansion >= 0.02
+    && gpMinusOpexSpreadRecent > 0;
   if (rebounding) return 'cyclical_rebound';
 
   if (opMarginExpansion >= 0.02
@@ -1668,6 +1764,13 @@ function selectRegime(input: RegimeInput): ValuationRegime {
     return 'profitable_growth_pe';
   }
 
+  // Step 2.5 — High amortisation (fires before cyclical check; D&A distortion is more fundamental)
+  if (ebitdaNtm !== null && ebitNtm !== null && ebitNtm > 0
+   && ebitdaNtm / ebitNtm >= 1.30
+   && netIncomePositive && fcfPositive) {
+    return 'high_amortisation_earnings';
+  }
+
   // Step 3
   if (cyclScore >= 1 && netIncomePositive && opMargin !== null && opMargin >= 0.10) {
     return 'cyclical_earnings';
@@ -1682,13 +1785,6 @@ function selectRegime(input: RegimeInput): ValuationRegime {
    && netIncomePositive && fcfPositive
    && opMargin !== null && opMargin >= 0.10 && opMargin < 0.25) {
     return 'profitable_growth_ev_ebit';
-  }
-
-  // Step 4.5 — High amortisation
-  if (ebitdaNtm !== null && ebitNtm !== null && ebitNtm > 0
-   && ebitdaNtm / ebitNtm >= 1.30
-   && netIncomePositive && fcfPositive) {
-    return 'high_amortisation_earnings';
   }
 
   // Step 5
@@ -1963,13 +2059,13 @@ The following questions are flagged for critique:
 
 4. **Cyclical peak penalty at elevated/peak for score 3 (−8%):** Does −8% produce reasonable outcomes? For a score-3 cyclical at peak, the combined effect (capped leverage +2%, peak penalty −8%, qualitative modifier potentially −2%) can produce very negative normalised EPS growth. Is this too aggressive?
 
-5. **Revenue guardrail (floor at Bucket 3 if `normalized_revenue_growth < 5%`):** Is this guardrail correctly specified? Could it incorrectly floor mature businesses with cyclically low revenue growth?
+5. ~~**Revenue guardrail (floor at Bucket 3 if `normalized_revenue_growth < 5%`):**~~ **Resolved:** Converted from hard floor to `−0.15 bucket_confidence + revenue_eps_divergence reason code`. See §3.10 and §3.12.
 
 6. **FY2 fallback L2 extrapolation:** `epsNtm × (1 + revenueGrowthFwd)` as FY2 proxy — is this reasonable? Should L2 use a different extrapolation?
 
 7. **TSR hurdle calibration:** The hurdle table is unchanged from V1. Under V2, Bucket 1 means negative EPS growth (not just "harvest-type" businesses). Does a 15% hurdle for Bucket 1 still make sense, or should it be higher (avoid signal)?
 
-8. **Regime selector Step 2/4 transition:** The `v2BucketAvailable` flag ensures backward compatibility. Should the transition be gated on a fleet-wide reprocessing event, or per-stock as new engine data becomes available?
+8. ~~**Regime selector Step 2/4 transition:**~~ **Resolved:** Fleet-wide cutover. See §6.8.
 
 ---
 
@@ -1979,8 +2075,9 @@ The following questions are flagged for critique:
 |---------|------|-------------|
 | 1.0 | 2026-04-27 | Initial authoritative reference; valuation regime decoupling (EPIC-008) |
 | 2.0 DRAFT | 2026-04-27 | Bucket engine replaced (RFC-009): point-scoring → formula; bucket = earnings growth band; operating leverage 5-state; FY2 fallback chain; regime Steps 2/4 bucket-gated |
+| 2.1 DRAFT | 2026-04-27 | Post-adversarial review (8 issues): §1.2 bucket-regime coupling acknowledged explicitly; §3.12 confidence model added (baseline=1.0, low<0.60, reduction schedule); §3.4.2 cyclical_rebound tightened (normal cycle only, AND conditions); §3.10 revenue guardrail converted from hard floor to confidence signal; §4.3 LLM multi-use documented as intentional; Step 4.5 moved to Step 2.5 (high amortisation as true override before cyclical check); §6.8 fleet-wide migration strategy added; §9.0 TSR staleness acknowledged with explicit deferral notice |
 
 ---
 
-*End of 3AA Framework Model Reference — Version 2.0 DRAFT (2026-04-27)*
-*Submit for adversarial critique before implementation begins.*
+*End of 3AA Framework Model Reference — Version 2.1 DRAFT (2026-04-27)*
+*Adversarial critique applied. Pending TSR hurdle recalibration before full freeze.*
