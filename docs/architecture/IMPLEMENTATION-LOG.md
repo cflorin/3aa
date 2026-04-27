@@ -4573,3 +4573,72 @@ Key implementation decisions:
 **Baseline Impact:** NO — design only; no code changes.
 
 **Next Action:** Begin STORY-089 (Schema Migration — Regime Decoupling).
+
+---
+
+## BUG-DATA-003: revenuePreviousFy concept mismatch — captive financial services inflation (2026-04-27)
+
+**Timestamp:** 2026-04-27T18:45:00Z
+**Epic/Story/Task:** Bug fix — data quality (outside story scope; pre-EPIC-008 baseline fix)
+
+### Root Cause
+
+`FMPAdapter.fetchForwardEstimates()` previously preferred `incomeStatement.revenue` over `analyst-estimates.revenueAvg` when computing `revenuePreviousFy`. This caused a numerator/denominator concept mismatch:
+
+- **NTM numerator** (`revenueNtm`): always from `analyst-estimates.revenueAvg` — analysts' standard revenue concept
+- **PrevFY denominator** (`revenuePreviousFy`): was from `income-statement.revenue` — GAAP total revenue including captive financial services
+
+For companies with captive financial services, income statement `revenue` includes those subsidiaries while analyst estimates exclude them:
+
+| Company | Income stmt revenue (prevFY) | Analyst revenueAvg (prevFY) | Bug-induced growth | Correct growth |
+|---------|-----------------------------|-----------------------------|-------------------|----------------|
+| DE | $44.7B (incl. John Deere Financial) | $38.3B (equipment only) | −7.6% | +7.8% |
+| GE | $45.9B (incl. GE Vernova Q1 gap) | $41.7B (continuing ops) | +5.8% | +16.3% |
+| CAT | $67.6B (incl. Cat Financial) | $60.6B (machinery only) | +9.6% | +11.7% |
+
+### Fix
+
+Changed priority in `fetchForwardEstimates()`:
+- **Before:** prefer income-statement `revenue`, fall back to analyst `revenueAvg`
+- **After:** prefer analyst `revenueAvg` (same concept as `revenueNtm`), fall back to income-statement `revenue` only when `revenueAvg` absent
+
+This ensures numerator and denominator always use the same revenue concept.
+
+### Side Effect (Expected)
+
+For pure-play commodity companies (XOM, CVX), prevFY analyst consensus slightly deviates from actuals due to commodity price volatility. Growth rates shift modestly (< 3pp). This is the correct behaviour — analyst FY2026 vs analyst FY2025 consensus is more internally consistent than analyst FY2026 vs actual FY2025.
+
+### Validation
+
+Re-synced 15 stocks. All changes within expected bounds:
+
+| Ticker | Before | After | Delta | Notes |
+|--------|--------|-------|-------|-------|
+| DE | −7.64% | +7.75% | +15.39pp | ✅ Core fix |
+| GE | +5.76% | +16.28% | +10.52pp | ✅ GE Vernova deconsolidation corrected |
+| CAT | +9.64% | +11.66% | +2.02pp | ✅ Cat Financial corrected |
+| XOM | +17.15% | +14.53% | −2.62pp | ⚠️ Analyst consensus vs actuals — acceptable |
+| CVX | +22.26% | +20.62% | −1.64pp | ⚠️ Same as XOM — acceptable |
+| All others | — | — | < 2pp | ✅ Minimal change |
+
+### Files Changed
+
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` — revenuePreviousFy priority flipped; code comment added explaining WHY
+- `tests/unit/data-ingestion/fmp.adapter.test.ts` — 4 new BUG-DATA-003 tests added (DE-like captive financial, fallback to income stmt, null prevFY, pure-play consistency)
+
+### Tests Added
+
+- `BUG-DATA-003: revenuePreviousFy uses analyst revenueAvg when available — income statement differs` — DE scenario: analyst 38.3B beats income-stmt 44.7B
+- `BUG-DATA-003: revenuePreviousFy falls back to income statement when analyst revenueAvg is null` — fallback path covered
+- `BUG-DATA-003: revenuePreviousFy is null when only one estimate entry exists (no previous)` — edge case
+- `BUG-DATA-003: pure-play company uses analyst revenueAvg for both NTM and prevFY (consistent concepts)` — MSFT scenario
+
+**Result/Status:** ✅ Fix complete; 42 unit tests passing; validated on 15 live stocks.
+
+**Blockers/Issues:** None.
+
+**Baseline Impact:** NO — data quality fix; no schema, API, or architectural changes.
+
+**Pipeline Impact:** Fix applies automatically to new stock additions (Stage 5 `syncForwardEstimates` calls `FMPAdapter.fetchForwardEstimates`). Existing stocks need re-sync via `POST /api/admin/sync/forward-estimates` to pick up corrected values.
+
+**Next Action:** STORY-089 (Schema Migration — Regime Decoupling).

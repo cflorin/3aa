@@ -455,5 +455,88 @@ describe('EPIC-003/STORY-017/TASK-017-005: FMPAdapter unit tests', () => {
       expect(result).not.toBeNull();
       expect(result!.revenue_ntm).toBe(415_000_000_000);
     });
+
+    // BUG-DATA-003: revenuePreviousFy source priority fix
+    // Root cause: income-statement 'revenue' and analyst-estimates 'revenueAvg' use different revenue
+    // concepts for companies with captive financial services (DE: includes John Deere Financial;
+    // GE: GE Vernova deconsolidation gap; CAT: Caterpillar Financial). Mixing the two sources
+    // produces a false growth signal. Fix: always prefer analyst revenueAvg for previousFY
+    // (same concept as revenueNtm); fall back to income statement only when revenueAvg is absent.
+
+    it('BUG-DATA-003: revenuePreviousFy uses analyst revenueAvg when available — income statement differs', async () => {
+      // Scenario: analyst estimates report 38.3B for prevFY (equipment-only concept),
+      // income statement reports 44.7B (includes captive financial services).
+      // Fix must pick 38.3B, not 44.7B.
+      const analystEstimates = [
+        { symbol: 'DE', date: '2026-11-02', epsAvg: 22.0, revenueAvg: 41_300_000_000, netIncomeAvg: 3_900_000_000 }, // NTM
+        { symbol: 'DE', date: '2025-11-02', epsAvg: 18.5, revenueAvg: 38_300_000_000, netIncomeAvg: 3_200_000_000 }, // prevFY
+        { symbol: 'DE', date: '2024-11-02', epsAvg: 19.0, revenueAvg: 51_000_000_000, netIncomeAvg: 7_100_000_000 }, // older past
+      ];
+      const incomeStatement = [
+        { symbol: 'DE', date: '2025-11-02', revenue: 44_665_000_000, epsDiluted: 18.12, operatingIncome: 4_200_000_000 },
+        { symbol: 'DE', date: '2024-11-02', revenue: 55_000_000_000, epsDiluted: 26.00, operatingIncome: 8_200_000_000 },
+      ];
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(mockResponse(200, analystEstimates))
+        .mockResolvedValueOnce(mockResponse(200, incomeStatement));
+      const result = await adapter.fetchForwardEstimates('DE');
+      expect(result).not.toBeNull();
+      // Must use analyst 38.3B, not income-statement 44.7B
+      expect(result!.revenuePreviousFy).toBe(38_300_000_000);
+      // Growth should be positive: (41.3 - 38.3) / 38.3 ≈ +7.8%  (not -7.6% from income stmt)
+      // Note: growth is computed by syncForwardEstimates, not the adapter; just verify the raw values
+      expect(result!.revenue_ntm).toBe(41_300_000_000);
+    });
+
+    it('BUG-DATA-003: revenuePreviousFy falls back to income statement when analyst revenueAvg is null', async () => {
+      const analystEstimates = [
+        { symbol: 'TICKER', date: '2027-06-30', epsAvg: 5.0, revenueAvg: 50_000_000_000, netIncomeAvg: null }, // NTM
+        { symbol: 'TICKER', date: '2026-06-30', epsAvg: 4.5, revenueAvg: null, netIncomeAvg: null },            // prevFY — no revenueAvg
+        { symbol: 'TICKER', date: '2025-06-30', epsAvg: 4.0, revenueAvg: 40_000_000_000, netIncomeAvg: null }, // older past
+      ];
+      const incomeStatement = [
+        { symbol: 'TICKER', date: '2026-06-30', revenue: 45_000_000_000, epsDiluted: 4.4, operatingIncome: 8_000_000_000 },
+      ];
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(mockResponse(200, analystEstimates))
+        .mockResolvedValueOnce(mockResponse(200, incomeStatement));
+      const result = await adapter.fetchForwardEstimates('TICKER');
+      expect(result).not.toBeNull();
+      // No analyst revenueAvg for prevFY → must fall back to income-statement 45B
+      expect(result!.revenuePreviousFy).toBe(45_000_000_000);
+    });
+
+    it('BUG-DATA-003: revenuePreviousFy is null when only one estimate entry exists (no previous)', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(mockResponse(200, [
+          { symbol: 'TICKER', date: '2027-06-30', epsAvg: 5.0, revenueAvg: 50_000_000_000, netIncomeAvg: null },
+        ]))
+        .mockResolvedValueOnce(mockResponse(200, []));
+      const result = await adapter.fetchForwardEstimates('TICKER');
+      expect(result).not.toBeNull();
+      // Only one entry — no previousFyEntry
+      expect(result!.revenuePreviousFy).toBeNull();
+    });
+
+    it('BUG-DATA-003: pure-play company uses analyst revenueAvg for both NTM and prevFY (consistent concepts)', async () => {
+      // For companies where income statement and analyst estimates agree on revenue concept,
+      // analyst revenueAvg is still preferred — result should be same or very close.
+      const analystEstimates = [
+        { symbol: 'MSFT', date: '2027-06-30', epsAvg: 16.0, revenueAvg: 400_000_000_000, netIncomeAvg: 105_000_000_000 }, // NTM
+        { symbol: 'MSFT', date: '2026-06-30', epsAvg: 13.7, revenueAvg: 350_000_000_000, netIncomeAvg: 88_000_000_000 },  // prevFY
+        { symbol: 'MSFT', date: '2025-06-30', epsAvg: 12.1, revenueAvg: 310_000_000_000, netIncomeAvg: 76_000_000_000 },  // older past
+      ];
+      const incomeStatement = [
+        { symbol: 'MSFT', date: '2026-06-30', revenue: 350_500_000_000, epsDiluted: 13.5, operatingIncome: 120_000_000_000 }, // ~same as analyst
+      ];
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(mockResponse(200, analystEstimates))
+        .mockResolvedValueOnce(mockResponse(200, incomeStatement));
+      const result = await adapter.fetchForwardEstimates('MSFT');
+      expect(result).not.toBeNull();
+      // Uses analyst 350B (not income-stmt 350.5B — close but different source)
+      expect(result!.revenuePreviousFy).toBe(350_000_000_000);
+      expect(result!.revenue_ntm).toBe(400_000_000_000);
+    });
   });
 });

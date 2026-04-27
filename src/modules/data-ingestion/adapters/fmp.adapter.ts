@@ -411,19 +411,24 @@ export class FMPAdapter implements VendorAdapter {
     const ntmIndex = sorted.indexOf(ntmEntry);
     const previousFyEntry = ntmIndex > 0 ? sorted[ntmIndex - 1] : null;
 
-    // Revenue: prefer income statement actuals for previousFY (if year already completed);
-    // fall back to analyst consensus for that year (converged for completed years, proxy for partial).
+    // Revenue: prefer analyst consensus revenueAvg for previousFY — same revenue concept as
+    // revenueNtm (both use FMP revenueAvg). Income statement 'revenue' can differ in concept
+    // (e.g. DE/CAT include captive financial-services revenues; banks use gross interest income)
+    // causing a numerator/denominator mismatch when mixed with analyst estimates.
+    // Fallback to income statement only when analyst data is unavailable.
     let revenuePreviousFy: number | null = null;
     if (previousFyEntry != null) {
-      const prevFyDate = new Date(String(previousFyEntry.date)).getTime();
-      const ninetyDays = 90 * 24 * 60 * 60 * 1000;
-      const incomeMatch = Array.isArray(incomeRaw)
-        ? incomeRaw.find(e => Math.abs(new Date(String(e.date)).getTime() - prevFyDate) <= ninetyDays)
-        : undefined;
-      if (incomeMatch?.revenue != null) {
-        revenuePreviousFy = Number(incomeMatch.revenue);
-      } else if (previousFyEntry.revenueAvg != null) {
+      if (previousFyEntry.revenueAvg != null) {
         revenuePreviousFy = Number(previousFyEntry.revenueAvg);
+      } else {
+        const prevFyDate = new Date(String(previousFyEntry.date)).getTime();
+        const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+        const incomeMatch = Array.isArray(incomeRaw)
+          ? incomeRaw.find(e => Math.abs(new Date(String(e.date)).getTime() - prevFyDate) <= ninetyDays)
+          : undefined;
+        if (incomeMatch?.revenue != null) {
+          revenuePreviousFy = Number(incomeMatch.revenue);
+        }
       }
     }
 
