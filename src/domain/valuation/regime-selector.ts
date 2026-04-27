@@ -2,6 +2,7 @@
 // STORY-092: RegimeSelectorService — selectRegime() Implementation
 // TASK-092-001: RegimeSelectorInput type (in types.ts)
 // TASK-092-002: selectRegime() pure function — ADR-017 Steps 0A–6
+// STORY-098/TASK-098-002: Step 4.5 — high_amortisation_earnings (ebitdaNtm/ebitNtm >= 1.30)
 
 import type { ValuationRegime, RegimeSelectorInput } from './types';
 import { parseBucket } from './metric-selector';
@@ -95,6 +96,20 @@ export function selectRegime(input: RegimeSelectorInput): ValuationRegime {
     input.operatingMarginTtm < 0.25
   ) {
     return 'profitable_growth_ev_ebit';
+  }
+
+  // ── ADR-017 Step 4.5: High amortisation earnings ─────────────────────────
+  // Routes pharma/large-cap acquirers to EV/EBITDA when acquired-intangible D&A >= 30% of EBIT.
+  // Fires only after growth paths (Steps 2–4) have been checked; does not affect growth names.
+  if (
+    input.ebitdaNtm != null &&
+    input.ebitNtm != null &&
+    input.ebitNtm > 0 &&
+    input.ebitdaNtm / input.ebitNtm >= 1.30 &&
+    netIncomePositive &&
+    fcfPositive
+  ) {
+    return 'high_amortisation_earnings';
   }
 
   // ── ADR-017 Step 5: Mature PE ─────────────────────────────────────────────

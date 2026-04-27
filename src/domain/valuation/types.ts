@@ -3,6 +3,8 @@
 // TASK-075-001: ValuationInput, ValuationResult, and supporting types
 // EPIC-008/STORY-089/TASK-089-005: Added ValuationRegime, CyclePosition, GrowthTier,
 //   updated ValuationStateStatus to 5-state canonical vocab, added ValuationRegimeThresholdRow
+// EPIC-008/STORY-098/TASK-098-001: Added high_amortisation_earnings regime, forward_ev_ebitda metric,
+//   ebitdaNtm/ebitNtm to RegimeSelectorInput and ValuationInput
 
 // ── EPIC-008: Valuation Regime types ─────────────────────────────────────────
 
@@ -15,7 +17,8 @@ export type ValuationRegime =
   | 'profitable_growth_pe'
   | 'cyclical_earnings'
   | 'profitable_growth_ev_ebit'
-  | 'mature_pe';
+  | 'mature_pe'
+  | 'high_amortisation_earnings';
 
 // depressed/elevated/peak/normal are inferred from quarterly metrics; conservative bias required
 export type CyclePosition = 'depressed' | 'normal' | 'elevated' | 'peak' | 'insufficient_data';
@@ -48,6 +51,9 @@ export interface RegimeSelectorInput {
   fcfConversionTtm: number | null;   // freeCashFlowTtm / netIncomeTtm (pre-computed)
   revenueGrowthFwd: number | null;
   structuralCyclicalityScore: number; // 0–3
+  // STORY-098: NTM EBITDA and EBIT consensus for high-amortisation detection (Step 4.5)
+  ebitdaNtm?: number | null;
+  ebitNtm?: number | null;
 }
 
 export type ValuationZone =
@@ -71,6 +77,7 @@ export type ValuationStateStatus =
 export type PrimaryMetric =
   | 'forward_pe'
   | 'forward_ev_ebit'
+  | 'forward_ev_ebitda'
   | 'ev_sales'
   | 'forward_operating_earnings_ex_excess_cash'
   | 'no_stable_metric';
@@ -119,6 +126,8 @@ export interface ValuationInput {
   // Stock fundamentals
   forwardPe?: number | null;
   forwardEvEbit?: number | null;
+  // STORY-098: NTM EV/EBITDA multiple (computed by forward-estimates sync from FMP ebitdaAvg)
+  forwardEvEbitda?: number | null;
   evSales?: number | null;
   grossMargin?: number | null;        // decimal (0.75 = 75%)
   shareCountGrowth3y?: number | null; // decimal (0.05 = 5%)
@@ -140,6 +149,9 @@ export interface ValuationInput {
 
   // EPIC-008/STORY-093: Regime-driven inputs (injected by loadValuationInput + selectRegime)
   // These are optional for backward compat; when present, regime-driven path is used.
+  // STORY-098: NTM EBITDA and EBIT consensus for high-amortisation regime detection
+  ebitdaNtm?: number | null;
+  ebitNtm?: number | null;
   netIncomeTtm?: number | null;
   freeCashFlowTtm?: number | null;
   operatingMarginTtm?: number | null;

@@ -137,6 +137,9 @@ async function main() {
     { regime: 'financial_special_case',      metric: 'forward_operating_earnings_ex_excess_cash',    max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Insurer/holding company; thresholds set manually' },
     { regime: 'not_applicable',              metric: 'no_stable_metric',                             max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Bucket 8 / lottery — no valuation metric' },
     { regime: 'manual_required',             metric: 'no_stable_metric',                             max: null,  comfortable: null,  veryGood: null,  steal: null,  notes: 'Bank flag or catch-all; automated metric not possible' },
+    // STORY-098: pharma/large-cap acquirers with acquired-intangible D&A >= 30% of EBIT
+    // Calibrated 2026-04-28 against live pharma EV/EBITDA (ABBV, JNJ, PFE, MRK, AZN)
+    { regime: 'high_amortisation_earnings',  metric: 'forward_ev_ebitda',                            max: 16.0, comfortable: 13.0, veryGood: 10.0, steal:  8.0,  notes: 'Heavy acquired-intangible D&A (pharma, large-cap acquirers); forward EV/EBITDA' },
   ] as const;
 
   for (const row of regimeThresholds) {
@@ -162,7 +165,7 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles, 9 valuation_regime_thresholds');
+  console.log('Seed complete: 1 framework_version, 16 anchored_thresholds, 8 tsr_hurdles, 10 valuation_regime_thresholds');
 }
 
 main()

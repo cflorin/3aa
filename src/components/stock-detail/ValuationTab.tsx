@@ -386,6 +386,7 @@ export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag, 
   const metricLabels: Record<string, string> = {
     forward_pe: 'Forward P/E',
     forward_ev_ebit: 'EV/EBIT (Fwd)',
+    forward_ev_ebitda: 'Fwd EV/EBITDA',
     ev_sales: 'EV/Sales',
     forward_operating_earnings_ex_excess_cash: 'Fwd Op. Earnings (ex-cash)',
     no_stable_metric: 'No Stable Metric',

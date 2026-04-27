@@ -2,6 +2,7 @@
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-002: MetricSelector — bucket + flags → primary_metric, metric_reason
 // Source: docs/prd/3_aa_threshold_derivation_spec_valuation_zones_tsr_hurdles_v_1.md §Stage 1
+// STORY-098/TASK-098-003: regime-based early return for high_amortisation_earnings → forward_ev_ebitda
 
 import type { PrimaryMetric, ValuationInput } from './types';
 
@@ -19,6 +20,11 @@ export function selectMetric(input: ValuationInput): MetricSelectionResult {
       primaryMetric: input.primaryMetricOverride,
       metricReason: 'primary_metric_override',
     };
+  }
+
+  // Regime-driven metric selection (takes precedence over bucket-based logic when regime is set)
+  if (input.valuationRegime === 'high_amortisation_earnings') {
+    return { primaryMetric: 'forward_ev_ebitda', metricReason: 'high_amortisation_regime' };
   }
 
   // Bucket 8 — binary / lottery

@@ -3,6 +3,7 @@
 // TASK-075-007: computeValuation() — orchestrator chaining all domain components
 // STORY-082: Confidence-based effective bucket demotion (RFC-003 §Confidence-Based Effective Bucket)
 // EPIC-008/STORY-094/TASK-094-001: Wire selectRegime() + assignThresholdsRegimeDriven() into pipeline
+// STORY-098/TASK-098-003: Compute regime before metric selection so regime drives metric choice
 
 import type { ValuationInput, ValuationResult, ValuationStateStatus, PrimaryMetric } from './types';
 import { selectMetric, parseBucket } from './metric-selector';
@@ -25,8 +26,42 @@ export function computeValuation(input: ValuationInput): ValuationResult {
   const bucket = parseBucket(input.activeCode);
   const effectiveCode = deriveEffectiveCode(input.activeCode, input.confidenceLevel);
 
-  // ── Stage 1: Metric selection (uses effectiveCode) ─────────────────────────
-  const { primaryMetric, metricReason } = selectMetric({ ...input, activeCode: effectiveCode });
+  // ── Stage 0: Early regime computation (so regime can drive metric selection) ─
+  // When regime inputs are present, compute regime here so selectMetric can use it.
+  // Stage 3 reuses the result; no double computation.
+  const preOpLev = input.preOperatingLeverageFlag === true;
+  let earlyRegime: import('./types').ValuationRegime | undefined = input.valuationRegime;
+  if (
+    !earlyRegime &&
+    input.valuationRegimeThresholds?.length &&
+    input.bankFlag !== undefined &&
+    input.structuralCyclicalityScore !== undefined &&
+    input.cyclePosition !== undefined
+  ) {
+    earlyRegime = selectRegime({
+      activeCode: input.activeCode,
+      bankFlag: input.bankFlag ?? false,
+      insurerFlag: input.insurerFlag ?? false,
+      holdingCompanyFlag: input.holdingCompanyFlag ?? false,
+      preOperatingLeverageFlag: preOpLev,
+      netIncomeTtm: input.netIncomeTtm ?? null,
+      freeCashFlowTtm: input.freeCashFlowTtm ?? null,
+      operatingMarginTtm: input.operatingMarginTtm ?? null,
+      grossMarginTtm: input.grossMarginTtm ?? null,
+      fcfConversionTtm: input.fcfConversionTtm ?? null,
+      revenueGrowthFwd: input.revenueGrowthFwd ?? null,
+      structuralCyclicalityScore: input.structuralCyclicalityScore ?? 0,
+      ebitdaNtm: input.ebitdaNtm ?? null,
+      ebitNtm: input.ebitNtm ?? null,
+    });
+  }
+
+  // ── Stage 1: Metric selection (uses effectiveCode + early regime) ───────────
+  const { primaryMetric, metricReason } = selectMetric({
+    ...input,
+    activeCode: effectiveCode,
+    valuationRegime: earlyRegime,
+  });
 
   // ── Bucket 8: short-circuit ────────────────────────────────────────────────
   if (bucket === 8 || primaryMetric === 'no_stable_metric') {
@@ -79,10 +114,10 @@ export function computeValuation(input: ValuationInput): ValuationResult {
   // ── Stage 3: Threshold assignment ─────────────────────────────────────────
   // EPIC-008/STORY-094: when regime inputs are present, use regime-driven path;
   // otherwise fall back to legacy code-keyed path (anchoredThresholds).
-  const preOpLev = input.preOperatingLeverageFlag === true;
 
   let thresholdResult: import('./threshold-assigner').ThresholdResult;
-  let valuationRegime = input.valuationRegime;
+  // Reuse regime computed in Stage 0 (avoids double computation)
+  let valuationRegime = earlyRegime ?? input.valuationRegime;
 
   if (
     input.valuationRegimeThresholds?.length &&
@@ -90,23 +125,7 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     input.structuralCyclicalityScore !== undefined &&
     input.cyclePosition !== undefined
   ) {
-    // Regime-driven path: compute regime first, then thresholds
-    if (!valuationRegime) {
-      valuationRegime = selectRegime({
-        activeCode: input.activeCode,
-        bankFlag: input.bankFlag ?? false,
-        insurerFlag: input.insurerFlag ?? false,
-        holdingCompanyFlag: input.holdingCompanyFlag ?? false,
-        preOperatingLeverageFlag: preOpLev,
-        netIncomeTtm: input.netIncomeTtm ?? null,
-        freeCashFlowTtm: input.freeCashFlowTtm ?? null,
-        operatingMarginTtm: input.operatingMarginTtm ?? null,
-        grossMarginTtm: input.grossMarginTtm ?? null,
-        fcfConversionTtm: input.fcfConversionTtm ?? null,
-        revenueGrowthFwd: input.revenueGrowthFwd ?? null,
-        structuralCyclicalityScore: input.structuralCyclicalityScore ?? 0,
-      });
-    }
+    // valuationRegime already computed in Stage 0; no need to call selectRegime again
     thresholdResult = assignThresholdsRegimeDriven({
       regime: valuationRegime,
       thresholds: input.valuationRegimeThresholds,
@@ -259,6 +278,13 @@ function resolveCurrentMultiple(
         return { currentMultiple: input.trailingEvEbit, currentMultipleBasis: 'trailing_fallback', metricSource: 'fallback_trailing_ev_ebit', status: 'ok' };
       }
       return { currentMultiple: null, currentMultipleBasis: 'spot', metricSource: 'forward_ev_ebit', status: 'manual_required' };
+
+    // STORY-098: EV/EBITDA for high-amortisation regimes; no trailing fallback (D&A estimates unavailable trailing)
+    case 'forward_ev_ebitda':
+      if (input.forwardEvEbitda != null) {
+        return { currentMultiple: input.forwardEvEbitda, currentMultipleBasis: 'spot', metricSource: 'forward_ev_ebitda', status: 'ok' };
+      }
+      return { currentMultiple: null, currentMultipleBasis: 'spot', metricSource: 'forward_ev_ebitda', status: 'manual_required' };
 
     case 'ev_sales':
       if (input.evSales != null) {

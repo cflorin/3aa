@@ -1,6 +1,7 @@
 // EPIC-008: Valuation Regime Decoupling
 // STORY-095: Stock Detail Regime & Cyclicality Display
 // TASK-095-002: RegimeBadge component — 9 regime values with color scheme
+// STORY-098/TASK-098-003: Added high_amortisation_earnings regime color and label
 
 import React from 'react';
 
@@ -14,6 +15,7 @@ const REGIME_COLORS: Record<string, string> = {
   cyclical_earnings: '#fb923c',
   profitable_growth_ev_ebit: '#c084fc',
   mature_pe: '#94a3b8',
+  high_amortisation_earnings: '#f472b6',
 };
 
 const REGIME_LABELS: Record<string, string> = {
@@ -26,6 +28,7 @@ const REGIME_LABELS: Record<string, string> = {
   cyclical_earnings: 'Cyclical',
   profitable_growth_ev_ebit: 'Profitable EV/EBIT',
   mature_pe: 'Mature P/E',
+  high_amortisation_earnings: 'High Amort. EV/EBITDA',
 };
 
 interface RegimeBadgeProps {

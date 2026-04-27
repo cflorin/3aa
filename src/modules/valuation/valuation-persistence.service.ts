@@ -69,6 +69,10 @@ export async function loadValuationInput(
         netIncomePositive: true,
         fcfPositive: true,
         fcfConversion: true,
+        // STORY-098: NTM EBITDA/EBIT for high-amortisation regime detection
+        ebitdaNtm: true,
+        ebitNtm: true,
+        forwardEvEbitda: true,
         // StockDerivedMetrics join for TTM values
         derivedMetrics: {
           select: {
@@ -146,6 +150,10 @@ export async function loadValuationInput(
         : null,
     anchoredThresholds: anchoredRows,
     tsrHurdles: tsrHurdleRows,
+    // STORY-098: NTM EV/EBITDA multiple and regime-detection inputs
+    forwardEvEbitda: stock.forwardEvEbitda !== null && stock.forwardEvEbitda !== undefined ? Number(stock.forwardEvEbitda) : null,
+    ebitdaNtm: stock.ebitdaNtm !== null && stock.ebitdaNtm !== undefined ? Number(stock.ebitdaNtm) : null,
+    ebitNtm: stock.ebitNtm !== null && stock.ebitNtm !== undefined ? Number(stock.ebitNtm) : null,
     // EPIC-008: regime-driven fields
     bankFlag: stock.bankFlag ?? false,
     structuralCyclicalityScore: stock.structuralCyclicalityScore ?? 0,
