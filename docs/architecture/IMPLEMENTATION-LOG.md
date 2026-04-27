@@ -8,6 +8,36 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-28 — EPIC-008/STORY-097: Forward EV/EBITDA Metric
+
+**Timestamp:** 2026-04-28T00:00:00Z
+**Epic/Story/Task:** EPIC-008 / STORY-097 / TASK-097-001 through TASK-097-005
+
+**Action:** Implemented forward EV/EBITDA metric end-to-end. Motivated by AZN: GAAP forward P/E = 12.92x is correct but misleading for pharma due to large acquired-intangible amortisation. EV/EBITDA (adding D&A back to EBIT) is the industry-standard supplementary metric for these stocks.
+
+**Files Changed:**
+- `src/modules/data-ingestion/types.ts` — added `depreciationNtm: number | null` to `ForwardEstimates` interface
+- `src/modules/data-ingestion/adapters/fmp.adapter.ts` — reads `ntmEntry.depreciationAvg`, returns as `depreciationNtm` (null when absent)
+- `prisma/migrations/20260428000001_add_forward_ebitda/migration.sql` — adds `depreciation_ntm DECIMAL(20,2)` and `forward_ev_ebitda DECIMAL(8,4)` to `stocks` table
+- `prisma/schema.prisma` — adds `depreciationNtm Decimal?` and `forwardEvEbitda Decimal?` to Stock model
+- `src/modules/data-ingestion/jobs/forward-estimates-sync.service.ts` — computes `ebitdaNtm = ebitNtm + depreciationNtm`, `forwardEvEbitda = ev / ebitdaNtm` (null when either input null or ebitdaNtm ≤ 0); persists both with provenance
+- `src/app/api/stocks/[ticker]/detail/route.ts` — adds `forwardEvEbitda` to select + response as `forward_ev_ebitda`
+- `src/components/stock-detail/StockDetailClient.tsx` — adds `forward_ev_ebitda` to `DetailResponse`; passes as prop to `ValuationTab`
+- `src/components/stock-detail/ValuationTab.tsx` — adds `forwardEvEbitda` prop; shows Supplementary Metrics section with "Fwd EV/EBITDA" when non-null
+
+**Tests Added:**
+- `tests/unit/data-ingestion/story-097-forward-ebitda.test.ts` — 3 BDD scenarios: D&A available, D&A null, negative EBITDA
+
+**Result:** 3/3 new tests pass. Full suite: 1811 tests passing (1808 prior + 3 new). No regressions. Story-097 all 5 tasks complete.
+
+**Verification level:** unit_verified
+
+**Baseline Impact:** NO — new columns, new metric. No existing logic modified except additive changes to sync service and display.
+
+**Next Action:** EPIC-006 (Alerting Engine) or EPIC-007 as next planned epic.
+
+---
+
 ## 2026-04-27 — EPIC-005/STORY-083 Amendment: Confidence-Floor Pre-Pass (ADR-014 §2026-04-27)
 
 **Timestamp:** 2026-04-27T00:00:00Z
