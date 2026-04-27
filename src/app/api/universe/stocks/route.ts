@@ -112,15 +112,17 @@ export async function POST(req: NextRequest) {
         emit({ stage: 'create_record', label: 'Creating stock record…', step: 2, total: TOTAL_STAGES });
 
         if (existing) {
-          // Re-add: stock exists with inUniverse=false — update name/country from fresh metadata
+          // Re-add: stock exists with inUniverse=false — refresh all metadata fields unconditionally
+          // so stale null sector/industry are always replaced with current FMP values.
+          // Conditional spread is intentionally avoided here: we want fresh data, not preservation of stale nulls.
           await prisma.stock.update({
             where: { ticker },
             data: {
               inUniverse: true,
               universeStatusChangedAt: new Date(),
               companyName: metadata.company_name,
-              ...(metadata.sector      ? { sector: metadata.sector }           : {}),
-              ...(metadata.industry    ? { industry: metadata.industry }       : {}),
+              sector: metadata.sector,
+              industry: metadata.industry,
               ...(metadata.description ? { description: metadata.description } : {}),
             },
           });

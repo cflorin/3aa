@@ -270,6 +270,52 @@ describe('EPIC-003/STORY-033: syncDeterministicClassificationFlags() service', (
     }
   });
 
+  // EPIC-008/STORY-090: bank_flag=true for Financial Services / Banks stock (JPM/C/WFC-like re-add path).
+  // This guards against the regression where sector was not passed to computeDeterministicFlags.
+  it('writes bankFlag=true for Financial Services + Banks - Diversified (JPM/C/WFC-like)', async () => {
+    (prisma.stock.findMany as jest.Mock).mockResolvedValue([
+      {
+        ticker: 'JPM',
+        sector: 'Financial Services',
+        industry: 'Banks - Diversified',
+        shareCountGrowth3y: null,
+        revenueTtm: null,
+        earningsTtm: null,
+        operatingMargin: null,
+        dataProviderProvenance: {},
+      },
+    ]);
+
+    const result = await realSync();
+
+    expect(result).toEqual({ updated: 1, skipped: 0 });
+    const call = (prisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(call.data.bankFlag).toBe(true);
+    const prov = call.data.dataProviderProvenance as Record<string, unknown>;
+    expect((prov['bank_flag'] as Record<string, unknown>)['provider']).toBe('deterministic_heuristic');
+  });
+
+  it('writes bankFlag=true for Financial Services + Financial - Capital Markets (GS/MS-like)', async () => {
+    (prisma.stock.findMany as jest.Mock).mockResolvedValue([
+      {
+        ticker: 'GS',
+        sector: 'Financial Services',
+        industry: 'Financial - Capital Markets',
+        shareCountGrowth3y: null,
+        revenueTtm: null,
+        earningsTtm: null,
+        operatingMargin: null,
+        dataProviderProvenance: {},
+      },
+    ]);
+
+    const result = await realSync();
+
+    expect(result).toEqual({ updated: 1, skipped: 0 });
+    const call = (prisma.stock.update as jest.Mock).mock.calls[0][0];
+    expect(call.data.bankFlag).toBe(true);
+  });
+
   // EPIC-008/STORY-090: bank_flag is always written (never null), so a stock with all
   // other flags null still triggers an update (bankFlag=false gets written).
   it('always writes at least bank_flag even when other inputs are null', async () => {

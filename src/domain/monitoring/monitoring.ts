@@ -52,6 +52,9 @@ export interface UniverseStockSummary {
   valuationRegime: string | null;
   // STORY-098: Primary metric from valuation_state — drives METRIC column label + value
   primaryMetric: string | null;
+  // BUG-FLAGS-001: bank_flag — true for banks/capital-markets firms (manual_required regime).
+  // Used to suppress revenue_growth_fwd display (gross/net revenue definition mismatch makes it unreliable).
+  bankFlag: boolean;
 }
 
 export interface UniverseQueryOpts {
@@ -140,6 +143,7 @@ function makeStockSelect(userId: string, includeTrend = false) {
     forwardEvEbit: true,
     forwardEvSales: true,
     evSales: true,
+    bankFlag: true,
     classificationState: { select: { suggestedCode: true, confidenceLevel: true } },
     userClassificationOverrides: { where: { userId }, select: { finalCode: true } },
     userDeactivatedStocks: { where: { userId }, select: { userId: true } },
@@ -184,6 +188,7 @@ type StockSelectRow = {
   forwardEvEbit: { toString(): string } | null;
   forwardEvSales: { toString(): string } | null;
   evSales: { toString(): string } | null;
+  bankFlag: boolean;
   classificationState: { suggestedCode: string | null; confidenceLevel: string } | null;
   userClassificationOverrides: { finalCode: string }[];
   userDeactivatedStocks: { userId: string }[];
@@ -249,6 +254,7 @@ function mapRow(row: StockSelectRow): UniverseStockSummary {
     valuationStateStatus: row.valuationState?.valuationStateStatus ?? null,
     valuationRegime: row.valuationState?.valuationRegime ?? null,
     primaryMetric: row.valuationState?.primaryMetric ?? null,
+    bankFlag: row.bankFlag,
   };
   if (row.derivedMetrics !== undefined) {
     const dm = row.derivedMetrics;

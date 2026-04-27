@@ -8,6 +8,75 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-28 — BUG-DATA-002: Bank REV FWD Shows False Negative Drop — FIXED
+
+**Timestamp:** 2026-04-28T00:00:00Z
+**Epic/Story/Task:** EPIC-008 / STORY-090 (data quality fix, universe display)
+
+**Bug:**
+`revenue_growth_fwd` for banks (GS, C, JPM, WFC, MS) displays false drops of −30% to −50% in the universe REV FWD column. EPS FWD is unaffected and remains correct.
+
+**Root cause — revenue definition mismatch:**
+The growth formula is `(revenueNtm − revenuePreviousFy) / revenuePreviousFy`:
+- **Numerator** `revenueNtm`: from FMP `/analyst-estimates` → `revenueAvg` = **net revenues** (NII + non-interest income; the standard analyst consensus concept for banks, ~$63B for GS)
+- **Denominator** `revenuePreviousFy`: from FMP `/income-statement` → `revenue` = **gross revenues** (total interest income before netting; ~$125B for GS)
+
+For non-banks these two concepts are identical. For banks the denominator is ~2× the numerator concept → apparent −30 to −50% "drop" that is purely a definitional artifact, not an economic reality.
+
+**EPS FWD is correct:** both `epsNtm` (numerator) and `nonGaapEpsPreviousFy` (denominator) come from FMP analyst estimates using the same EPS concept. No mismatch.
+
+**Fix — display layer (not data layer):**
+Rather than trying to re-derive a bank-consistent revenue denominator (which would require a separate FMP field), suppress the misleading value at the display layer. Stocks with `bankFlag = true` show "N/A" in the REV FWD column with muted colour. EPS FWD is unchanged.
+
+**Files Changed:**
+- `src/domain/monitoring/monitoring.ts` — added `bankFlag: boolean` to `UniverseStockSummary`; added `bankFlag: true` to `makeStockSelect`; added `bankFlag: boolean` to `StockSelectRow`; mapped `bankFlag: row.bankFlag` in `mapRow`
+- `src/components/universe/StockTable.tsx` — REV FWD cell: when `s.bankFlag`, render `'N/A'` with `T.textMuted` colour instead of `fmtPct(s.revenue_growth_fwd)` with `growthColor`
+
+**Tests:** Covered by existing `story-090-bank-flag.test.ts` unit tests (deriveBankFlag logic) and `story-033-deterministic-flags.test.ts` (sync sets bankFlag). Display-layer change is a one-liner conditional — no separate unit test required.
+
+**Baseline Impact:** NO — display-only suppression; underlying data unchanged.
+
+**Next Action:** Re-add JPM, C, GS; verify REV FWD shows N/A and EPS FWD shows correct value.
+
+---
+
+## 2026-04-28 — BUG-FLAGS-001/BUG-FLAGS-002: Bank Flag Not Activated — FIXED
+
+**Timestamp:** 2026-04-28T00:00:00Z
+**Epic/Story/Task:** EPIC-008 / STORY-090 (regression fix + test gap)
+
+**Bug Summary:**
+Three related issues caused `bankFlag = false` for all bank stocks (GS, C, JPM, WFC, MS):
+
+- **BUG-FLAGS-001 (stale data):** STORY-090 added `bankFlag` computation to the deterministic flags pipeline on 2026-04-27, but existing in-universe stocks were never reprocessed. `bankFlag` column defaulted to `false` for all pre-existing stocks. Stocks added or re-added through the pipeline after that commit are correctly flagged.
+- **BUG-FLAGS-002 (re-add path):** `route.ts` Stage 2 (create_record) used conditional spread `...(metadata.sector ? { sector } : {})` on the re-add path. This preserved existing null values when FMP returned a valid sector — although functionally it does update null→value when FMP returns non-null, the unconditional form is safer and clearer for re-adds where fresh FMP data is always desired.
+- **BUG-DATA-001 (JPM null sector):** JPM had `sector = null`, `industry = null` in DB (likely added before sector-fetch code existed). With null sector, `deriveBankFlag` returns false regardless of industry. After re-add, FMP must return sector/industry for flag to be set.
+
+**Root cause of BUG-FLAGS-001 confirmed:** GS industry = `"Financial - Capital Markets"` → `includes('capital markets')` = true. C/WFC industry = `"Banks - Diversified"` → `includes('banks')` = true. Logic was correct; sync just never ran for existing stocks.
+
+**Files Changed:**
+- `src/app/api/universe/stocks/route.ts` — re-add path: changed sector/industry write from conditional spread to unconditional (`sector: metadata.sector, industry: metadata.industry`). Re-add always refreshes all FMP metadata fields.
+- `tests/unit/data-ingestion/story-033-deterministic-flags.test.ts` — added 2 new test cases: `bankFlag=true` for JPM-like (`Banks - Diversified`) and GS-like (`Financial - Capital Markets`). Previous tests only exercised `bankFlag=false` paths.
+
+**Tests Added:**
+- `story-033-deterministic-flags.test.ts`: "writes bankFlag=true for Financial Services + Banks - Diversified (JPM/C/WFC-like)"
+- `story-033-deterministic-flags.test.ts`: "writes bankFlag=true for Financial Services + Financial - Capital Markets (GS/MS-like)"
+
+**Result:** 47 tests passing (2 new + 45 existing)
+
+**Remediation for existing stocks:**
+Run `POST /api/admin/sync/deterministic-flags` (with valid ADMIN_API_KEY) to backfill `bankFlag` for all currently in-universe stocks. After backfill, run `POST /api/admin/recompute-valuations` so bank stocks get `regime = manual_required`.
+
+**Test procedure (manual):** Delete JPM, C, GS from universe → re-add each → verify `bankFlag = true`, `valuationRegime = manual_required` after pipeline completes.
+
+**Blockers/Issues:** JPM may still have null sector/industry after re-add if FMP `/profile` returns null for JPM. Verify in DB after re-add.
+
+**Baseline Impact:** NO — `deriveBankFlag` logic unchanged; only test coverage and re-add path write semantics.
+
+**Next Action:** Re-add JPM, C, GS via UI; verify in DB; run deterministic flags sync for remaining stocks.
+
+---
+
 ## 2026-04-28 — EPIC-008/STORY-098: High Amortisation Earnings Regime — COMPLETE
 
 **Timestamp:** 2026-04-28T14:00:00Z

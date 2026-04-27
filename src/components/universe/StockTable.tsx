@@ -442,8 +442,8 @@ export default function StockTable({
                   onStateChange={handleMonitoringStateChange}
                 />
               </td>
-              <td style={{ ...TD, textAlign: 'right', color: growthColor(s.revenue_growth_fwd), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.revenue_growth_fwd)}
+              <td style={{ ...TD, textAlign: 'right', color: s.bankFlag ? T.textMuted : growthColor(s.revenue_growth_fwd), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
+                {s.bankFlag ? 'N/A' : fmtPct(s.revenue_growth_fwd)}
               </td>
               <td style={{ ...TD, textAlign: 'right', color: growthColor(s.eps_growth_fwd), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtPct(s.eps_growth_fwd)}
