@@ -39,13 +39,6 @@ function netDebtColor(val: number | null): string {
   return '#ef4444';
 }
 
-function fcfConvColor(val: number | null): string {
-  if (val === null || val === undefined) return T.textDim;
-  if (val >= 0.80) return '#16a34a';
-  if (val >= 0.50) return '#eab308';
-  return '#ef4444';
-}
-
 function fmtPct(val: number | null): string {
   if (val === null || val === undefined) return '—';
   return `${(val * 100).toFixed(1)}%`;
@@ -200,7 +193,7 @@ type SortDir = 'asc' | 'desc';
 
 const SORTABLE_KEYS = new Set([
   'ticker', 'revenue_growth_fwd', 'eps_growth_fwd',
-  'fcf_conversion', 'net_debt_to_ebitda', 'operating_margin',
+  'net_debt_to_ebitda',
   'operating_margin_slope_4q', 'earnings_quality_trend_score', 'quarters_available',
   'valuationZone',
 ]);
@@ -323,27 +316,11 @@ export default function StockTable({
           </th>
           <th
             scope="col"
-            style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'fcf_conversion' ? T.accent : T.textMuted }}
-            onClick={() => handleHeaderClick('fcf_conversion')}
-            aria-sort={sort === 'fcf_conversion' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-          >
-            FCF Conv{onSort ? sortIcon('fcf_conversion', sort, dir) : ''}
-          </th>
-          <th
-            scope="col"
             style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'net_debt_to_ebitda' ? T.accent : T.textMuted }}
             onClick={() => handleHeaderClick('net_debt_to_ebitda')}
             aria-sort={sort === 'net_debt_to_ebitda' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
           >
             ND/EBITDA{onSort ? sortIcon('net_debt_to_ebitda', sort, dir) : ''}
-          </th>
-          <th
-            scope="col"
-            style={{ ...TH, textAlign: 'right', cursor: onSort ? 'pointer' : 'default', color: sort === 'operating_margin' ? T.accent : T.textMuted }}
-            onClick={() => handleHeaderClick('operating_margin')}
-            aria-sort={sort === 'operating_margin' ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-          >
-            Op Margin{onSort ? sortIcon('operating_margin', sort, dir) : ''}
           </th>
           <th
             scope="col"
@@ -448,14 +425,8 @@ export default function StockTable({
               <td style={{ ...TD, textAlign: 'right', color: growthColor(s.eps_growth_fwd), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtPct(s.eps_growth_fwd)}
               </td>
-              <td style={{ ...TD, textAlign: 'right', color: fcfConvColor(s.fcf_conversion), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.fcf_conversion)}
-              </td>
               <td style={{ ...TD, textAlign: 'right', color: netDebtColor(s.net_debt_to_ebitda), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {s.net_debt_to_ebitda !== null && s.net_debt_to_ebitda < 0 ? 'net cash' : fmtRatio(s.net_debt_to_ebitda)}
-              </td>
-              <td style={{ ...TD, textAlign: 'right', color: growthColor(s.operating_margin), fontFamily: 'var(--font-dm-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPct(s.operating_margin)}
               </td>
               <td style={TD}>
                 <ValuationZoneBadge zone={s.valuationZone ?? null} />
