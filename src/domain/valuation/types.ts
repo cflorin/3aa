@@ -1,6 +1,54 @@
 // EPIC-005: Valuation Threshold Engine & Enhanced Universe
 // STORY-075: Valuation Engine Domain Layer
 // TASK-075-001: ValuationInput, ValuationResult, and supporting types
+// EPIC-008/STORY-089/TASK-089-005: Added ValuationRegime, CyclePosition, GrowthTier,
+//   updated ValuationStateStatus to 5-state canonical vocab, added ValuationRegimeThresholdRow
+
+// ── EPIC-008: Valuation Regime types ─────────────────────────────────────────
+
+export type ValuationRegime =
+  | 'not_applicable'
+  | 'financial_special_case'
+  | 'manual_required'
+  | 'sales_growth_standard'
+  | 'sales_growth_hyper'
+  | 'profitable_growth_pe'
+  | 'cyclical_earnings'
+  | 'profitable_growth_ev_ebit'
+  | 'mature_pe';
+
+// depressed/elevated/peak/normal are inferred from quarterly metrics; conservative bias required
+export type CyclePosition = 'depressed' | 'normal' | 'elevated' | 'peak' | 'insufficient_data';
+
+export type GrowthTier = 'high' | 'mid' | 'standard';
+
+// Injected from valuation_regime_thresholds DB table (9 rows, one per ValuationRegime)
+// profitable_growth_pe row = high-tier base; mid/standard tiers are runtime constants
+export interface ValuationRegimeThresholdRow {
+  regime: string;
+  primaryMetric: string;
+  maxThreshold: number | null;
+  comfortableThreshold: number | null;
+  veryGoodThreshold: number | null;
+  stealThreshold: number | null;
+}
+
+// ── EPIC-008/STORY-092: RegimeSelectorInput ──────────────────────────────────
+
+export interface RegimeSelectorInput {
+  activeCode: string;                 // used to extract bucket
+  bankFlag: boolean;
+  insurerFlag: boolean;
+  holdingCompanyFlag: boolean;
+  preOperatingLeverageFlag: boolean;
+  netIncomeTtm: number | null;
+  freeCashFlowTtm: number | null;
+  operatingMarginTtm: number | null;
+  grossMarginTtm: number | null;
+  fcfConversionTtm: number | null;   // freeCashFlowTtm / netIncomeTtm (pre-computed)
+  revenueGrowthFwd: number | null;
+  structuralCyclicalityScore: number; // 0–3
+}
 
 export type ValuationZone =
   | 'steal_zone'
@@ -10,13 +58,15 @@ export type ValuationZone =
   | 'above_max'
   | 'not_applicable';
 
+// Canonical 5-state vocabulary (EPIC-008/STORY-089/TASK-089-005, ADR-017).
+// 'ready' is eliminated — backward-compat read guards treat 'ready' as 'computed'.
+// 'missing_data' and 'manual_required_insurer' are consolidated into 'manual_required'.
 export type ValuationStateStatus =
-  | 'ready'
-  | 'manual_required'
-  | 'manual_required_insurer'
   | 'classification_required'
   | 'not_applicable'
-  | 'missing_data';
+  | 'manual_required'
+  | 'computed'
+  | 'stale';
 
 export type PrimaryMetric =
   | 'forward_pe'
@@ -84,12 +134,31 @@ export interface ValuationInput {
   preOperatingLeverageFlag?: boolean;
 
   // Injected from DB (not fetched inside domain)
+  /** @deprecated Use valuationRegimeThresholds instead (EPIC-008). Retained for legacy callers only. */
   anchoredThresholds: AnchoredThresholdRow[];
   tsrHurdles: TsrHurdleRow[];
+
+  // EPIC-008/STORY-093: Regime-driven inputs (injected by loadValuationInput + selectRegime)
+  // These are optional for backward compat; when present, regime-driven path is used.
+  netIncomeTtm?: number | null;
+  freeCashFlowTtm?: number | null;
+  operatingMarginTtm?: number | null;
+  grossMarginTtm?: number | null;
+  fcfConversionTtm?: number | null;
+  revenueGrowthFwd?: number | null;
+  bankFlag?: boolean;
+  // Pre-computed by CyclicalScoreService, read from stock table
+  structuralCyclicalityScore?: number;   // 0–3
+  cyclePosition?: CyclePosition;
+  cyclicalConfidence?: 'high' | 'medium' | 'low' | 'insufficient_data';
+  // Pre-computed by selectRegime(), injected by computeValuation()
+  valuationRegime?: ValuationRegime;
+  // Replaces anchoredThresholds when valuationRegime is set
+  valuationRegimeThresholds?: ValuationRegimeThresholdRow[];
 }
 
 export interface ThresholdAdjustment {
-  type: 'gross_margin' | 'dilution';
+  type: 'gross_margin' | 'dilution' | 'cyclical_warning';
   delta: number;
   reason: string;
 }
@@ -125,4 +194,15 @@ export interface ValuationResult {
   grossMarginAdjustmentApplied: boolean;
   dilutionAdjustmentApplied: boolean;
   cyclicalityContextFlag: boolean;
+
+  // EPIC-008/STORY-093: Regime-driven output fields (null when legacy path used)
+  valuationRegime?: ValuationRegime | null;
+  growthTier?: GrowthTier | null;
+  structuralCyclicalityScoreSnapshot?: number | null;
+  cyclePositionSnapshot?: CyclePosition | null;
+  cyclicalOverlayApplied?: boolean | null;
+  cyclicalOverlayValue?: number | null;
+  cyclicalConfidence?: 'high' | 'medium' | 'low' | 'insufficient_data' | null;
+  // thresholdFamily replaces derivedFromCode as primary label; derivedFromCode retained for backward compat
+  thresholdFamily?: string | null;
 }

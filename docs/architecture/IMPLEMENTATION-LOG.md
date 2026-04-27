@@ -8,6 +8,294 @@ Each entry includes: **Timestamp** (ISO 8601) · **Epic/Story/Task** IDs · **Ac
 
 ---
 
+## 2026-04-27 — EPIC-008/STORY-093: ThresholdAssigner Regime Decoupling — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-093 — ThresholdAssigner Regime Decoupling (Growth Tier + Cyclical Overlay)
+**Tasks:** TASK-093-001 through TASK-093-007
+
+**Action:** Implemented regime-driven threshold pipeline in `ThresholdAssigner`. Added growth tier substitution, quality downgrade per-regime config, cyclical overlays (Case A/B), gross margin and dilution adjustments, floor/ordering invariant — 6-step pipeline per ADR-005/ADR-018.
+
+**TASK-093-001/002 — Type updates (`src/domain/valuation/types.ts`):**
+- `ThresholdAdjustment.type` extended with `'cyclical_warning'` variant (for depressed-cycle basis warning)
+
+**TASK-093-003/004/005 — Implementation (`src/domain/valuation/threshold-assigner.ts`):**
+- `GROWTH_TIER_CONFIG`: high/mid/standard tier base quads (profitable_growth_pe only)
+- `REGIME_DOWNGRADE_CONFIG`: per-regime EQ/BS downgrade turns for 6 active regimes
+- `resolveGrowthTier(revenueGrowthFwd)`: high ≥35%, mid ≥25%, else standard
+- `computeProfitableGrowthCyclicalOverlay(score, position)`: Case A (score 1–2)
+- `computeCyclicalEarningsOverlay(position)`: Case B (elevated → -2, peak → -3.5)
+- `assignThresholdsRegimeDriven(input)`: full 6-step pipeline; non-applicable regimes short-circuit; depressed cycle → basis warning in `thresholdAdjustments`; `thresholdFamily` label built; `ThresholdResult` EPIC-008 optional fields populated
+- `ThresholdResult` interface: 6 optional EPIC-008 fields added (thresholdFamily, growthTier, cyclicalOverlayApplied, cyclicalOverlayValue, valuationStateStatus, thresholdAdjustments)
+- `RegimeDrivenThresholdInput` interface exported
+- Existing `assignThresholds()` (legacy code-keyed path) retained unchanged
+
+**TASK-093-007 — Unit tests (`tests/unit/domain/valuation/threshold-assigner-regime.test.ts`):**
+- 55 tests: resolveGrowthTier, overlay helpers, non-applicable regimes, all golden-set cases (NVDA-normal/elevated/A/B, mid-tier, standard-tier, MU-normal/elevated/depressed/peak, WMT/WMT-B/B, WMT-C/A), sales_growth with steps 5a/5b, floor/ordering invariants, thresholdFamily labels, metricFamily by regime
+
+**Acceptance criteria met:**
+- NVDA (score=2, normal, A/A): max=32, comfortable=26, veryGood=20, steal=14 ✅
+- NVDA (score=2, elevated, A/A): max=30, comfortable=24, veryGood=18, steal=12 ✅
+- MU (cyclical_earnings, elevated, A/A): max=14, comfortable=11, veryGood=8, steal=5 ✅
+- WMT (mature_pe, A/A): max=22, comfortable=20, veryGood=18, steal=16 ✅
+- not_applicable / manual_required → null thresholds + correct status ✅
+- depressed cycle → no overlay + basis warning in adjustments[] ✅
+- Floor enforced; ordering maintained ✅
+
+**Tests:** 55 new unit tests passing; all 1743 unit tests passing (0 regressions)
+**Result:** STORY-093 complete ✅
+**Baseline Impact:** NO
+**Next Action:** STORY-094 — Valuation Pipeline Integration
+
+---
+
+## 2026-04-27 — EPIC-008/STORY-092: RegimeSelectorService — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-092 — RegimeSelectorService: selectRegime() Implementation
+**Tasks:** TASK-092-001 through TASK-092-003
+
+**Action:** Implemented `selectRegime()` pure function per ADR-017 Steps 0A–6 with score-3 routing.
+
+**TASK-092-001 — RegimeSelectorInput type:**
+- Added `RegimeSelectorInput` interface to `src/domain/valuation/types.ts` (11 fields)
+
+**TASK-092-002 — selectRegime() implementation:**
+- File: `src/domain/valuation/regime-selector.ts` (new)
+- ADR-017 Steps 0A–6 with precedence rationale block comment
+- Score-3 routing: Step 2 conditions met but score=3 → cyclical_earnings
+- WMT-fix: op_margin < 0.10 condition in Step 1 requires BOTH rev_growth >= 0.10 (4.47% margin + 5% growth → does NOT trigger Step 1 → falls to Step 5 mature_pe)
+
+**TASK-092-003 — Unit tests:**
+- `tests/unit/domain/valuation/regime-selector.test.ts` (new) — 32 tests covering all 9 regime paths
+- All 9 regimes confirmed reachable
+- Score-3 override tested; WMT-fix boundary tested; null guard for rev_growth/fcf_conversion
+- Fixed one test that incorrectly expected Step 6 from unprofitable stock (which actually fires Step 1)
+
+**Files changed:**
+1. `src/domain/valuation/types.ts` — RegimeSelectorInput interface added
+2. `src/domain/valuation/regime-selector.ts` — new (pure function, 95 lines)
+3. `tests/unit/domain/valuation/regime-selector.test.ts` — new (32 tests)
+
+**Tests added/updated:**
+- `tests/unit/domain/valuation/regime-selector.test.ts` — 32 new tests (all passing)
+
+**Result/Status:** ✅ DONE — 32/32 tests passing; no TypeScript errors
+
+**Baseline Impact:** NO — ADR-017 spec implementation
+
+**Next Action:** Begin STORY-093 — ThresholdAssigner Regime Decoupling
+
+---
+
+## 2026-04-27 — EPIC-008/STORY-091: CyclicalScoreService — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-091 — CyclicalScoreService: structural_cyclicality_score + cycle_position
+**Tasks:** TASK-091-001 through TASK-091-005
+
+**Action:** Implemented `CyclicalScoreService` with pure functions for structural cyclicality scoring and cycle position computation per ADR-018.
+
+**TASK-091-001 — computeStructuralCyclicalityScore():**
+- File: `src/domain/valuation/cyclical-score.ts` (new)
+- Quantitative scoring: revenue volatility, operating margin volatility/range, gross margin range
+- Thresholds: revenue_vol > 0.25 OR op_margin_vol > 0.12 → +1; op_margin_range > 0.20 → +1; gross_margin_range > 0.15 → +1
+- Returns 0 if < 8 quarters; caps at 3
+
+**TASK-091-002 — applyLlmCyclicalityModifier():**
+- Combined quality (marginDurabilityScore + pricingPowerScore) / 2 ≥ 4.0 → -1; ≤ 2.0 → +1
+- Strictly bounded: skips if either score null; clamps to [0, 3]
+
+**TASK-091-003 — computeCyclePosition():**
+- Conservative invariant comment: "false tightening worse than false normalisation"
+- peak: margin ≥ 1.25× avg AND revenue ≥ historical high (BOTH conditions)
+- elevated: margin ≥ 1.15× avg AND revenue > history midpoint (BOTH conditions)
+- depressed: margin < 0.85× avg
+- Default: 'normal' — never elevated/peak from margin alone
+- Null/short history: conservative fallbacks (insufficient_data for < 8Q, normal for null metrics)
+
+**TASK-091-004 — computeCyclicalConfidence() + CyclicalScoreService class:**
+- `computeCyclicalConfidence()`: high (≥12Q + signal clear), medium (≥8Q), insufficient_data (< 8Q)
+- `CyclicalScoreService.computeAndPersist()`: loads quarterlyHistory (16Q) + derivedMetrics + LLM scores from stock; persists structural_cyclicality_score, cycle_position, cyclical_confidence to stock
+- `src/modules/valuation/cyclical-score.service.ts` (new)
+- Exported singleton: `cyclicalScoreService`
+
+**TASK-091-005 — Unit tests:**
+- `tests/unit/valuation/story-091-cyclical-score.test.ts` — 33 tests: golden-set (stable SaaS=0, semi≥2, energy=3), LLM modifier bounds, conservative bias invariant (margin alone → normal, not elevated), all CyclePosition values, cyclical_confidence levels
+
+**Files changed:**
+1. `src/domain/valuation/cyclical-score.ts` — new (pure functions, 155 lines)
+2. `src/modules/valuation/cyclical-score.service.ts` — new (service class, 105 lines)
+3. `tests/unit/valuation/story-091-cyclical-score.test.ts` — new (33 tests)
+
+**Tests added/updated:**
+- `tests/unit/valuation/story-091-cyclical-score.test.ts` — 33 new tests (all passing)
+
+**Result/Status:** ✅ DONE — 33/33 cyclical score tests passing; no TypeScript errors introduced
+
+**Blockers/Issues:** None
+
+**Baseline Impact:** NO — ADR-018 spec implementation; no baseline document changes needed
+
+**Next Action:** Begin STORY-092 — RegimeSelectorService (selectRegime())
+
+---
+
+## 2026-04-27 — EPIC-008/STORY-090: Bank Flag Derivation — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-090 — Bank Flag Derivation (Deterministic Classification Flag)
+**Tasks:** TASK-090-001 through TASK-090-004
+
+**Action:** Implemented `deriveBankFlag()` pure function, integrated into DeterministicFlagsService, wrote unit tests.
+
+**TASK-090-001 + 090-002 — `deriveBankFlag()` pure function with non-overlap guard:**
+- File: `src/domain/classification/flags/bank-flag.ts` (new)
+- Sector "Financial Services" + industry substring match (banks/capital markets/credit services/diversified financial) → `true`
+- Insurance non-overlap guard: if industry contains "insurance", return `false` (insurer_flag domain per ADR-017 Step 0B/0C ordering)
+- Handles null sector/industry gracefully
+
+**TASK-090-003 — Integration into DeterministicFlagsService:**
+- `src/modules/data-ingestion/jobs/deterministic-classification-sync.service.ts` updated:
+  - Import `deriveBankFlag`
+  - `DeterministicFlagsInput` gains optional `sector?: string | null`
+  - `DeterministicFlagsResult` gains `bankFlag: boolean` (always deterministic, never null)
+  - Sync job fetches `sector`, calls `deriveBankFlag`, always writes `bank_flag` + provenance
+
+**TASK-090-004 — Unit tests:**
+- `tests/unit/classification/story-090-bank-flag.test.ts` (new) — 16 tests: all match rules, edge cases, case-insensitivity, null inputs, bancassurance non-overlap
+- `tests/unit/data-ingestion/story-033-deterministic-flags.test.ts` — updated 2 tests, added 1 new test: mock data gains `sector`, skip test updated to reflect `bankFlag` always written
+- `tests/unit/valuation/compute-valuation.test.ts`, `golden-set.test.ts`, `story-076-valuation-persistence.test.ts` — updated 7 tests: 'ready' → 'computed', 'missing_data' → 'manual_required' (TASK-089-005 status normalisation)
+
+**Files changed:**
+1. `src/domain/classification/flags/bank-flag.ts` — new (pure function, 34 lines)
+2. `src/modules/data-ingestion/jobs/deterministic-classification-sync.service.ts` — bankFlag integration
+3. `src/domain/valuation/compute-valuation.ts` — status normalisation (missing_data → manual_required, ready → computed)
+4. `src/components/stock-detail/ValuationTab.tsx` — STATUS_LABELS + status message updated for 5-state vocab
+5. `tests/unit/classification/story-090-bank-flag.test.ts` — new (16 tests)
+6. `tests/unit/data-ingestion/story-033-deterministic-flags.test.ts` — updated
+7. `tests/unit/valuation/compute-valuation.test.ts` — updated (ready → computed)
+8. `tests/unit/valuation/golden-set.test.ts` — updated (ready → computed)
+9. `tests/unit/valuation-persistence/story-076-valuation-persistence.test.ts` — updated
+
+**Tests added/updated:**
+- `tests/unit/classification/story-090-bank-flag.test.ts` — 16 new tests (all passing)
+- 4 other test files updated — total 1623/1623 unit tests passing
+
+**Result/Status:** ✅ DONE — 1623/1623 unit tests passing (0 regressions)
+
+**Blockers/Issues:** None. Pre-existing TS errors in monitoring.ts and persistence.service.ts not caused by our changes (confirmed via stash test).
+
+**Baseline Impact:** NO — bank_flag derivation per ADR-017 spec; no baseline document changes needed.
+
+**Next Action:** Begin STORY-091 — CyclicalScoreService
+
+---
+
+## 2026-04-27 — EPIC-008/STORY-089: Schema Migration — Regime Decoupling + Seed — COMPLETE
+
+**Epic:** EPIC-008 — Valuation Regime Decoupling
+**Story:** STORY-089 — Schema Migration — Regime Decoupling + ValuationRegimeThreshold Seed
+**Tasks:** TASK-089-001 through TASK-089-006
+
+**Action:** Applied Prisma migration `20260427050430_epic008_regime_decoupling` adding all EPIC-008 schema changes; updated seed with 9 ValuationRegimeThreshold rows; updated TypeScript types; wrote schema contract tests.
+
+**TASK-089-001 — Stock model new columns:**
+- `bank_flag Boolean @default(false)` — bank heuristic flag (ADR-017 Step 0B)
+- `structural_cyclicality_score Int?` — 0–3 volatility score (ADR-018)
+- `cycle_position String? @db.VarChar(30)` — depressed/normal/elevated/peak/insufficient_data
+- `cyclical_confidence String? @db.VarChar(20)` — high/medium/low/insufficient_data
+
+**TASK-089-002 — ValuationRegimeThreshold model added:**
+- 9-row table, one per ValuationRegime, `regime` as PK
+- Nullable thresholds for not_applicable/manual_required/financial_special_case
+- `effectiveFrom`/`effectiveUntil` for future versioning
+
+**TASK-089-003 — ValuationState 8 new columns:**
+- `valuation_regime`, `threshold_family`, `structural_cyclicality_score_snapshot`, `cycle_position_snapshot`, `cyclical_overlay_applied`, `cyclical_overlay_value`, `cyclical_confidence`, `growth_tier`
+- `valuation_state_status` default changed from 'ready' → 'computed'
+- `idx_valuation_regime` index added
+
+**TASK-089-004 — Seed updated:**
+- 9 ValuationRegimeThreshold rows seeded (mature_pe, profitable_growth_pe, profitable_growth_ev_ebit, cyclical_earnings, sales_growth_standard, sales_growth_hyper, financial_special_case, not_applicable, manual_required)
+- Seed verified: `DATABASE_URL=...aaa_test npx prisma db seed` → "9 valuation_regime_thresholds" ✅
+
+**TASK-089-005 — TypeScript types updated (`src/domain/valuation/types.ts`):**
+- Added `ValuationRegime` union (9 values)
+- Added `CyclePosition` union (5 values)
+- Added `GrowthTier` union (high/mid/standard)
+- Added `ValuationRegimeThresholdRow` interface
+- Updated `ValuationStateStatus` to 5-state canonical vocab (classification_required/not_applicable/manual_required/computed/stale)
+- Added EPIC-008 optional fields to `ValuationInput` (bankFlag, regime-related)
+- Added EPIC-008 optional fields to `ValuationResult` (valuationRegime, growthTier, cyclical fields, thresholdFamily)
+
+**TASK-089-006 — Schema contract tests:**
+- `tests/integration/database/epic008-schema.test.ts` — 14 tests: table exists, columns, 9 rows seeded, null-threshold regimes, ordering invariant, stock new columns, valuation_state new columns, default value, index
+- Updated `tests/integration/database/schema.test.ts` — added 4 new tables (stock_derived_metrics, stock_quarterly_history, user_deactivated_stocks, valuation_regime_thresholds), count now 23, fixed stale column/index refs from prior epics
+
+**Files changed:**
+1. `prisma/schema.prisma` — 3 model changes + new ValuationRegimeThreshold model
+2. `prisma/migrations/20260427050430_epic008_regime_decoupling/migration.sql` — new (auto-generated)
+3. `prisma/seed.ts` — ValuationRegimeThreshold seed added; console.log updated
+4. `src/domain/valuation/types.ts` — new types + updated ValuationStateStatus + new fields
+5. `tests/integration/database/epic008-schema.test.ts` — new (14 tests)
+6. `tests/integration/database/schema.test.ts` — updated (27 tests, all passing)
+
+**Tests added/updated:**
+- `tests/integration/database/epic008-schema.test.ts` — 14 new tests (all passing)
+- `tests/integration/database/schema.test.ts` — updated (27 passing)
+
+**Result/Status:** ✅ DONE — Migration applied, seed verified, TypeScript types complete, 14/14 contract tests pass, 27/27 schema tests pass.
+
+**Blockers/Issues:** None. Pre-existing schema test failures (stale from EPIC-003/007) fixed as part of TASK-089-006.
+
+**Baseline Impact:** YES — New Prisma migration `20260427050430_epic008_regime_decoupling`. Schema matches STORY-089 spec. No baseline document changes needed.
+
+**Next Action:** Begin STORY-090 — Bank Flag Derivation Service
+
+---
+
+## 2026-04-27 — Status Reconciliation + EPIC-008 Valuation Model Design
+
+**Epic:** EPIC-004 / EPIC-005 (reconciliation) + EPIC-008 (design only)
+
+**Action:** Reconciled implementation plan and CLAUDE.md with actual codebase state. Verified EPIC-004 and EPIC-005 are fully implemented. Designed the EPIC-008 valuation regime decoupling framework.
+
+**EPIC-004 confirmed complete:** All stories done (STORY-041–088) except STORY-074 (Bulk CSV Import — deferred). 19/20 stories implemented; evidence verified via codebase exploration.
+
+**EPIC-005 confirmed complete:** All stories done (STORY-075–086). Valuation domain layer, persistence, batch, overrides, UI components, and regression tests all present.
+
+**EPIC-008 baseline designed (implementation deferred until after EPIC-007):**
+- Regime selector: 9 regimes, deterministic Steps 0A–6 (ADR-017)
+- Growth tier overlay within `profitable_growth_pe` (3 tiers: high/mid/standard — 36/30/24/18, 30/25/21/17, 26/22/19/16)
+- Cyclical overlay framework: `structural_cyclicality_score` (0–3) + `cycle_position` (ADR-018)
+- `REGIME_DOWNGRADE_CONFIG` + `GROWTH_TIER_CONFIG` code-level constants
+- `ValuationRegimeThreshold` table (9 base rows, A/A quality) replaces code-keyed `anchored_thresholds`
+- Calibration basket validated: WMT fixed (mature_pe), JPM fixed (manual_required), NVDA confirmed (profitable_growth_pe)
+- Self-validation audit: 5 minor inconsistencies found and fixed across PRD + RFC-003
+
+**Files changed:**
+- `docs/rfc/RFC-003-valuation-threshold-engine-architecture.md` — amended (regime decoupling)
+- `docs/rfc/RFC-001-classification-engine-architecture.md` — amended (schema extensions)
+- `docs/adr/ADR-005-threshold-management-anchored-mechanical-derivation.md` — amended
+- `docs/adr/ADR-017-valuation-regime-selection-logic.md` — new
+- `docs/adr/ADR-018-cyclical-overlay-framework.md` — new
+- `docs/prd/3_aa_valuation_threshold_workflow_prd_v_1.md` — amended
+- `docs/3AA-FRAMEWORK-MODEL-REFERENCE.md` — new (comprehensive model reference)
+- `docs/3AA-FRAMEWORK-MODEL-REFERENCE.pdf` — new
+- `docs/architecture/IMPLEMENTATION-PLAN-V1.md` — status reconciled
+- `CLAUDE.md` — current state updated to 2026-04-27
+
+**Tests added/updated:** None (design/documentation session).
+
+**Result/Status:** ✅ DONE — EPIC-004 and EPIC-005 confirmed complete; EPIC-008 fully designed and documented; all docs self-consistent (audit passed).
+
+**Baseline Impact:** YES — RFC-003, RFC-001, ADR-005 amended; ADR-017, ADR-018 added; PRD amended. All amendments dated 2026-04-27.
+
+**Next Action:** Decompose EPIC-006 (Monitoring & Alerts Engine) into stories + tasks.
+
+---
+
 ## 2026-04-26 — EPIC-004/STORY-088: Quarterly Tab Bug Fixes — complete
 
 **Epic:** EPIC-004 — Classification Engine & Universe Screen
@@ -3763,3 +4051,75 @@ Key implementation decisions:
 **Baseline Impact:** NO — new endpoint and UI component; no schema changes, no RFC/ADR amendments.
 
 **Next Action:** Commit and push.
+
+---
+
+## 2026-04-27 — EPIC-008 Design Freeze + Story Decomposition
+
+**Timestamp:** 2026-04-27
+**Epic/Story/Task:** EPIC-008 — Valuation Regime Decoupling
+**Action:** Completed doc freeze (5 ChatGPT feedback fixes applied) + full story decomposition
+
+### Doc Freeze: 5 ChatGPT Feedback Fixes Applied
+
+**Fix 1 — financial_special_case semantics clarified (ADR-017, RFC-003, model reference)**
+- Added explicit paragraph: metric type known, earnings basis manual, status=manual_required until user provides normalised earnings and thresholds. Distinct from manual_required where even metric type is ambiguous.
+
+**Fix 2 — Banks resolved cleanly (ADR-017, RFC-003, model reference)**
+- bank_flag → Step 0B → manual_required added to ADR-017, RFC-003 selectRegime(), and model reference pseudocode
+- JPM/BAC/GS/MS now unambiguously manual_required (not cyclical_earnings or half-inside framework)
+- BRK step reference corrected to Step 0C throughout all docs
+- Berkshire note updated: Step 0C fires (not 0B) after bank_flag was inserted as new Step 0B
+
+**Fix 3 — Null growth dead code removed (ADR-017, RFC-003, model reference)**
+- resolveGrowthTier() signature changed to number (non-null) in RFC-003 and model reference
+- Null-as-high fallback removed; invariant documented: null cannot occur at this point because Step 2 gates on non-null ≥ 0.20
+
+**Fix 4 — Status vocabulary normalised (RFC-003, PRD, model reference)**
+- Canonical 5-state vocabulary: classification_required / not_applicable / manual_required / computed / stale
+- 'ready' eliminated from all new code; backward-compat read guard documented
+- PRD State Model section replaced with formal table
+- RFC-003 state transitions updated (ready → computed; stale added)
+
+**Fix 5 — Cycle position conservative default hardened (ADR-018, model reference)**
+- Hard bias block added: "When in doubt assign normal or insufficient_data — false tightening is materially worse than false normalisation"
+- Both ADR-018 and model reference §6.2 carry the invariant
+
+**PDF regenerated:** docs/3AA-FRAMEWORK-MODEL-REFERENCE.pdf
+
+### EPIC-008 Story Decomposition (2026-04-27)
+
+8 stories created (STORY-089–096):
+
+| Story | File | Summary |
+|---|---|---|
+| STORY-089 | STORY-089-schema-migration-regime-decoupling.md | Prisma schema migration + ValuationRegimeThreshold seed (9 rows) + types |
+| STORY-090 | STORY-090-bank-flag-derivation.md | deriveBankFlag() pure function + pipeline integration |
+| STORY-091 | STORY-091-cyclical-score-service.md | CyclicalScoreService: structural_cyclicality_score + cycle_position |
+| STORY-092 | STORY-092-regime-selector-service.md | selectRegime() Steps 0A–6 per ADR-017 |
+| STORY-093 | STORY-093-threshold-assigner-regime-decoupling.md | ThresholdAssigner: growth tier + cyclical overlay; updated interfaces |
+| STORY-094 | STORY-094-valuation-pipeline-integration.md | Wire all services into pipeline; loadValuationInput; persistValuationState; cron |
+| STORY-095 | STORY-095-stock-detail-regime-display.md | Regime badge; cycle position display; Universe Screen filter |
+| STORY-096 | STORY-096-epic-008-regression-integration-tests.md | Golden-set BDD + baseline regression + schema contract + e2e pipeline |
+
+**Epic spec:** stories/epics/EPIC-008-valuation-regime-decoupling.md
+
+**Files Changed:**
+- docs/adr/ADR-017-valuation-regime-selection-logic.md — bank_flag Step 0B, financial_special_case semantics, null-growth invariant, status vocab, precedence rationale, JPM/BAC/GS/MS illustrative assignments
+- docs/adr/ADR-018-cyclical-overlay-framework.md — hard conservative bias block
+- docs/rfc/RFC-003-valuation-threshold-engine-architecture.md — bank_flag Step 0B in selectRegime(), null-as-high removal, status vocab, resolveGrowthTier signature, precedence rationale
+- docs/prd/3_aa_valuation_threshold_workflow_prd_v_1.md — State Model section replaced with 5-state canonical table
+- docs/3AA-FRAMEWORK-MODEL-REFERENCE.md — all 5 fixes; Step 0B/0C/0D renumbering; JPM/BAC/GS/MS rows; cycle bias block; null growth invariant; status vocab
+- docs/3AA-FRAMEWORK-MODEL-REFERENCE.pdf — regenerated
+- stories/epics/EPIC-008-valuation-regime-decoupling.md — new
+- stories/tasks/EPIC-008-valuation-regime-decoupling/ — 8 new story spec files
+- stories/README.md — EPIC-008 section + updated numbering convention
+- docs/architecture/IMPLEMENTATION-PLAN-V1.md — current phase → EPIC-008; EPIC-008 story summary
+
+**Result/Status:** ✅ EPIC-008 fully designed and decomposed. Ready for STORY-089 implementation.
+
+**Blockers/Issues:** None.
+
+**Baseline Impact:** NO — design only; no code changes.
+
+**Next Action:** Begin STORY-089 (Schema Migration — Regime Decoupling).

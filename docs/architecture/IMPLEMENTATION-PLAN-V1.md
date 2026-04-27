@@ -5,16 +5,17 @@
 - **PRD:** /docs/prd/PRD.md
 - **RFCs:** RFC-001 through RFC-008 (accepted; RFC-001/002/004 amended 2026-04-21; RFC-007 added 2026-04-21; RFC-008 added 2026-04-25; RFC-001/002/004 amended again 2026-04-25)
 - **ADRs:** ADR-001 through ADR-016 (accepted; ADR-012 added 2026-04-21; ADR-013/ADR-014 added 2026-04-23; ADR-013/ADR-014 amended 2026-04-25; ADR-015/ADR-016 added 2026-04-25; ADR-001/ADR-002 amended 2026-04-25)
-- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 (in_progress — quarterly history additions pending)
-- **Validated Stories:** STORY-001 through STORY-056 complete; STORY-057–072 ready (quarterly history data layer)
+- **Validated Epics:** EPIC-001 ✅, EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅, EPIC-004 ✅, EPIC-005 ✅, EPIC-008 (decomposed 2026-04-27)
+- **Validated Stories:** STORY-001 through STORY-088 complete (exception: STORY-074 Bulk CSV Import — not implemented); STORY-089–096 decomposed for EPIC-008
+- **Baseline Amendments (2026-04-27):** RFC-003 amended (valuation regime decoupling + 5 ChatGPT feedback fixes); RFC-001 amended (schema extensions); ADR-005 amended (regime-keyed threshold table); ADR-017 added (regime selection logic); ADR-018 added (cyclical overlay framework); PRD amended; EPIC-008 decomposed
 
 ## Status Summary
-- **Current Phase:** EPIC-003 Quarterly History Additions + EPIC-004 Quarterly History Classification
-- **Active Epic:** EPIC-003 (quarterly history additions); then EPIC-004 (quarterly history classification)
-- **Active Story:** STORY-057 — `stock_quarterly_history` Table Migration (first to execute)
-- **Overall Progress:** 4 epics fully done; EPIC-004 in_progress; 16 new stories (STORY-057–072) ready for execution
-- **Baseline Status:** RFC-008 added 2026-04-25 (quarterly history); ADR-015/016 added 2026-04-25; RFC-001/002/004/ADR-001/002/013/014 amended 2026-04-25
-- **Unit Tests at Start:** 855/855 passing (2026-04-24 baseline)
+- **Current Phase:** EPIC-008 — Valuation Regime Decoupling
+- **Active Epic:** EPIC-008 (STORY-089–093 ✅ done 2026-04-27)
+- **Active Story:** STORY-094 — Valuation Pipeline Integration
+- **Overall Progress:** 6 epics fully done (EPIC-001 through EPIC-005, EPIC-003.1); EPIC-008 decomposed and ready; EPIC-006 and EPIC-007 remain after EPIC-008
+- **Baseline Status:** All 2026-04-27 amendments applied; 5 ChatGPT feedback fixes applied across ADR-017, ADR-018, RFC-003, PRD, model reference
+- **Unit Tests (last verified):** 1568/1568 passing (2026-04-26 baseline)
 
 ## Status Model
 - **planned**: Work identified, not yet validated
@@ -252,11 +253,16 @@
 - **Spec:** /stories/tasks/EPIC-003.1-classification-llm-enrichment/STORY-040-qualitative-enrichment-scores.md
 
 ### EPIC-004 — Classification Engine & Universe Screen
-- **Status:** in_progress (STORY-041 ✅, STORY-042 ✅, STORY-043 ✅, STORY-044 ✅, STORY-045 ✅, STORY-046 ✅, STORY-047 ✅, STORY-048 ✅, STORY-049 next)
+- **Status:** ✅ done (2026-04-27 verified) — exception: STORY-074 (Bulk CSV Import) not implemented; deferred
 - **Dependencies:** EPIC-002 ✅, EPIC-003 ✅, EPIC-003.1 ✅
-- **Stories:** STORY-041 through STORY-053 (13 stories — decomposed 2026-04-23/24)
-- **Integration Checkpoint:** Classification engine running, Universe screen functional, Stock Detail screen functional
-- **Deployment Milestone:** Users can view and manage classified stocks
+- **Stories:** STORY-041 through STORY-088 — all done except STORY-074
+  - Core (041–053): ✅ all done
+  - UI additions (054–056): ✅ all done
+  - Quarterly history additions (065–072): ✅ all done
+  - Further additions (073, 075–088): ✅ all done
+  - STORY-074 Bulk CSV Import: ⏸ deferred — spec exists, no implementation
+- **Integration Checkpoint:** ✅ Classification engine running, Universe screen functional, Stock Detail screen functional
+- **Deployment Milestone:** ✅ Users can view and manage classified stocks
 
 #### STORY-041 — Bucket Scoring Algorithm
 - **Status:** ✅ done (2026-04-24)
@@ -460,6 +466,24 @@
 - **Spec:** /stories/tasks/EPIC-005-valuation-threshold-engine/STORY-081-epic-005-regression-integration-tests.md
 - **Tasks:** TASK-081-001 through TASK-081-006 (all done)
 - **Evidence:** 376/376 STORY-081 tests passing (golden-set 16 anchored + 10 derived + zone boundary + TSR 72-combo + BDD 7 scenarios + cross-epic ADR-007 + persistence mock); 1464/1464 unit tests passing
+
+### EPIC-008 — Valuation Regime Decoupling
+- **Status:** planned (decomposed 2026-04-27)
+- **Dependencies:** EPIC-005 ✅, EPIC-003.1 ✅
+- **Stories:** STORY-089–096 (8 stories) — specs in `/stories/tasks/EPIC-008-valuation-regime-decoupling/`
+- **Epic spec:** `/stories/epics/EPIC-008-valuation-regime-decoupling.md`
+- **Integration Checkpoint:** Golden-set stocks route to correct regimes; cyclical overlay applied; no EPIC-005 regression
+- **Deployment Milestone:** Regime-decoupled valuation live for all in-universe stocks
+- **Validation status (2026-04-27):** Epic validated. All 8 stories validated after revision edits applied.
+- **Story summary:**
+  - STORY-089: Schema migration — bank_flag, structural_cyclicality_score, cycle_position, **cyclical_confidence** (stock); ValuationRegimeThreshold; 8 new valuation_state columns — status: **done** ✅
+  - STORY-090: Bank flag derivation (sector/industry heuristic — SIC not in schema) — status: **done** ✅
+  - STORY-091: CyclicalScoreService (score + position + **confidence** all persisted to stock) — status: **done** ✅
+  - STORY-092: RegimeSelectorService (selectRegime() Steps 0A–6) — status: **done** ✅
+  - STORY-093: ThresholdAssigner regime decoupling (cyclicalConfidence as input, not computed here) — status: **done** ✅
+  - STORY-094: Valuation pipeline integration (**StockDerivedMetrics join** documented, fcf_conversion field clarified) — status: **validated**
+  - STORY-095: Stock Detail regime & cyclicality display + Universe Screen filter — status: **validated**
+  - STORY-096: EPIC-008 regression & integration tests (golden-set BDD + baseline preservation) — status: **validated**
 
 ### EPIC-006 — Monitoring & Alerts Engine with Alerts UI
 - **Status:** planned
