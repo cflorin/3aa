@@ -202,14 +202,15 @@ Story specs: `stories/tasks/EPIC-008-valuation-regime-decoupling/`
 
 | Story | Title | Status |
 |-------|-------|--------|
-| STORY-089 | Schema Migration — Regime Decoupling + ValuationRegimeThreshold Seed | planned |
-| STORY-090 | Bank Flag Derivation (Deterministic Classification Flag) | planned |
-| STORY-091 | CyclicalScoreService — structural_cyclicality_score + cycle_position | planned |
-| STORY-092 | RegimeSelectorService — selectRegime() Implementation | planned |
-| STORY-093 | ThresholdAssigner Regime Decoupling (Growth Tier + Cyclical Overlay) | planned |
-| STORY-094 | Valuation Pipeline Integration | planned |
-| STORY-095 | Stock Detail Page — Regime & Cyclicality Display | planned |
-| STORY-096 | EPIC-008 Regression & Integration Tests | planned |
+| STORY-089 | Schema Migration — Regime Decoupling + ValuationRegimeThreshold Seed | done |
+| STORY-090 | Bank Flag Derivation (Deterministic Classification Flag) | done |
+| STORY-091 | CyclicalScoreService — structural_cyclicality_score + cycle_position | done |
+| STORY-092 | RegimeSelectorService — selectRegime() Implementation | done |
+| STORY-093 | ThresholdAssigner Regime Decoupling (Growth Tier + Cyclical Overlay) | done |
+| STORY-094 | Valuation Pipeline Integration | done |
+| STORY-095 | Stock Detail Page — Regime & Cyclicality Display | done |
+| STORY-096 | EPIC-008 Regression & Integration Tests | done |
+| STORY-097 | Forward EV/EBITDA Metric | ready |
 
 ---
 
