@@ -93,7 +93,7 @@ export default function ClassificationBadge({ code }: ClassificationBadgeProps) 
           data-testid="classification-badge-tooltip"
           style={{
             position: 'absolute',
-            bottom: '110%',
+            top: 'calc(100% + 4px)',
             left: '50%',
             transform: 'translateX(-50%)',
             background: T.cardBg,
