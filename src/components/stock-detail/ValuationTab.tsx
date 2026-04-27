@@ -240,9 +240,11 @@ interface ValuationTabProps {
   ticker: string;
   holdingCompanyFlag: boolean;
   insurerFlag: boolean;
+  // STORY-097: Forward EV/EBITDA; null when FMP did not provide D&A estimate
+  forwardEvEbitda?: number | null;
 }
 
-export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag }: ValuationTabProps) {
+export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag, forwardEvEbitda }: ValuationTabProps) {
   const [data, setData] = useState<ValuationApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -460,6 +462,24 @@ export default function ValuationTab({ ticker, holdingCompanyFlag, insurerFlag }
               <div>Basis: {result.currentMultipleBasis}</div>
               <div>Source: {result.metricSource}</div>
               <div>Reason: {result.metricReason}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Supplementary Metrics (STORY-097) ───────────────────────────── */}
+      {forwardEvEbitda != null && (
+        <div data-testid="supplementary-metrics" style={{ marginTop: 16, borderBottom: `1px solid ${T.border}`, paddingBottom: 12 }}>
+          <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Supplementary Metrics</div>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 10, color: T.textDim }}>Fwd EV/EBITDA</div>
+              <div
+                data-testid="forward-ev-ebitda"
+                style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-dm-mono, monospace)', color: T.text }}
+              >
+                {forwardEvEbitda.toFixed(1)}×
+              </div>
             </div>
           </div>
         </div>

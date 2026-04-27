@@ -87,6 +87,7 @@ interface DetailResponse {
   price: number | null;
   pe_ratio: number | null;
   ev_ebit: number | null;
+  forward_ev_ebitda: number | null;
   // Flags
   holding_company_flag: boolean | null;
   insurer_flag: boolean | null;
@@ -1176,6 +1177,7 @@ export default function StockDetailClient({ ticker }: StockDetailClientProps) {
             ticker={ticker}
             holdingCompanyFlag={detail.holding_company_flag === true}
             insurerFlag={detail.insurer_flag === true}
+            forwardEvEbitda={detail.forward_ev_ebitda}
           />
         )}
 

@@ -51,6 +51,7 @@ export async function GET(
       forwardPe: true,
       trailingPe: true,
       forwardEvEbit: true,
+      forwardEvEbitda: true,
       // EPS reconciliation fields
       epsTtm: true,
       epsNtm: true,
@@ -186,6 +187,8 @@ export async function GET(
     // pe_ratio: forward preferred, trailing as fallback
     pe_ratio: num(stock.forwardPe) ?? num(stock.trailingPe),
     ev_ebit: num(stock.forwardEvEbit),
+    // STORY-097: Forward EV/EBITDA; null when FMP did not provide D&A estimate
+    forward_ev_ebitda: num(stock.forwardEvEbitda),
 
     // ── Classification flags (7 flags as per STORY-033/037) ─────────────────
     holding_company_flag: stock.holdingCompanyFlag ?? null,
